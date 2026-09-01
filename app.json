@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "name": "Our Weekly Shop",
+    "slug": "our-weekly-shop",
+    "scheme": "ourweeklyshop",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "plugins": ["expo-router"],
+    "experiments": { "typedRoutes": true }
+  }
+}
