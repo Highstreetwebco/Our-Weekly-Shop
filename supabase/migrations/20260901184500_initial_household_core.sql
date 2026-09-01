@@ -124,6 +124,15 @@ create index on public.ingredients(household_id);
 create index on public.weekly_plans(household_id, week_start);
 create index on public.shopping_lists(household_id, status);
 create index on public.inventory_items(household_id, use_by_date);
+create index on public.households(created_by);
+create index on public.meal_ingredients(meal_id);
+create index on public.meal_ingredients(ingredient_id);
+create index on public.planned_meals(weekly_plan_id);
+create index on public.planned_meals(meal_id);
+create index on public.shopping_lists(weekly_plan_id);
+create index on public.shopping_list_items(shopping_list_id);
+create index on public.shopping_list_items(ingredient_id);
+create index on public.inventory_items(ingredient_id);
 
 -- All user-facing data is household scoped. This helper is SECURITY DEFINER only to
 -- avoid recursive policy checks; it is not exposed and has no public EXECUTE grant.
