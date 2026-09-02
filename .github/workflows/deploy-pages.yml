@@ -26,10 +26,10 @@ jobs:
         with:
           node-version: 22
 
-      - name: Install dependencies
+      - name: Install Expo-compatible dependencies
         run: |
           npm install
-          npx expo install --fix
+          npm_config_legacy_peer_deps=true npx expo install --fix
 
       - name: Type-check app
         run: npm run typecheck
