@@ -30,6 +30,7 @@ jobs:
         run: |
           npm install
           npm_config_legacy_peer_deps=true npx expo install --fix
+          npm_config_legacy_peer_deps=true npx expo install expo-linking expo-constants
 
       - name: Type-check app
         run: npm run typecheck
