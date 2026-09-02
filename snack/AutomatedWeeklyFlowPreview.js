@@ -42,12 +42,43 @@ const BRAND_CATALOGUE = {
   "Coca-Cola": ["Diet Coke", "Coke Zero", "Original Taste"],
   "Kellogg's": ["Corn Flakes", "Rice Krispies", "Crunchy Nut"],
   Fairy: ["Washing-up liquid", "Dishwasher tablets", "Laundry capsules"],
-  "Nescafé": ["Gold Blend", "Azera", "Iced coffee"],
+  Nescafé: ["Gold Blend", "Azera", "Iced coffee", "Original instant coffee"],
   Warburtons: ["Toastie loaf", "Wholemeal loaf", "Crumpets", "Bagels"],
   "Cathedral City": ["Mature cheddar", "Extra mature cheddar", "Cheese slices"],
   Pepsi: ["Pepsi Max", "Diet Pepsi", "Original"],
   Walkers: ["Ready salted", "Cheese & onion", "Salt & vinegar", "Multipack"],
   Müller: ["Corner yoghurts", "Light yoghurts", "Rice pots"],
+  Andrex: ["Classic Clean toilet roll", "Gentle Clean toilet roll", "Washlets"],
+  Ariel: ["Washing capsules", "Washing powder", "Washing liquid"],
+  Persil: ["Non-bio liquid", "Bio liquid", "Laundry capsules", "Washing powder"],
+  Comfort: ["Fabric conditioner", "Scent booster", "Intense conditioner"],
+  Colgate: ["Total toothpaste", "Max White toothpaste", "Toothbrushes", "Mouthwash"],
+  Sensodyne: ["Repair & Protect", "Pronamel", "Complete Protection"],
+  Dove: ["Body wash", "Deodorant", "Soap", "Shampoo"],
+  "Hellmann's": ["Real mayonnaise", "Light mayonnaise", "Vegan mayonnaise"],
+  Bisto: ["Beef gravy granules", "Chicken gravy granules", "Best gravy"],
+  Dolmio: ["Original pasta sauce", "Lasagne sauce", "Pasta bake sauce"],
+  "Old El Paso": ["Fajita kit", "Taco kit", "Tortilla wraps", "Mexican rice"],
+  "Birds Eye": ["Garden peas", "Fish fingers", "Chicken dippers", "Frozen vegetables"],
+  McCain: ["Home Chips", "French Fries", "Roast Potatoes", "Smiles"],
+  "Chicago Town": ["Tiger Crust pizza", "Deep Dish pizza", "Stuffed Crust pizza"],
+  Ristorante: ["Pollo pizza", "Pepperoni pizza", "Mozzarella pizza"],
+  Richmond: ["Pork sausages", "Skinless sausages", "Meat-free sausages"],
+  Hovis: ["Soft White loaf", "Best of Both", "Granary loaf"],
+  Kingsmill: ["Soft White loaf", "50/50 loaf", "Wholemeal loaf"],
+  Lurpak: ["Slightly Salted butter", "Lighter spreadable", "Unsalted butter"],
+  Clover: ["Original spread", "Light spread"],
+  Philadelphia: ["Original soft cheese", "Light soft cheese", "Garlic & herb"],
+  Babybel: ["Original", "Light", "Plant-based"],
+  Dairylea: ["Cheese slices", "Lunchables", "Cheese triangles"],
+  "Yeo Valley": ["Natural yoghurt", "Greek yoghurt", "Organic milk"],
+  Alpro: ["Soya milk", "Oat milk", "Almond milk", "Yoghurt alternative"],
+  Tetley: ["Original tea bags", "Decaf tea bags", "Green tea"],
+  "Yorkshire Tea": ["Tea bags", "Gold tea bags", "Decaf tea bags"],
+  "PG Tips": ["Original tea bags", "Decaf tea bags"],
+  Robinsons: ["Orange squash", "Apple & blackcurrant squash", "Fruit Creations"],
+  Vimto: ["No Added Sugar squash", "Original squash", "Fizzy cans"],
+  Ribena: ["Blackcurrant squash", "Light squash", "Cartons"],
 };
 const MEALS = {
   "Chicken burritos": {
@@ -918,9 +949,70 @@ function HouseholdSetup({
               placeholderTextColor={C.muted}
               style={s.setupInput}
             />
-            <Text style={s.sectionLabel}>CHOOSE A BRAND</Text>
-            <View style={s.brandPicker}>
-              {matchingBrands.map((brand) => {
+            <Text style={s.brandSearchHint}>
+              Search {Object.keys(BRAND_CATALOGUE).length} household brands by
+              brand name or product
+            </Text>
+            <Text style={s.sectionLabel}>
+              {brandSearch.trim()
+                ? matchingBrands.length + " SEARCH RESULT" +
+                  (matchingBrands.length === 1 ? "" : "S")
+                : "POPULAR BRANDS"}
+            </Text>
+            {brandSearch.trim() ? (
+              <View style={s.brandResults}>
+                {matchingBrands.map((brand) => {
+                  const hasChoices = (brandRules[brand] || []).length > 0;
+                  return (
+                    <TouchableOpacity
+                      key={brand}
+                      onPress={() => {
+                        setActiveBrand(brand);
+                        setBrandSearch("");
+                      }}
+                      style={s.brandResultRow}
+                    >
+                      <View style={s.brandResultMark}>
+                        <Text style={s.brandResultMarkText}>
+                          {brand.slice(0, 2).toUpperCase()}
+                        </Text>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <View style={s.brandResultTitleRow}>
+                          <Text style={s.rowTitle}>{brand}</Text>
+                          {hasChoices && (
+                            <Ionicons
+                              name="checkmark-circle"
+                              size={16}
+                              color={C.green}
+                            />
+                          )}
+                        </View>
+                        <Text style={s.brandResultProducts}>
+                          {BRAND_CATALOGUE[brand].join(" · ")}
+                        </Text>
+                      </View>
+                      <Ionicons
+                        name="chevron-forward"
+                        size={17}
+                        color={C.muted}
+                      />
+                    </TouchableOpacity>
+                  );
+                })}
+                {!matchingBrands.length && (
+                  <View style={s.emptyBrandResult}>
+                    <Ionicons name="search-outline" size={21} color={C.muted} />
+                    <Text style={s.emptyBrandTitle}>No matching brand yet</Text>
+                    <Text style={s.emptyBrandText}>
+                      Try the brand name or one of its products.
+                    </Text>
+                  </View>
+                )}
+              </View>
+            ) : (
+              <View style={s.brandPicker}>
+              {Object.keys(BRAND_CATALOGUE).slice(0, 10).map((brand) => {
                 const hasChoices = (brandRules[brand] || []).length > 0;
                 const active = activeBrand === brand;
                 return (
@@ -950,7 +1042,8 @@ function HouseholdSetup({
                   </TouchableOpacity>
                 );
               })}
-            </View>
+              </View>
+            )}
             <View style={s.brandCard}>
               <View style={s.brandBadge}>
                 <Text style={s.brandBadgeText}>{activeBrand.toUpperCase()}</Text>
@@ -3229,6 +3322,63 @@ const s = StyleSheet.create({
     gap: 8,
     marginBottom: 16,
   },
+  brandSearchHint: {
+    color: C.muted,
+    fontSize: 10,
+    lineHeight: 15,
+    marginTop: -5,
+    marginBottom: 15,
+  },
+  brandResults: {
+    backgroundColor: C.white,
+    borderWidth: 1,
+    borderColor: C.line,
+    borderRadius: 10,
+    overflow: "hidden",
+    marginBottom: 16,
+  },
+  brandResultRow: {
+    minHeight: 76,
+    padding: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 11,
+    borderBottomWidth: 1,
+    borderBottomColor: C.line,
+  },
+  brandResultMark: {
+    width: 42,
+    height: 42,
+    borderRadius: 8,
+    backgroundColor: C.green,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  brandResultMarkText: {
+    color: C.white,
+    fontFamily: "Georgia",
+    fontWeight: "700",
+    fontSize: 13,
+  },
+  brandResultTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  brandResultProducts: {
+    color: C.muted,
+    fontSize: 10,
+    lineHeight: 15,
+    marginTop: 4,
+  },
+  emptyBrandResult: { alignItems: "center", padding: 22 },
+  emptyBrandTitle: {
+    color: C.ink,
+    fontSize: 13,
+    fontWeight: "700",
+    marginTop: 8,
+  },
+  emptyBrandText: { color: C.muted, fontSize: 10, marginTop: 4 },
   brandPickerChip: {
     minHeight: 38,
     borderWidth: 1,
