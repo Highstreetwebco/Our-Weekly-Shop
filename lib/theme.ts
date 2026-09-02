@@ -1,5 +1,5 @@
 export const theme = {
-  ink: '#202923', muted: '#66736A', green: '#2D6A4F', greenSoft: '#DCEDE2',
-  cream: '#F8F7F2', white: '#FFFFFF', sand: '#EFE8DA', amber: '#D8922B',
-  red: '#C94D47', line: '#E8E9E2', shadow: '#173B2918'
+  ink: '#18201D', muted: '#66706B', green: '#315F4A', greenDark: '#244838',
+  greenSoft: '#E7EFEA', cream: '#F4F5F2', white: '#FFFFFF', sand: '#ECEFEA',
+  amber: '#9A6A25', red: '#A74642', line: '#DDE2DE', shadow: '#16251D12'
 };
