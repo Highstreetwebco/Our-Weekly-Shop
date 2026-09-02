@@ -36,6 +36,18 @@ const DAYS = [
   "Saturday",
   "Sunday",
 ];
+const BRAND_CATALOGUE = {
+  Heinz: ["Baked beans", "Tomato ketchup", "Tomato soup", "Mayonnaise"],
+  "Coca-Cola": ["Diet Coke", "Coke Zero", "Original Taste"],
+  "Kellogg's": ["Corn Flakes", "Rice Krispies", "Crunchy Nut"],
+  Fairy: ["Washing-up liquid", "Dishwasher tablets", "Laundry capsules"],
+  "Nescafé": ["Gold Blend", "Azera", "Iced coffee"],
+  Warburtons: ["Toastie loaf", "Wholemeal loaf", "Crumpets", "Bagels"],
+  "Cathedral City": ["Mature cheddar", "Extra mature cheddar", "Cheese slices"],
+  Pepsi: ["Pepsi Max", "Diet Pepsi", "Original"],
+  Walkers: ["Ready salted", "Cheese & onion", "Salt & vinegar", "Multipack"],
+  Müller: ["Corner yoghurts", "Light yoghurts", "Rice pots"],
+};
 const MEALS = {
   "Chicken burritos": {
     time: 30,
@@ -404,7 +416,9 @@ function HouseholdSetup({
   const [step, setStep] = useState(0),
     [name, setName] = useState(""),
     [role, setRole] = useState("Child"),
-    [age, setAge] = useState("");
+    [age, setAge] = useState(""),
+    [brandSearch, setBrandSearch] = useState(""),
+    [activeBrand, setActiveBrand] = useState("Heinz");
   const addMember = () => {
     if (!name.trim()) return;
     setHousehold((h) => ({
@@ -431,13 +445,26 @@ function HouseholdSetup({
       ...h,
       routine: { ...h.routine, [key]: !h.routine[key] },
     }));
-  const toggleHeinz = (product) =>
+  const toggleBrandProduct = (brand, product) =>
     setBrandRules((r) => ({
       ...r,
-      Heinz: r.Heinz?.includes(product)
-        ? r.Heinz.filter((x) => x !== product)
-        : [...(r.Heinz || []), product],
+      [brand]: r[brand]?.includes(product)
+        ? r[brand].filter((x) => x !== product)
+        : [...(r[brand] || []), product],
     }));
+  const matchingBrands = Object.keys(BRAND_CATALOGUE).filter((brand) => {
+    const query = brandSearch.trim().toLowerCase();
+    return (
+      !query ||
+      brand.toLowerCase().includes(query) ||
+      BRAND_CATALOGUE[brand].some((product) =>
+        product.toLowerCase().includes(query),
+      )
+    );
+  });
+  const selectedBrands = Object.entries(brandRules).filter(
+    ([, products]) => products.length,
+  );
   return (
     <SafeAreaView style={s.safe}>
       <ScrollView
@@ -596,49 +623,89 @@ function HouseholdSetup({
             <Header
               overline="BRANDS THAT MATTER"
               title="Protect your family favourites"
-              sub="Choose products you do not want replaced by an equivalent. These rules will be respected during basket comparison."
+              sub="Add as many brands as you need, then choose the products you do not want replaced."
             />
+            <TextInput
+              value={brandSearch}
+              onChangeText={setBrandSearch}
+              placeholder="Search brands or products"
+              placeholderTextColor={C.muted}
+              style={s.setupInput}
+            />
+            <Text style={s.sectionLabel}>CHOOSE A BRAND</Text>
+            <View style={s.brandPicker}>
+              {matchingBrands.map((brand) => {
+                const hasChoices = (brandRules[brand] || []).length > 0;
+                const active = activeBrand === brand;
+                return (
+                  <TouchableOpacity
+                    key={brand}
+                    onPress={() => setActiveBrand(brand)}
+                    style={[
+                      s.brandPickerChip,
+                      active && s.brandPickerChipActive,
+                    ]}
+                  >
+                    {hasChoices && (
+                      <Ionicons
+                        name="checkmark-circle"
+                        size={15}
+                        color={active ? C.white : C.green}
+                      />
+                    )}
+                    <Text
+                      style={[
+                        s.brandPickerText,
+                        active && s.brandPickerTextActive,
+                      ]}
+                    >
+                      {brand}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
             <View style={s.brandCard}>
               <View style={s.brandBadge}>
-                <Text style={s.brandBadgeText}>HEINZ</Text>
+                <Text style={s.brandBadgeText}>{activeBrand.toUpperCase()}</Text>
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={s.rowTitle}>Heinz</Text>
+                <Text style={s.rowTitle}>{activeBrand}</Text>
                 <Text style={s.rowDetail}>
-                  Select products that must stay Heinz
+                  Select products that must stay {activeBrand}
                 </Text>
               </View>
             </View>
             <View style={s.choiceWrap}>
-              {[
-                "Baked beans",
-                "Tomato ketchup",
-                "Tomato soup",
-                "Mayonnaise",
-              ].map((product) => (
+              {BRAND_CATALOGUE[activeBrand].map((product) => (
                 <TouchableOpacity
                   key={product}
-                  onPress={() => toggleHeinz(product)}
+                  onPress={() => toggleBrandProduct(activeBrand, product)}
                   style={[
                     s.productChoice,
-                    brandRules.Heinz?.includes(product) && s.productChoiceOn,
+                    brandRules[activeBrand]?.includes(product) &&
+                      s.productChoiceOn,
                   ]}
                 >
                   <Ionicons
                     name={
-                      brandRules.Heinz?.includes(product)
+                      brandRules[activeBrand]?.includes(product)
                         ? "lock-closed"
                         : "add"
                     }
                     size={16}
                     color={
-                      brandRules.Heinz?.includes(product) ? C.white : C.green
+                      brandRules[activeBrand]?.includes(product)
+                        ? C.white
+                        : C.green
                     }
                   />
                   <Text
                     style={[
                       s.productChoiceText,
-                      brandRules.Heinz?.includes(product) && { color: C.white },
+                      brandRules[activeBrand]?.includes(product) && {
+                        color: C.white,
+                      },
                     ]}
                   >
                     {product}
@@ -646,6 +713,25 @@ function HouseholdSetup({
                 </TouchableOpacity>
               ))}
             </View>
+            {selectedBrands.length > 0 && (
+              <View style={s.selectedBrandsPanel}>
+                <Text style={s.sectionLabel}>YOUR PROTECTED BRANDS</Text>
+                {selectedBrands.map(([brand, products]) => (
+                  <TouchableOpacity
+                    key={brand}
+                    onPress={() => setActiveBrand(brand)}
+                    style={s.selectedBrandRow}
+                  >
+                    <Ionicons name="shield-checkmark" size={18} color={C.green} />
+                    <Text style={s.selectedBrandName}>{brand}</Text>
+                    <Text style={s.selectedBrandCount}>
+                      {products.length} product{products.length === 1 ? "" : "s"}
+                    </Text>
+                    <Ionicons name="chevron-forward" size={16} color={C.muted} />
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
             <Text style={s.protectedCopy}>
               Protected choices are never substituted silently. The app will
               show the exact branded product or ask permission.
@@ -1604,12 +1690,6 @@ function MealLibrary({ back, currentPlan, apply, household }) {
 }
 
 function BrandPreferences({ back, rules, setRules }) {
-  const catalogue = {
-    Heinz: ["Baked beans", "Tomato ketchup", "Tomato soup", "Mayonnaise"],
-    "Coca-Cola": ["Diet Coke", "Coke Zero", "Original Taste"],
-    "Kellogg's": ["Corn Flakes", "Rice Krispies", "Crunchy Nut"],
-    Fairy: ["Washing-up liquid", "Dishwasher tablets"],
-  };
   const toggle = (brand, product) =>
     setRules((current) => ({
       ...current,
@@ -1625,7 +1705,7 @@ function BrandPreferences({ back, rules, setRules }) {
         title="Brands that matter"
         sub="Lock the products your household will not swap. Comparisons must use that exact brand or ask permission."
       />
-      {Object.entries(catalogue).map(([brand, products]) => (
+      {Object.entries(BRAND_CATALOGUE).map(([brand, products]) => (
         <View key={brand} style={s.brandSection}>
           <View style={s.brandHeading}>
             <View style={s.brandBadge}>
@@ -2758,6 +2838,53 @@ const s = StyleSheet.create({
     fontSize: 11,
     fontWeight: "700",
   },
+  brandPicker: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 16,
+  },
+  brandPickerChip: {
+    minHeight: 38,
+    borderWidth: 1,
+    borderColor: C.line,
+    borderRadius: 19,
+    paddingHorizontal: 13,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: C.white,
+  },
+  brandPickerChipActive: {
+    backgroundColor: C.green,
+    borderColor: C.green,
+  },
+  brandPickerText: { color: C.green, fontSize: 11, fontWeight: "700" },
+  brandPickerTextActive: { color: C.white },
+  selectedBrandsPanel: {
+    backgroundColor: C.white,
+    borderWidth: 1,
+    borderColor: C.line,
+    borderRadius: 9,
+    paddingHorizontal: 13,
+    paddingTop: 13,
+    marginBottom: 14,
+  },
+  selectedBrandRow: {
+    minHeight: 45,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 9,
+    borderTopWidth: 1,
+    borderTopColor: C.line,
+  },
+  selectedBrandName: {
+    flex: 1,
+    color: C.ink,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  selectedBrandCount: { color: C.muted, fontSize: 10 },
   choiceWrap: {
     flexDirection: "row",
     flexWrap: "wrap",
