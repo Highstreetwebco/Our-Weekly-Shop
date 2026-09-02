@@ -13,7 +13,7 @@
     "githubUrl": "https://github.com/Highstreetwebco/Our-Weekly-Shop",
     "plugins": ["expo-router"],
     "web": {
-      "output": "static",
+      "output": "single",
       "favicon": "./assets/brand/logo-master.png",
       "name": "Our Weekly Shop",
       "shortName": "OWS",
