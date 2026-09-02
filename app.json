@@ -2,11 +2,33 @@
   "expo": {
     "name": "Our Weekly Shop",
     "slug": "our-weekly-shop",
+    "description": "Plan meals, organise the household shop and keep the weekly basket on budget.",
     "scheme": "ourweeklyshop",
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
+    "backgroundColor": "#F7F3E8",
+    "primaryColor": "#204832",
+    "icon": "./assets/brand/logo-master.png",
+    "githubUrl": "https://github.com/Highstreetwebco/Our-Weekly-Shop",
     "plugins": ["expo-router"],
-    "experiments": { "typedRoutes": true }
+    "web": {
+      "output": "static",
+      "favicon": "./assets/brand/logo-master.png",
+      "name": "Our Weekly Shop",
+      "shortName": "OWS",
+      "lang": "en-GB",
+      "scope": "./",
+      "startUrl": "./",
+      "display": "standalone",
+      "orientation": "portrait",
+      "themeColor": "#204832",
+      "backgroundColor": "#F7F3E8",
+      "description": "Plan meals, organise the household shop and keep the weekly basket on budget."
+    },
+    "experiments": {
+      "typedRoutes": true,
+      "baseUrl": "/Our-Weekly-Shop"
+    }
   }
 }

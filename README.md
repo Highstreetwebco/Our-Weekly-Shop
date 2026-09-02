@@ -2,6 +2,14 @@
 
 **Your weekly shop, sorted.** An Expo mobile app that learns a household's meals, regular essentials and likely stock to make weekly planning genuinely quick.
 
+## Family testing
+
+The latest web preview is automatically deployed from `main` to:
+
+**https://highstreetwebco.github.io/Our-Weekly-Shop/**
+
+On iPhone, open the link in Safari, tap **Share**, then **Add to Home Screen**. On Android, open it in Chrome and choose **Install app** or **Add to Home screen**.
+
 ## Version 0.1
 
 - A calm, five-tab mobile experience: Home, My Week, Shop, At Home and More.
