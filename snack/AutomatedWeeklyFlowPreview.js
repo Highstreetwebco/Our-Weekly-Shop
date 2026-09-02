@@ -53,20 +53,20 @@ export default function App(){
 }
 
 function DeliverySplash({onFinish}){
- const vanX=useRef(new Animated.Value(-520)).current,openOpacity=useRef(new Animated.Value(0)).current,logoY=useRef(new Animated.Value(16)).current,logoScale=useRef(new Animated.Value(.16)).current,logoOpacity=useRef(new Animated.Value(0)).current,tagOpacity=useRef(new Animated.Value(0)).current,screenOpacity=useRef(new Animated.Value(1)).current;
- const closedOpacity=openOpacity.interpolate({inputRange:[0,.72,1],outputRange:[1,1,0]});
+ const vanX=useRef(new Animated.Value(-520)).current,openOpacity=useRef(new Animated.Value(0)).current,logoX=useRef(new Animated.Value(-108)).current,logoY=useRef(new Animated.Value(2)).current,logoScale=useRef(new Animated.Value(.13)).current,logoOpacity=useRef(new Animated.Value(0)).current,tagOpacity=useRef(new Animated.Value(0)).current,screenOpacity=useRef(new Animated.Value(1)).current;
+ const closedOpacity=openOpacity.interpolate({inputRange:[0,.94,1],outputRange:[1,1,0]});
  useEffect(()=>{Animated.sequence([
-  Animated.timing(vanX,{toValue:130,duration:1250,easing:Easing.out(Easing.cubic),useNativeDriver:true}),
-  Animated.delay(260),
-  Animated.timing(openOpacity,{toValue:1,duration:520,easing:Easing.inOut(Easing.cubic),useNativeDriver:true}),
-  Animated.timing(logoOpacity,{toValue:1,duration:90,useNativeDriver:true}),
-  Animated.parallel([Animated.timing(logoY,{toValue:0,duration:850,easing:Easing.out(Easing.cubic),useNativeDriver:true}),Animated.timing(logoScale,{toValue:1,duration:850,easing:Easing.out(Easing.back(1.08)),useNativeDriver:true})]),
-  Animated.delay(260),
-  Animated.timing(vanX,{toValue:590,duration:900,easing:Easing.in(Easing.cubic),useNativeDriver:true}),
-  Animated.timing(tagOpacity,{toValue:1,duration:380,useNativeDriver:true}),
-  Animated.delay(650),Animated.timing(screenOpacity,{toValue:0,duration:350,useNativeDriver:true})
+  Animated.timing(vanX,{toValue:0,duration:820,easing:Easing.out(Easing.cubic),useNativeDriver:true}),
+  Animated.delay(130),
+  Animated.timing(openOpacity,{toValue:1,duration:170,easing:Easing.inOut(Easing.quad),useNativeDriver:true}),
+  Animated.delay(80),
+  Animated.timing(logoOpacity,{toValue:1,duration:70,useNativeDriver:true}),
+  Animated.parallel([Animated.timing(logoX,{toValue:0,duration:720,easing:Easing.out(Easing.cubic),useNativeDriver:true}),Animated.timing(logoY,{toValue:0,duration:720,easing:Easing.out(Easing.cubic),useNativeDriver:true}),Animated.timing(logoScale,{toValue:1,duration:720,easing:Easing.out(Easing.back(1.03)),useNativeDriver:true})]),
+  Animated.delay(100),
+  Animated.parallel([Animated.timing(vanX,{toValue:520,duration:650,easing:Easing.in(Easing.cubic),useNativeDriver:true}),Animated.timing(tagOpacity,{toValue:1,duration:300,delay:260,useNativeDriver:true})]),
+  Animated.delay(330),Animated.timing(screenOpacity,{toValue:0,duration:230,useNativeDriver:true})
  ]).start(({finished})=>{if(finished)onFinish()})},[]);
- return <Animated.View style={[s.splash,{opacity:screenOpacity}]}><View style={s.splashStage}><Animated.View style={[s.vanImageWrap,{opacity:closedOpacity,transform:[{translateX:vanX}]}]}><Image source={{uri:MATCHED_CLOSED_VAN_IMAGE}} style={s.vanImage}/></Animated.View><Animated.View style={[s.vanImageWrap,{opacity:openOpacity,transform:[{translateX:vanX}]}]}><Image source={{uri:MATCHED_OPEN_VAN_IMAGE}} style={s.vanImage}/></Animated.View><Animated.View style={[s.splashLogo,{opacity:logoOpacity,transform:[{translateY:logoY},{scale:logoScale}]}]}><Image source={{uri:LOGO_IMAGE}} style={s.splashLogoImage}/></Animated.View></View><Animated.View style={{opacity:tagOpacity,alignItems:'center'}}><Text style={s.splashTitle}>Our Weekly Shop</Text><Text style={s.splashTag}>Your weekly shop, at the best price.</Text></Animated.View></Animated.View>;
+ return <Animated.View style={[s.splash,{opacity:screenOpacity}]}><View style={s.splashStage}><Animated.View style={[s.vanImageWrap,{opacity:closedOpacity,transform:[{translateX:vanX}]}]}><Image source={{uri:MATCHED_CLOSED_VAN_IMAGE}} style={s.vanImage}/></Animated.View><Animated.View style={[s.vanImageWrap,{opacity:openOpacity,transform:[{translateX:vanX}]}]}><Image source={{uri:MATCHED_OPEN_VAN_IMAGE}} style={s.vanImage}/></Animated.View><Animated.View style={[s.splashLogo,{opacity:logoOpacity,transform:[{translateX:logoX},{translateY:logoY},{scale:logoScale}]}]}><Image source={{uri:LOGO_IMAGE}} style={s.splashLogoImage}/></Animated.View></View><Animated.View style={{opacity:tagOpacity,alignItems:'center'}}><Text style={s.splashTitle}>Our Weekly Shop</Text><Text style={s.splashTag}>Your weekly shop, at the best price.</Text></Animated.View></Animated.View>;
 }
 
 function buildBasket(plan,extras){const map={};Object.values(plan).forEach(mealName=>{const meal=MEALS[mealName];if(meal)meal.ingredients.forEach(([name,qty,unit,,dated])=>{if(!map[name])map[name]={name,qty:0,unit,dated,meals:[]};map[name].qty+=qty;if(!map[name].meals.includes(mealName))map[name].meals.push(mealName)})});extras.forEach(name=>map[name]={name,qty:1,unit:'item',dated:false,meals:['Household']});return Object.values(map)}
