@@ -87,9 +87,7 @@ function Home({
       <View style={s.hero}>
         <View>
           <Text style={s.eyebrow}>TONIGHT</Text>
-          <Text style={s.heroTitle}>
-            {tonight.emoji} {tonight.name}
-          </Text>
+          <Text style={s.heroTitle}>{tonight.name}</Text>
           <Text style={s.heroSub}>
             Feeds {tonight.portions} · Chicken expires tomorrow
           </Text>
@@ -108,9 +106,9 @@ function Home({
         onPress={() => setTab("At Home")}
       />
       <View style={s.row}>
-        <Expiry emoji="🍗" name="Chicken breasts" when="Tomorrow" urgent />
-        <Expiry emoji="🥛" name="Milk" when="2 days" />
-        <Expiry emoji="🥣" name="Sour cream" when="3 days" />
+        <Expiry icon="nutrition-outline" name="Chicken breasts" when="Tomorrow" urgent />
+        <Expiry icon="water-outline" name="Milk" when="2 days" />
+        <Expiry icon="restaurant-outline" name="Sour cream" when="3 days" />
       </View>
       <Section
         title="Your week"
@@ -121,7 +119,7 @@ function Home({
         {plan.slice(0, 3).map((p, i) => (
           <View key={p.id} style={[s.listRow, i < 2 && s.border]}>
             <Text style={s.day}>{p.day}</Text>
-            <Text style={s.itemEmoji}>{p.emoji}</Text>
+            <View style={s.mealIcon}><Ionicons name="restaurant-outline" size={17} color={theme.green} /></View>
             <View style={s.grow}>
               <Text style={[s.itemName, p.cooked && s.done]}>{p.name}</Text>
               <Text style={s.itemDetail}>
@@ -176,7 +174,7 @@ function Week({
               )}
             </View>
             <Text style={s.day}>{p.day}</Text>
-            <Text style={s.itemEmoji}>{p.emoji}</Text>
+            <View style={s.mealIcon}><Ionicons name="restaurant-outline" size={17} color={theme.green} /></View>
             <View style={s.grow}>
               <Text style={[s.itemName, p.cooked && s.done]}>{p.name}</Text>
               <Text style={s.itemDetail}>
@@ -193,7 +191,7 @@ function Week({
       <View style={s.chips}>
         {meals.slice(0, 3).map((m) => (
           <View key={m.id} style={s.chip}>
-            <Text>{m.emoji}</Text>
+            <Ionicons name="restaurant-outline" size={18} color={theme.green} />
             <Text style={s.chipText}>{m.name}</Text>
           </View>
         ))}
@@ -282,7 +280,7 @@ function Shop({
         ) : null;
       })}
       <TouchableOpacity style={s.compare}>
-        <Ionicons name="sparkles" size={20} color="white" />
+        <Ionicons name="stats-chart-outline" size={20} color="white" />
         <View>
           <Text style={s.compareTitle}>Compare supermarkets</Text>
           <Text style={s.compareSub}>
@@ -300,14 +298,14 @@ function AtHome({ setTab }: { setTab: (tab: Tab) => void }) {
       <Header kicker="AT HOME" title="Use it before you lose it." />
       <View style={s.card}>
         <Expiry
-          emoji="🍗"
+          icon="nutrition-outline"
           name="Chicken breasts"
           when="Use tomorrow"
           urgent
           big
         />
-        <Expiry emoji="🥛" name="Milk" when="Use in 2 days" big />
-        <Expiry emoji="🥣" name="Sour cream" when="Use in 3 days" big />
+        <Expiry icon="water-outline" name="Milk" when="Use in 2 days" big />
+        <Expiry icon="restaurant-outline" name="Sour cream" when="Use in 3 days" big />
       </View>
       <View style={s.tip}>
         <Ionicons name="bulb-outline" size={24} color={theme.amber} />
@@ -363,13 +361,13 @@ function More() {
   );
 }
 function Expiry({
-  emoji,
+  icon,
   name,
   when,
   urgent,
   big,
 }: {
-  emoji: string;
+  icon: any;
   name: string;
   when: string;
   urgent?: boolean;
@@ -377,7 +375,7 @@ function Expiry({
 }) {
   return (
     <View style={big ? s.expiryBig : s.expiry}>
-      <Text style={s.expiryEmoji}>{emoji}</Text>
+      <View style={s.productIcon}><Ionicons name={icon} size={19} color={theme.green} /></View>
       <View style={s.grow}>
         <Text style={s.expiryName}>{name}</Text>
         <Text style={[s.expiryWhen, urgent && { color: theme.red }]}>
@@ -437,25 +435,25 @@ function Nav({ tab, setTab }: { tab: Tab; setTab: (tab: Tab) => void }) {
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: theme.cream },
   content: { padding: 20, paddingBottom: 108 },
-  header: { paddingTop: 14, paddingBottom: 20 },
+  header: { paddingTop: 18, paddingBottom: 24 },
   kicker: {
     fontSize: 11,
-    letterSpacing: 1.5,
-    fontWeight: "800",
+    letterSpacing: 1.8,
+    fontWeight: "700",
     color: theme.green,
     marginBottom: 6,
   },
   title: {
-    fontSize: 32,
-    lineHeight: 38,
-    fontWeight: "800",
+    fontSize: 30,
+    lineHeight: 36,
+    fontWeight: "700",
     color: theme.ink,
     letterSpacing: -0.7,
   },
   hero: {
     backgroundColor: theme.green,
-    borderRadius: 24,
-    padding: 20,
+    borderRadius: 16,
+    padding: 22,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
@@ -467,17 +465,17 @@ const s = StyleSheet.create({
     letterSpacing: 1.2,
     color: "#D6EFDE",
   },
-  heroTitle: { fontSize: 21, fontWeight: "800", color: "white", marginTop: 8 },
+  heroTitle: { fontSize: 23, fontWeight: "700", color: "white", marginTop: 8 },
   heroSub: { fontSize: 13, color: "#D6EFDE", marginTop: 5 },
   lightButton: {
     backgroundColor: "white",
-    borderRadius: 18,
+    borderRadius: 10,
     paddingVertical: 10,
     paddingHorizontal: 12,
     alignItems: "center",
     gap: 3,
   },
-  lightText: { fontWeight: "800", fontSize: 12, color: theme.green },
+  lightText: { fontWeight: "700", fontSize: 12, color: theme.green },
   section: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -485,34 +483,36 @@ const s = StyleSheet.create({
     marginTop: 4,
     marginBottom: 11,
   },
-  sectionTitle: { fontSize: 19, fontWeight: "800", color: theme.ink },
-  link: { fontSize: 13, fontWeight: "800", color: theme.green },
+  sectionTitle: { fontSize: 18, fontWeight: "700", color: theme.ink },
+  link: { fontSize: 13, fontWeight: "700", color: theme.green },
   row: { flexDirection: "row", gap: 9, marginBottom: 27 },
   expiry: {
     backgroundColor: theme.white,
-    borderRadius: 16,
+    borderRadius: 12,
     padding: 12,
     flex: 1,
     alignItems: "center",
     minHeight: 104,
   },
-  expiryEmoji: { fontSize: 25, marginBottom: 7 },
+  productIcon: { width: 36, height: 36, borderRadius: 10, backgroundColor: theme.greenSoft, alignItems: "center", justifyContent: "center", marginBottom: 8 },
   expiryName: {
     fontSize: 11,
-    fontWeight: "700",
+    fontWeight: "600",
     color: theme.ink,
     textAlign: "center",
   },
   expiryWhen: {
     fontSize: 11,
-    fontWeight: "800",
+    fontWeight: "700",
     color: theme.amber,
     marginTop: 3,
     textAlign: "center",
   },
   card: {
     backgroundColor: theme.white,
-    borderRadius: 20,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: theme.line,
     overflow: "hidden",
     marginBottom: 26,
   },
@@ -520,14 +520,16 @@ const s = StyleSheet.create({
   mealRow: { flexDirection: "row", alignItems: "center", padding: 15 },
   border: { borderBottomWidth: 1, borderBottomColor: theme.line },
   day: { width: 32, fontSize: 12, fontWeight: "800", color: theme.muted },
-  itemEmoji: { fontSize: 23, marginRight: 11 },
+  mealIcon: { width: 34, height: 34, borderRadius: 9, backgroundColor: theme.greenSoft, alignItems: "center", justifyContent: "center", marginRight: 11 },
   grow: { flex: 1 },
-  itemName: { fontSize: 15, fontWeight: "800", color: theme.ink },
+  itemName: { fontSize: 15, fontWeight: "700", color: theme.ink },
   itemDetail: { fontSize: 12, color: theme.muted, marginTop: 3 },
   done: { textDecorationLine: "line-through", color: theme.muted },
   nextShop: {
     backgroundColor: theme.sand,
-    borderRadius: 20,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: theme.line,
     padding: 15,
     flexDirection: "row",
     alignItems: "center",
@@ -536,7 +538,7 @@ const s = StyleSheet.create({
   circle: {
     height: 48,
     width: 48,
-    borderRadius: 24,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "white",
@@ -545,9 +547,9 @@ const s = StyleSheet.create({
     backgroundColor: theme.green,
     paddingHorizontal: 15,
     paddingVertical: 10,
-    borderRadius: 15,
+    borderRadius: 9,
   },
-  greenText: { color: "white", fontWeight: "800", fontSize: 13 },
+  greenText: { color: "white", fontWeight: "700", fontSize: 13 },
   intro: { fontSize: 15, lineHeight: 22, color: theme.muted, marginBottom: 20 },
   check: {
     height: 22,
@@ -564,22 +566,24 @@ const s = StyleSheet.create({
   chip: {
     flex: 1,
     backgroundColor: theme.white,
-    borderRadius: 15,
+    borderRadius: 11,
     padding: 11,
     gap: 5,
   },
-  chipText: { fontSize: 11, fontWeight: "700", color: theme.ink },
+  chipText: { fontSize: 11, fontWeight: "600", color: theme.ink },
   summary: {
     backgroundColor: theme.greenSoft,
-    borderRadius: 19,
+    borderRadius: 12,
     padding: 17,
     marginBottom: 13,
   },
-  summaryBig: { fontSize: 21, fontWeight: "800", color: theme.green },
+  summaryBig: { fontSize: 21, fontWeight: "700", color: theme.green },
   summarySmall: { fontSize: 13, color: theme.green, marginTop: 3 },
   addBar: {
     backgroundColor: theme.white,
-    borderRadius: 16,
+    borderRadius: 11,
+    borderWidth: 1,
+    borderColor: theme.line,
     paddingHorizontal: 13,
     flexDirection: "row",
     alignItems: "center",
@@ -592,7 +596,7 @@ const s = StyleSheet.create({
     color: theme.ink,
     paddingHorizontal: 9,
   },
-  addText: { fontSize: 14, fontWeight: "800", color: theme.green },
+  addText: { fontSize: 14, fontWeight: "700", color: theme.green },
   group: {
     fontSize: 12,
     fontWeight: "800",
@@ -614,14 +618,14 @@ const s = StyleSheet.create({
     color: "#98620F",
   },
   compare: {
-    borderRadius: 20,
+    borderRadius: 14,
     backgroundColor: theme.green,
     padding: 17,
     flexDirection: "row",
     gap: 11,
     alignItems: "center",
   },
-  compareTitle: { fontSize: 16, fontWeight: "800", color: "white" },
+  compareTitle: { fontSize: 16, fontWeight: "700", color: "white" },
   compareSub: { fontSize: 11, color: "#D6EFDE", marginTop: 3 },
   expiryBig: {
     padding: 16,
@@ -631,7 +635,7 @@ const s = StyleSheet.create({
   },
   tip: {
     backgroundColor: "#FFF7E8",
-    borderRadius: 19,
+    borderRadius: 12,
     padding: 17,
     flexDirection: "row",
     gap: 12,
@@ -646,7 +650,7 @@ const s = StyleSheet.create({
   settingIcon: {
     height: 39,
     width: 39,
-    borderRadius: 13,
+    borderRadius: 10,
     backgroundColor: theme.greenSoft,
     alignItems: "center",
     justifyContent: "center",
