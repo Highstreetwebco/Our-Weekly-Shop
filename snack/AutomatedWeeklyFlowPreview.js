@@ -13,6 +13,7 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { supabase } from "../lib/supabase";
 
 const C = {
   ink: "#1D2A23",
@@ -157,6 +158,10 @@ export default function App() {
     [started, setStarted] = useState(false),
     [tab, setTab] = useState("This Week"),
     [page, setPage] = useState("");
+  const [session, setSession] = useState(null),
+    [authLoading, setAuthLoading] = useState(true),
+    [profileReady, setProfileReady] = useState(false),
+    [saveStatus, setSaveStatus] = useState("Saved securely");
   const [shopDay, setShopDay] = useState("Friday"),
     [current, setCurrent] = useState(initialCurrent),
     [planWeek, setPlanWeek] = useState(1);
@@ -240,6 +245,120 @@ export default function App() {
       Tomatoes: 4,
       Milk: 1,
     });
+  useEffect(() => {
+    let active = true;
+    supabase.auth.getSession().then(({ data }) => {
+      if (!active) return;
+      setSession(data.session);
+      setAuthLoading(false);
+    });
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      (_event, nextSession) => {
+        if (!active) return;
+        setSession(nextSession);
+        setAuthLoading(false);
+        if (!nextSession) setProfileReady(false);
+      },
+    );
+    return () => {
+      active = false;
+      listener.subscription.unsubscribe();
+    };
+  }, []);
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    let active = true;
+    const loadProfile = async () => {
+      setProfileReady(false);
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("app_state, setup_complete")
+        .eq("id", session.user.id)
+        .maybeSingle();
+      if (!active) return;
+      if (error) {
+        setSaveStatus("Could not load saved data");
+        setProfileReady(true);
+        return;
+      }
+      const saved = data?.app_state || {};
+      if (saved.shopDay) setShopDay(saved.shopDay);
+      if (saved.current) setCurrent(saved.current);
+      if (saved.planWeek) setPlanWeek(saved.planWeek);
+      if (saved.household) setHousehold(saved.household);
+      if (saved.brandRules) setBrandRules(saved.brandRules);
+      if (saved.futurePlans) setFuturePlans(saved.futurePlans);
+      if (saved.outcomes) setOutcomes(saved.outcomes);
+      if (saved.extrasByWeek) setExtrasByWeek(saved.extrasByWeek);
+      if (saved.itemHistory) setItemHistory(saved.itemHistory);
+      if (saved.checkoutShop !== undefined)
+        setCheckoutShop(saved.checkoutShop);
+      if (saved.delivery !== undefined) setDelivery(saved.delivery);
+      if (saved.arrivalLogged !== undefined)
+        setArrivalLogged(saved.arrivalLogged);
+      if (saved.dates) setDates(saved.dates);
+      if (saved.pantry) setPantry(saved.pantry);
+      setStarted(Boolean(data?.setup_complete));
+      setSaveStatus("Saved securely");
+      setProfileReady(true);
+    };
+    loadProfile();
+    return () => {
+      active = false;
+    };
+  }, [session?.user?.id]);
+  useEffect(() => {
+    if (!session?.user?.id || !profileReady) return;
+    setSaveStatus("Saving…");
+    const timer = setTimeout(async () => {
+      const appState = {
+        shopDay,
+        current,
+        planWeek,
+        household,
+        brandRules,
+        futurePlans,
+        outcomes,
+        extrasByWeek,
+        itemHistory,
+        checkoutShop,
+        delivery,
+        arrivalLogged,
+        dates,
+        pantry,
+      };
+      const { error } = await supabase.from("profiles").upsert(
+        {
+          id: session.user.id,
+          display_name: household.name,
+          app_state: appState,
+          setup_complete: started,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "id" },
+      );
+      setSaveStatus(error ? "Save failed — retrying" : "Saved securely");
+    }, 700);
+    return () => clearTimeout(timer);
+  }, [
+    session?.user?.id,
+    profileReady,
+    started,
+    shopDay,
+    current,
+    planWeek,
+    household,
+    brandRules,
+    futurePlans,
+    outcomes,
+    extrasByWeek,
+    itemHistory,
+    checkoutShop,
+    delivery,
+    arrivalLogged,
+    dates,
+    pantry,
+  ]);
   const next = futurePlans[planWeek],
     basketExtras = extrasByWeek[planWeek] || [];
   const basket = useMemo(
@@ -298,6 +417,10 @@ export default function App() {
   };
   if (!splashDone)
     return <DeliverySplash onFinish={() => setSplashDone(true)} />;
+  if (authLoading) return <AccountLoading />;
+  if (!session)
+    return <AuthScreen onSession={(nextSession) => setSession(nextSession)} />;
+  if (!profileReady) return <AccountLoading text="Loading your weekly shop…" />;
   if (!started)
     return (
       <HouseholdSetup
@@ -394,12 +517,175 @@ export default function App() {
                 reset={() => setStarted(false)}
                 household={household}
                 brandRules={brandRules}
+                email={session.user.email}
+                saveStatus={saveStatus}
+                signOut={() => supabase.auth.signOut()}
               />
             )}
           </>
         )}
       </ScrollView>
       {!page && <Nav tab={tab} setTab={setTab} />}
+    </SafeAreaView>
+  );
+}
+
+function AccountLoading({ text = "Opening your account…" }) {
+  return (
+    <SafeAreaView style={s.authSafe}>
+      <Image source={{ uri: LOGO_IMAGE }} style={s.authLogo} />
+      <Text style={s.authLoadingTitle}>Our Weekly Shop</Text>
+      <Text style={s.authLoadingText}>{text}</Text>
+    </SafeAreaView>
+  );
+}
+
+function AuthScreen({ onSession }) {
+  const [mode, setMode] = useState("create"),
+    [name, setName] = useState(""),
+    [email, setEmail] = useState(""),
+    [password, setPassword] = useState(""),
+    [busy, setBusy] = useState(false),
+    [message, setMessage] = useState(""),
+    [error, setError] = useState("");
+  const submit = async () => {
+    const cleanEmail = email.trim().toLowerCase();
+    setError("");
+    setMessage("");
+    if (!cleanEmail || !cleanEmail.includes("@")) {
+      setError("Enter a valid email address.");
+      return;
+    }
+    if (password.length < 6) {
+      setError("Your password must contain at least 6 characters.");
+      return;
+    }
+    setBusy(true);
+    if (mode === "create") {
+      const { data, error: authError } = await supabase.auth.signUp({
+        email: cleanEmail,
+        password,
+        options: {
+          data: { display_name: name.trim() },
+          emailRedirectTo:
+            "https://highstreetwebco.github.io/Our-Weekly-Shop/",
+        },
+      });
+      setBusy(false);
+      if (authError) {
+        setError(authError.message);
+      } else if (data.session) {
+        onSession(data.session);
+      } else {
+        setMessage(
+          "Account created. Check your email and tap the confirmation link, then return here to sign in.",
+        );
+        setMode("signin");
+      }
+      return;
+    }
+    const { data, error: authError } = await supabase.auth.signInWithPassword({
+      email: cleanEmail,
+      password,
+    });
+    setBusy(false);
+    if (authError) setError(authError.message);
+    else if (data.session) onSession(data.session);
+  };
+  return (
+    <SafeAreaView style={s.authSafe}>
+      <ScrollView
+        contentContainerStyle={s.authContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={s.authBrand}>
+          <Image source={{ uri: LOGO_IMAGE }} style={s.authLogo} />
+          <Text style={s.authBrandName}>Our Weekly Shop</Text>
+          <Text style={s.authStrapline}>YOUR WEEK, PLANNED AND SAVED</Text>
+        </View>
+        <View style={s.authCard}>
+          <Text style={s.authTitle}>
+            {mode === "create" ? "Create your account" : "Welcome back"}
+          </Text>
+          <Text style={s.authIntro}>
+            {mode === "create"
+              ? "Save your household, favourite brands, meal plans and shopping lists securely."
+              : "Sign in to continue with your saved weekly shop."}
+          </Text>
+          {mode === "create" && (
+            <>
+              <Text style={s.label}>YOUR NAME</Text>
+              <TextInput
+                value={name}
+                onChangeText={setName}
+                placeholder="e.g. Jack"
+                placeholderTextColor={C.muted}
+                style={s.setupInput}
+                textContentType="name"
+              />
+            </>
+          )}
+          <Text style={s.label}>EMAIL ADDRESS</Text>
+          <TextInput
+            value={email}
+            onChangeText={setEmail}
+            placeholder="you@example.com"
+            placeholderTextColor={C.muted}
+            style={s.setupInput}
+            autoCapitalize="none"
+            keyboardType="email-address"
+            textContentType="emailAddress"
+          />
+          <Text style={s.label}>PASSWORD</Text>
+          <TextInput
+            value={password}
+            onChangeText={setPassword}
+            placeholder="At least 6 characters"
+            placeholderTextColor={C.muted}
+            style={s.setupInput}
+            autoCapitalize="none"
+            secureTextEntry
+            textContentType={mode === "create" ? "newPassword" : "password"}
+          />
+          {!!error && <Text style={s.authError}>{error}</Text>}
+          {!!message && <Text style={s.authMessage}>{message}</Text>}
+          <Button
+            text={
+              busy
+                ? "Please wait…"
+                : mode === "create"
+                  ? "Create account"
+                  : "Sign in"
+            }
+            icon={mode === "create" ? "person-add-outline" : "log-in-outline"}
+            disabled={busy}
+            onPress={submit}
+          />
+          <TouchableOpacity
+            disabled={busy}
+            onPress={() => {
+              setMode(mode === "create" ? "signin" : "create");
+              setError("");
+              setMessage("");
+            }}
+            style={s.authSwitch}
+          >
+            <Text style={s.authSwitchText}>
+              {mode === "create"
+                ? "Already have an account? Sign in"
+                : "New here? Create an account"}
+            </Text>
+          </TouchableOpacity>
+        </View>
+        <View style={s.authPrivacy}>
+          <Ionicons name="shield-checkmark-outline" size={18} color={C.green} />
+          <Text style={s.authPrivacyText}>
+            Your household data is private to your account and automatically
+            restored when you return.
+          </Text>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -1388,7 +1674,16 @@ function AtHome({ pantry, arrivalLogged, delivery, dates, open }) {
   );
 }
 
-function Account({ shopDay, open, reset, household, brandRules }) {
+function Account({
+  shopDay,
+  open,
+  reset,
+  household,
+  brandRules,
+  email,
+  saveStatus,
+  signOut,
+}) {
   return (
     <>
       <Header
@@ -1408,6 +1703,11 @@ function Account({ shopDay, open, reset, household, brandRules }) {
         ))}
       </View>
       <View style={s.card}>
+        <Setting
+          icon="cloud-done-outline"
+          name={saveStatus}
+          detail={email || "Signed in"}
+        />
         <Setting
           icon="people-outline"
           name="Household members"
@@ -1449,6 +1749,7 @@ function Account({ shopDay, open, reset, household, brandRules }) {
         />
       </View>
       <Button text="Review household setup" pale onPress={reset} />
+      <Button text="Sign out" icon="log-out-outline" pale onPress={signOut} />
     </>
   );
 }
@@ -2183,6 +2484,90 @@ function niceDate(date) {
 }
 
 const s = StyleSheet.create({
+  authSafe: {
+    flex: 1,
+    backgroundColor: C.bg,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  authContent: {
+    width: "100%",
+    maxWidth: 520,
+    padding: 22,
+    paddingTop: 42,
+    paddingBottom: 42,
+  },
+  authBrand: { alignItems: "center", marginBottom: 24 },
+  authLogo: { width: 78, height: 78, borderRadius: 16 },
+  authBrandName: {
+    fontFamily: "Georgia",
+    fontSize: 29,
+    fontWeight: "700",
+    color: C.green,
+    marginTop: 13,
+  },
+  authStrapline: {
+    fontSize: 9,
+    color: C.amber,
+    fontWeight: "800",
+    letterSpacing: 1.5,
+    marginTop: 7,
+  },
+  authCard: {
+    width: "100%",
+    backgroundColor: C.white,
+    borderWidth: 1,
+    borderColor: C.line,
+    borderRadius: 14,
+    padding: 20,
+  },
+  authTitle: {
+    fontFamily: "Georgia",
+    fontSize: 27,
+    fontWeight: "700",
+    color: C.green,
+  },
+  authIntro: {
+    fontSize: 12,
+    lineHeight: 19,
+    color: C.muted,
+    marginTop: 8,
+    marginBottom: 20,
+  },
+  authSwitch: { alignItems: "center", paddingTop: 18, paddingBottom: 4 },
+  authSwitchText: { color: C.green, fontSize: 12, fontWeight: "700" },
+  authError: {
+    color: C.red,
+    backgroundColor: "#F8E9E7",
+    borderRadius: 7,
+    padding: 11,
+    fontSize: 11,
+    lineHeight: 17,
+  },
+  authMessage: {
+    color: C.green,
+    backgroundColor: C.soft,
+    borderRadius: 7,
+    padding: 11,
+    fontSize: 11,
+    lineHeight: 17,
+  },
+  authPrivacy: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 9,
+    paddingHorizontal: 12,
+    marginTop: 16,
+  },
+  authPrivacyText: { flex: 1, color: C.muted, fontSize: 10, lineHeight: 15 },
+  authLoadingTitle: {
+    fontFamily: "Georgia",
+    color: C.green,
+    fontSize: 25,
+    fontWeight: "700",
+    marginTop: 15,
+  },
+  authLoadingText: { color: C.muted, fontSize: 12, marginTop: 7 },
   splash: {
     flex: 1,
     backgroundColor: C.bg,
