@@ -279,6 +279,8 @@ export default function App() {
   );
   const [attendanceOverrides, setAttendanceOverrides] = useState({});
   const [pendingMeal, setPendingMeal] = useState(null);
+  const [pendingDiners, setPendingDiners] = useState(null);
+  const [pendingSwap, setPendingSwap] = useState(null);
   const [weeklyConsumables, setWeeklyConsumables] = useState(() => Object.fromEntries(Array.from({ length: 8 }, (_, i) => [i + 1, { Drinks: [], Snacks: [] }])));
   const [pendingConsumable, setPendingConsumable] = useState(null);
   const [outcomes, setOutcomes] = useState({}),
@@ -441,7 +443,7 @@ export default function App() {
     () => findExpirySuggestion(current, dates),
     [current, dates],
   );
-  const chooseMeal = (day, meal, memberIds) => {
+  const chooseMeal = (day, meal, memberIds, replaceMeal) => {
     setFuturePlans((p) => ({
       ...p,
       [planWeek]: { ...p[planWeek], [day]: meal },
@@ -451,7 +453,7 @@ export default function App() {
       [planWeek]: {
         ...p[planWeek],
         [day]: [
-          ...((p[planWeek]?.[day] || []).filter((item) => item.meal !== meal)),
+          ...((p[planWeek]?.[day] || []).filter((item) => item.meal !== meal && item.meal !== replaceMeal)),
           { meal, memberIds },
         ],
       },
@@ -532,11 +534,16 @@ export default function App() {
         {page ? (
           <Sub
             page={page}
+            navigate={setPage}
             back={() => setPage("")}
             next={next}
             chooseMeal={chooseMeal}
             pendingMeal={pendingMeal}
             setPendingMeal={setPendingMeal}
+            pendingDiners={pendingDiners}
+            setPendingDiners={setPendingDiners}
+            pendingSwap={pendingSwap}
+            setPendingSwap={setPendingSwap}
             openMealAudience={(selection) => {
               setPendingMeal(selection);
               setPage("MealAudience");
@@ -1581,6 +1588,18 @@ function AudienceGroup({ members, selected, toggle, empty }) {
   );
 }
 
+function DinerPicker({ day, household, done, back }) {
+  const [selected, setSelected] = useState(household.members.map((member) => member.id));
+  const adults = household.members.filter((member) => member.role !== "Child");
+  const children = household.members.filter((member) => member.role === "Child");
+  const choose = (members) => { setSelected(members.map((member) => member.id)); };
+  return <><Back onPress={back} /><Header overline="PLAN THIS DAY" title={day} sub="Who are you setting this meal for? This keeps adult and children’s meals separate when needed." /><View style={s.choiceRow}><TouchableOpacity onPress={() => choose(adults)} style={s.choiceChip}><Text style={s.choiceText}>Adults</Text></TouchableOpacity><TouchableOpacity onPress={() => choose(children)} style={s.choiceChip}><Text style={s.choiceText}>Children</Text></TouchableOpacity><TouchableOpacity onPress={() => choose(household.members)} style={s.choiceChip}><Text style={s.choiceText}>Everyone</Text></TouchableOpacity></View><Text style={s.sectionLabel}>OR PICK PEOPLE</Text><AudienceGroup members={household.members} selected={selected} toggle={(id) => setSelected((items) => items.includes(id) ? items.filter((item) => item !== id) : [...items, id])} empty="Add household members first." /><Button text={selected.length ? "Choose a meal" : "Select someone"} disabled={!selected.length} icon="restaurant-outline" onPress={() => done(selected)} /></>;
+}
+
+function SwapConfirm({ oldMeal, newMeal, confirm, back }) {
+  return <><Back onPress={back} /><Header overline="UPDATE MEAL PLAN" title="Swap this meal?" sub={`Would you like to swap ${oldMeal} for ${newMeal}? The basket will update using the same people and portion sizes.`} /><View style={s.info}><Ionicons name="swap-horizontal-outline" size={20} color={C.green} /><Text style={s.infoText}>{oldMeal} will be removed for these family members and replaced with {newMeal}.</Text></View><Button text={`Swap for ${newMeal}`} icon="swap-horizontal-outline" onPress={confirm} /><Button text="Keep current meal" pale onPress={back} /></>;
+}
+
 function ConsumableAudience({ category, name, household, existingMemberIds, done, back }) {
   const [selected, setSelected] = useState(existingMemberIds.length ? existingMemberIds : household.members.map((member) => member.id));
   return <><Back onPress={back} /><Header overline={`PLAN ${category.toUpperCase()}`} title={name} sub="Tick everyone who will use this this week. We will turn their portion sizes into the right amount to buy." /><AudienceGroup members={household.members} selected={selected} toggle={(id) => setSelected((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id])} empty="No household members added." /><Button text={selected.length ? "Add for selected people" : "Select someone"} disabled={!selected.length} icon="people-outline" onPress={() => done(selected)} /></>;
@@ -1831,7 +1850,7 @@ function PlanShop({
           <TouchableOpacity
             key={day}
             style={s.planRow}
-            onPress={() => open(`Choose:${day}`)}
+            onPress={() => open(`DayGroup:${day}`)}
           >
             <View style={s.date}>
               <Text style={s.dayShort}>SEP</Text>
@@ -2177,12 +2196,17 @@ function HouseholdEditor({ household, setHousehold, back }) {
 
 function Sub({
   page,
+  navigate,
   back,
   next,
   chooseMeal,
   pendingMeal,
   setPendingMeal,
   openMealAudience,
+  pendingDiners,
+  setPendingDiners,
+  pendingSwap,
+  setPendingSwap,
   pendingConsumable,
   setPendingConsumable,
   openConsumableAudience,
@@ -2209,6 +2233,11 @@ function Sub({
   brandRules,
   setBrandRules,
 }) {
+  if (page === "SwapConfirm" && pendingSwap) return <SwapConfirm oldMeal={pendingSwap.oldMeal} newMeal={pendingSwap.meal} back={() => { setPendingSwap(null); back(); }} confirm={() => { chooseMeal(pendingSwap.day, pendingSwap.meal, pendingSwap.memberIds, pendingSwap.oldMeal); setPendingSwap(null); }} />;
+  if (page.startsWith("DayGroup:")) {
+    const day = page.split(":")[1];
+    return <DinerPicker day={day} household={household} back={back} done={(memberIds) => { setPendingDiners({ day, memberIds }); navigate(`Choose:${day}`); }} />;
+  }
   if (page.startsWith("Consumable:") && pendingConsumable) {
     const [, category, name] = page.split(":");
     const existing = (pendingConsumable.items || []).find((item) => item.name === name);
@@ -2225,12 +2254,13 @@ function Sub({
         meal={meal}
         household={household}
         planWeek={planWeek}
-        existingMemberIds={existing?.memberIds || []}
+        existingMemberIds={existing?.memberIds || pendingMeal.memberIds || []}
         attendanceOverrides={attendanceOverrides}
         setAttendanceOverrides={setAttendanceOverrides}
         done={(memberIds) => {
-          chooseMeal(day, meal, memberIds);
-          setPendingMeal(null);
+          const old = (mealAssignments[day] || []).find((item) => item.meal !== meal && item.memberIds.some((id) => memberIds.includes(id)));
+          if (old) { setPendingSwap({ day, meal, memberIds, oldMeal: old.meal }); navigate("SwapConfirm"); }
+          else { chooseMeal(day, meal, memberIds); setPendingMeal(null); }
         }}
         back={() => {
           setPendingMeal(null);
@@ -2254,7 +2284,7 @@ function Sub({
             <TouchableOpacity
               key={name}
               style={[s.mealChoice, next[day] === name && s.mealChoiceOn]}
-              onPress={() => openMealAudience({ day, meal: name })}
+              onPress={() => openMealAudience({ day, meal: name, memberIds: pendingDiners?.day === day ? pendingDiners.memberIds : [] })}
             >
               <View style={s.iconBox}>
                 <Ionicons name="restaurant-outline" size={19} color={C.green} />
