@@ -816,7 +816,17 @@ export default function App() {
                     ...current,
                     [planWeek]: {
                       ...current[planWeek],
-                      [day]: [{ meal, memberIds }],
+                      [day]: [
+                        ...((current[planWeek]?.[day] || [])
+                          .map((item) => ({
+                            ...item,
+                            memberIds: (item.memberIds || []).filter(
+                              (id) => !memberIds.includes(id),
+                            ),
+                          }))
+                          .filter((item) => item.memberIds.length)),
+                        { meal, memberIds },
+                      ],
                     },
                   }));
                 }}
@@ -1768,13 +1778,14 @@ function buildBasket(
   );
   Object.entries(daySlots || {}).forEach(([day, slots]) => {
     ["Breakfast", "Lunch"].forEach((slot) => {
-      const item = slots?.[slot];
-      if (!item || item.name === "No meal needed") return;
-      const memberCount =
-        (item.memberIds || []).length || (household?.members || []).length;
-      const recipe = customRecipes[item.name];
-      if (recipe?.ingredients?.length) {
-        recipe.ingredients.forEach(
+      const saved = slots?.[slot];
+      const items = Array.isArray(saved) ? saved : saved ? [saved] : [];
+      items.forEach((item) => {
+        if (item.name === "No meal needed") return;
+        const memberCount = (item.memberIds || []).length;
+        const recipe = customRecipes[item.name];
+        if (recipe?.ingredients?.length) {
+          recipe.ingredients.forEach(
           ([name, qty = 1, unit = "pack", , dated = false]) => {
             if (!map[name])
               map[name] = { name, qty: 0, unit, dated, meals: [] };
@@ -1786,14 +1797,15 @@ function buildBasket(
               map[name].meals.push(`${day} ${slot}`);
           },
         );
-        return;
-      }
-      const key = item.name;
-      if (!map[key])
-        map[key] = { name: key, qty: 0, unit: "pack", dated: false, meals: [] };
-      map[key].qty += Math.max(1, Math.ceil(memberCount / 2));
-      if (!map[key].meals.includes(`${day} ${slot}`))
-        map[key].meals.push(`${day} ${slot}`);
+          return;
+        }
+        const key = item.name;
+        if (!map[key])
+          map[key] = { name: key, qty: 0, unit: "pack", dated: false, meals: [] };
+        map[key].qty += Math.max(1, Math.ceil(memberCount / 2));
+        if (!map[key].meals.includes(`${day} ${slot}`))
+          map[key].meals.push(`${day} ${slot}`);
+      });
     });
   });
   extras.forEach(
@@ -2256,7 +2268,13 @@ function PlanShop({
   const [resumeDay, setResumeDay] = useState(0);
   const isDayComplete = (day) =>
     Boolean(
-      daySlots[day]?.Breakfast?.name && daySlots[day]?.Lunch?.name && plan[day],
+      (Array.isArray(daySlots[day]?.Breakfast)
+        ? daySlots[day].Breakfast.length
+        : daySlots[day]?.Breakfast?.name) &&
+        (Array.isArray(daySlots[day]?.Lunch)
+          ? daySlots[day].Lunch.length
+          : daySlots[day]?.Lunch?.name) &&
+        (mealAssignments[day]?.length || plan[day]),
     );
   const completedDays = DAYS.filter(isDayComplete).length;
   const nextDayIndex = Math.max(
@@ -2285,6 +2303,7 @@ function PlanShop({
         customRecipes={customRecipes}
         saveRecipe={saveRecipe}
         initialDayIndex={resumeDay}
+        dinnerAssignments={mealAssignments}
       />
     );
   return (
@@ -2379,6 +2398,7 @@ function GuidedPlanner({
   customRecipes,
   saveRecipe,
   initialDayIndex = 0,
+  dinnerAssignments = {},
 }) {
   const [dayIndex, setDayIndex] = useState(initialDayIndex);
   const [screen, setScreen] = useState("day");
@@ -2391,6 +2411,20 @@ function GuidedPlanner({
   const [ingredients, setIngredients] = useState([]);
   const day = DAYS[dayIndex];
   const slots = daySlots[day] || {};
+  const slotItems = (name) => {
+    const saved = slots[name];
+    return Array.isArray(saved) ? saved : saved ? [saved] : [];
+  };
+  const dinnerItems = dinnerAssignments[day] || (plan[day] ? [{ meal: plan[day], memberIds: [] }] : []);
+  const peopleFor = (memberIds) =>
+    (memberIds || [])
+      .map((id) => household.members.find((member) => member.id === id)?.name)
+      .filter(Boolean)
+      .join(" & ");
+  const itemSummary = (items, mealKey = "name") =>
+    items
+      .map((item) => `${peopleFor(item.memberIds) || "No one"} — ${item[mealKey]}`)
+      .join("\n");
   const starterOptions = ["No meal needed"];
   const options = [
     ...new Set([...(quickMealChoices?.[slot] || []), ...starterOptions]),
@@ -2403,7 +2437,21 @@ function GuidedPlanner({
       ...current,
       [day]: {
         ...(current[day] || {}),
-        [slot]: { name, memberIds },
+        [slot]: [
+          ...((Array.isArray(current[day]?.[slot])
+            ? current[day][slot]
+            : current[day]?.[slot]
+              ? [current[day][slot]]
+              : [])
+            .map((item) => ({
+              ...item,
+              memberIds: (item.memberIds || []).filter(
+                (id) => !memberIds.includes(id),
+              ),
+            }))
+            .filter((item) => item.memberIds.length)),
+          { name, memberIds },
+        ],
       },
     }));
   };
@@ -2739,7 +2787,9 @@ function GuidedPlanner({
       </>
     );
   const completed = Boolean(
-    slots.Breakfast?.name && slots.Lunch?.name && plan[day],
+    slotItems("Breakfast").length &&
+      slotItems("Lunch").length &&
+      dinnerItems.length,
   );
   if (screen === "choices")
     return (
@@ -2924,7 +2974,9 @@ function GuidedPlanner({
       </View>
       <View style={s.quickActionArea}>
         {["Breakfast", "Lunch", "Dinner"].map((name) => {
-          const choice = name === "Dinner" ? plan[day] : slots[name]?.name;
+          const items = name === "Dinner" ? dinnerItems : slotItems(name);
+          const choice =
+            name === "Dinner" ? itemSummary(items, "meal") : itemSummary(items);
           return (
             <TouchableOpacity
               key={name}
