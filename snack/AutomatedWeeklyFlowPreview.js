@@ -1874,7 +1874,7 @@ function PlanShop({
           <TouchableOpacity
             key={day}
             style={s.planRow}
-            onPress={() => open(`DayGroup:${day}`)}
+            onPress={() => open(`Choose:${day}`)}
           >
             <View style={s.date}>
               <Text style={s.dayShort}>SEP</Text>
@@ -2325,7 +2325,14 @@ function Sub({
             <TouchableOpacity
               key={name}
               style={[s.mealChoice, next[day] === name && s.mealChoiceOn]}
-              onPress={() => openMealAudience({ day, meal: name, memberIds: pendingDiners?.day === day ? pendingDiners.memberIds : [] })}
+              onPress={() => {
+                const memberIds = household.members.map((member) => member.id);
+                const old = (mealAssignments[day] || []).find((item) => item.meal !== name);
+                if (old) {
+                  setPendingSwap({ day, meal: name, memberIds, oldMeal: old.meal });
+                  navigate("SwapConfirm");
+                } else chooseMeal(day, name, memberIds);
+              }}
             >
               <View style={s.iconBox}>
                 <Ionicons name="restaurant-outline" size={19} color={C.green} />
@@ -2342,6 +2349,9 @@ function Sub({
             </TouchableOpacity>
           ))}
         </View>
+        <TouchableOpacity onPress={() => navigate(`DayGroup:${day}`)} style={s.setupBack}>
+          <Text style={s.link}>Need different meals for adults and children?</Text>
+        </TouchableOpacity>
       </>
     );
   }
