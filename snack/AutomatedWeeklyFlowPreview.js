@@ -2123,12 +2123,14 @@ function findExpirySuggestion(plan, dates) {
 
 function ThisWeek({ plan, outcomes, finishDay, suggestion, setCurrent }) {
   const [today] = useState("Monday");
+  const tonight = plan[today];
+  const tonightDone = outcomes[today];
   return (
     <>
       <Header
-        overline="MEAL PLAN · THIS WEEK"
-        title="Your week"
-        sub="Everything already planned for the next seven days."
+        overline="TODAY"
+        title={tonightDone ? "Your next shop" : "What do you need to do now?"}
+        sub={tonightDone ? "Plan the next week when you are ready." : `Did you cook ${tonight} tonight?`}
       />
       {suggestion && (
         <View style={s.alert}>
