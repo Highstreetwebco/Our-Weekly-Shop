@@ -550,6 +550,7 @@ export default function App() {
             addNonFood={addNonFood}
             itemHistory={itemHistory}
             household={household}
+            setHousehold={setHousehold}
             brandRules={brandRules}
             setBrandRules={setBrandRules}
           />
@@ -608,6 +609,7 @@ export default function App() {
                 open={setPage}
                 reset={() => setStarted(false)}
                 household={household}
+                setHousehold={setHousehold}
                 brandRules={brandRules}
                 email={session.user.email}
                 saveStatus={saveStatus}
@@ -2009,6 +2011,7 @@ function Account({
   open,
   reset,
   household,
+  setHousehold,
   brandRules,
   email,
   saveStatus,
@@ -2042,7 +2045,7 @@ function Account({
           icon="people-outline"
           name="Household members"
           detail={household.members.length + " individual profiles"}
-          onPress={reset}
+          onPress={() => open("Household")}
         />
         <Setting
           icon="heart-outline"
@@ -2098,6 +2101,36 @@ function Setting({ icon, name, detail, onPress }) {
   );
 }
 
+function HouseholdEditor({ household, setHousehold, back }) {
+  const [selectedId, setSelectedId] = useState(household.members[0]?.id);
+  const member = household.members.find((item) => item.id === selectedId);
+  const update = (key, value) => setHousehold((current) => ({
+    ...current,
+    members: current.members.map((item) => item.id === selectedId ? { ...item, [key]: value } : item),
+  }));
+  return <>
+    <Back onPress={back} />
+    <Header overline="MY HOUSEHOLD" title="Family profiles" sub="Make a quick change whenever real life changes. Your meal plans and saved preferences stay exactly where they are." />
+    <View style={s.card}>
+      {household.members.map((item) => <TouchableOpacity key={item.id} onPress={() => setSelectedId(item.id)} style={[s.itemRow, selectedId === item.id && s.mealChoiceOn]}>
+        <View style={s.avatar}><Text style={s.avatarText}>{item.name[0]}</Text></View>
+        <View style={{ flex: 1 }}><Text style={s.rowTitle}>{item.name}</Text><Text style={s.rowDetail}>{item.role} · age {item.age || "not set"}</Text></View>
+        <Ionicons name="chevron-forward" size={18} color={C.muted} />
+      </TouchableOpacity>)}
+    </View>
+    {member && <View style={s.setupPanel}>
+      <Text style={s.sectionLabel}>EDIT {member.name.toUpperCase()}</Text>
+      <TextInput value={member.name} onChangeText={(value) => update("name", value)} style={s.setupInput} placeholder="Name" />
+      <TextInput value={String(member.age || "")} onChangeText={(value) => update("age", value)} keyboardType="number-pad" style={s.setupInput} placeholder="Age" />
+      <TextInput value={String(member.portion || "")} onChangeText={(value) => update("portion", Number(value) || 0)} keyboardType="decimal-pad" style={s.setupInput} placeholder="Portion size" />
+      <TextInput value={member.dislikes || ""} onChangeText={(value) => update("dislikes", value)} style={s.setupInput} placeholder="Foods they don't like" />
+      <TextInput value={member.allergies === "None" ? "" : member.allergies} onChangeText={(value) => update("allergies", value || "None")} style={s.setupInput} placeholder="Allergies" />
+      <TextInput value={member.intolerances || ""} onChangeText={(value) => update("intolerances", value)} style={s.setupInput} placeholder="Intolerances" />
+      <Button text="Changes saved" icon="checkmark-circle-outline" pale onPress={back} />
+    </View>}
+  </>;
+}
+
 function Sub({
   page,
   back,
@@ -2124,9 +2157,12 @@ function Sub({
   addNonFood,
   itemHistory,
   household,
+  setHousehold,
   brandRules,
   setBrandRules,
 }) {
+  if (page === "Household")
+    return <HouseholdEditor household={household} setHousehold={setHousehold} back={back} />;
   if (page === "MealAudience" && pendingMeal) {
     const { day, meal } = pendingMeal;
     const existing = (mealAssignments[day] || []).find((item) => item.meal === meal);
