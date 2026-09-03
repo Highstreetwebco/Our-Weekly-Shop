@@ -773,10 +773,11 @@ export default function App() {
                         : updater,
                   }))
                 }
-                setDinner={(day, meal) => {
-                  const memberIds = household.members.map(
-                    (member) => member.id,
-                  );
+                setDinner={(
+                  day,
+                  meal,
+                  memberIds = household.members.map((member) => member.id),
+                ) => {
                   setFuturePlans((current) => ({
                     ...current,
                     [planWeek]: { ...current[planWeek], [day]: meal },
@@ -2436,8 +2437,10 @@ function GuidedPlanner({
   addNonFood,
 }) {
   const [dayIndex, setDayIndex] = useState(0);
+  const [screen, setScreen] = useState("day");
   const [slot, setSlot] = useState("Breakfast");
-  const [showPeople, setShowPeople] = useState(false);
+  const [pendingChoice, setPendingChoice] = useState("");
+  const [people, setPeople] = useState([]);
   const [extra, setExtra] = useState("");
   const day = DAYS[dayIndex];
   const slots = daySlots[day] || {};
@@ -2461,42 +2464,36 @@ function GuidedPlanner({
           ];
   const selected = slot === "Dinner" ? plan[day] : slots[slot]?.name;
   const allIds = household.members.map((member) => member.id);
-  const setSelection = (name) => {
-    if (slot === "Dinner") {
-      setDinner(day, name);
-      return;
-    }
+  const saveSelection = (name, memberIds) => {
+    if (slot === "Dinner") return setDinner(day, name, memberIds);
     setDaySlots((current) => ({
       ...current,
       [day]: {
         ...(current[day] || {}),
-        [slot]: { name, memberIds: slots[slot]?.memberIds || allIds },
+        [slot]: { name, memberIds },
       },
     }));
   };
-  const togglePerson = (id) =>
-    setDaySlots((current) => {
-      const currentSlot = current[day]?.[slot] || {
-        name: selected || "No meal needed",
-        memberIds: allIds,
-      };
-      const memberIds = currentSlot.memberIds.includes(id)
-        ? currentSlot.memberIds.filter((item) => item !== id)
-        : [...currentSlot.memberIds, id];
-      return {
-        ...current,
-        [day]: {
-          ...(current[day] || {}),
-          [slot]: { ...currentSlot, memberIds },
-        },
-      };
-    });
+  const chooseSlot = (nextSlot) => {
+    setSlot(nextSlot);
+    setPendingChoice("");
+    setScreen("choices");
+  };
+  const chooseFood = (name) => {
+    setPendingChoice(name);
+    setPeople(slot === "Dinner" ? allIds : slots[slot]?.memberIds || allIds);
+    setScreen("audience");
+  };
+  const saveAndReturn = (memberIds) => {
+    saveSelection(pendingChoice, memberIds);
+    setScreen("day");
+  };
   const completeDay = () => {
     if (dayIndex === DAYS.length - 1) setFlow("review");
     else {
       setDayIndex((index) => index + 1);
       setSlot("Breakfast");
-      setShowPeople(false);
+      setScreen("day");
     }
   };
   if (flow === "extras")
@@ -2617,12 +2614,142 @@ function GuidedPlanner({
   const completed = Boolean(
     slots.Breakfast?.name && slots.Lunch?.name && plan[day],
   );
+  if (screen === "choices")
+    return (
+      <>
+        <Header
+          overline={`${day.toUpperCase()} · ${slot.toUpperCase()}`}
+          title={`Choose ${slot.toLowerCase()}`}
+          sub="Pick one option. You can change it later in your weekly review."
+        />
+        <View style={s.quickChoiceStack}>
+          {options.map((name) => (
+            <TouchableOpacity
+              key={name}
+              onPress={() => chooseFood(name)}
+              style={s.quickChoice}
+            >
+              <View style={s.iconBox}>
+                <Ionicons
+                  name={
+                    slot === "Dinner"
+                      ? "restaurant-outline"
+                      : slot === "Breakfast"
+                        ? "sunny-outline"
+                        : "briefcase-outline"
+                  }
+                  size={22}
+                  color={C.green}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={s.quickChoiceTitle}>{name}</Text>
+                <Text style={s.rowDetail}>
+                  {slot === "Dinner" && MEALS[name]
+                    ? `${MEALS[name].time} minutes · saved family meal`
+                    : "Tap to continue"}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={22} color={C.muted} />
+            </TouchableOpacity>
+          ))}
+        </View>
+        <TouchableOpacity onPress={() => setScreen("day")} style={s.setupBack}>
+          <Text style={s.notNow}>Back to Monday</Text>
+        </TouchableOpacity>
+      </>
+    );
+  if (screen === "audience")
+    return (
+      <>
+        <Header
+          overline={`${day.toUpperCase()} · ${slot.toUpperCase()}`}
+          title="Who is this for?"
+          sub={pendingChoice}
+        />
+        <View style={s.quickActionArea}>
+          <TouchableOpacity
+            style={s.bigDecision}
+            onPress={() => saveAndReturn(allIds)}
+          >
+            <Ionicons name="people-outline" size={28} color={C.white} />
+            <Text style={s.bigDecisionText}>Everyone</Text>
+            <Text style={s.bigDecisionSub}>Use the whole household</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[s.bigDecision, s.bigDecisionPale]}
+            onPress={() => setScreen("people")}
+          >
+            <Ionicons name="person-add-outline" size={28} color={C.green} />
+            <Text style={[s.bigDecisionText, { color: C.green }]}>
+              Choose people
+            </Text>
+            <Text style={[s.bigDecisionSub, { color: C.muted }]}>
+              Different meals for adults or children
+            </Text>
+          </TouchableOpacity>
+        </View>
+        <TouchableOpacity
+          onPress={() => setScreen("choices")}
+          style={s.setupBack}
+        >
+          <Text style={s.notNow}>Choose a different {slot.toLowerCase()}</Text>
+        </TouchableOpacity>
+      </>
+    );
+  if (screen === "people")
+    return (
+      <>
+        <Header
+          overline={`${day.toUpperCase()} · ${slot.toUpperCase()}`}
+          title="Select who is eating"
+          sub="Only the selected people are included in quantities."
+        />
+        <View style={s.card}>
+          {household.members.map((member) => {
+            const on = people.includes(member.id);
+            return (
+              <TouchableOpacity
+                key={member.id}
+                onPress={() =>
+                  setPeople((current) =>
+                    on
+                      ? current.filter((id) => id !== member.id)
+                      : [...current, member.id],
+                  )
+                }
+                style={s.quickPerson}
+              >
+                <View style={s.avatar}>
+                  <Text style={s.avatarText}>{member.name[0]}</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.rowTitle}>{member.name}</Text>
+                  <Text style={s.rowDetail}>{member.role}</Text>
+                </View>
+                <Ionicons
+                  name={on ? "checkbox" : "square-outline"}
+                  size={25}
+                  color={C.green}
+                />
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+        <Button
+          text={`Save for ${people.length || "no one"}`}
+          icon="checkmark"
+          disabled={!people.length}
+          onPress={() => saveAndReturn(people)}
+        />
+      </>
+    );
   return (
     <>
       <Header
         overline={`PLAN DAY ${dayIndex + 1} OF 7`}
         title={day}
-        sub="Three quick choices, then you are on to the next day."
+        sub="Choose each part of the day. The app then moves you straight on."
       />
       <View style={s.progress}>
         <View style={s.progressTop}>
@@ -2637,103 +2764,43 @@ function GuidedPlanner({
           <View style={[s.trackFill, { width: `${(dayIndex / 7) * 100}%` }]} />
         </View>
       </View>
-      <View style={s.choiceRow}>
-        {["Breakfast", "Lunch", "Dinner"].map((name) => (
-          <TouchableOpacity
-            key={name}
-            onPress={() => {
-              setSlot(name);
-              setShowPeople(false);
-            }}
-            style={[s.choiceChip, slot === name && s.choiceChipOn]}
-          >
-            <Text style={[s.choiceText, slot === name && s.choiceTextOn]}>
-              {slots[name]?.name || (name === "Dinner" && plan[day])
-                ? "✓ "
-                : ""}
-              {name}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-      <Text style={s.sectionLabel}>CHOOSE {slot.toUpperCase()}</Text>
-      <View style={s.card}>
-        {options.map((name) => (
-          <TouchableOpacity
-            key={name}
-            style={[s.itemRow, selected === name && s.mealChoiceOn]}
-            onPress={() => setSelection(name)}
-          >
-            <View style={s.iconBox}>
+      <View style={s.quickActionArea}>
+        {["Breakfast", "Lunch", "Dinner"].map((name) => {
+          const choice = name === "Dinner" ? plan[day] : slots[name]?.name;
+          return (
+            <TouchableOpacity
+              key={name}
+              onPress={() => chooseSlot(name)}
+              style={[s.dayDecision, choice && s.dayDecisionDone]}
+            >
               <Ionicons
                 name={
-                  slot === "Dinner"
-                    ? "restaurant-outline"
-                    : slot === "Breakfast"
-                      ? "sunny-outline"
-                      : "briefcase-outline"
+                  name === "Breakfast"
+                    ? "sunny-outline"
+                    : name === "Lunch"
+                      ? "briefcase-outline"
+                      : "restaurant-outline"
                 }
-                size={18}
-                color={C.green}
+                size={26}
+                color={choice ? C.white : C.green}
               />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={s.rowTitle}>{name}</Text>
-              <Text style={s.rowDetail}>
-                {slot === "Dinner" && MEALS[name]
-                  ? `${MEALS[name].time} minutes · family meal`
-                  : "Quick family choice"}
-              </Text>
-            </View>
-            {selected === name && (
-              <Ionicons name="checkmark-circle" size={21} color={C.green} />
-            )}
-          </TouchableOpacity>
-        ))}
+              <View style={{ flex: 1 }}>
+                <Text style={[s.dayDecisionText, choice && { color: C.white }]}>
+                  {name}
+                </Text>
+                <Text style={[s.dayDecisionSub, choice && { color: C.white }]}>
+                  {choice || "Tap to choose"}
+                </Text>
+              </View>
+              <Ionicons
+                name={choice ? "checkmark-circle" : "chevron-forward"}
+                size={24}
+                color={choice ? C.white : C.green}
+              />
+            </TouchableOpacity>
+          );
+        })}
       </View>
-      {selected && (
-        <>
-          <TouchableOpacity
-            onPress={() => setShowPeople(!showPeople)}
-            style={s.setupBack}
-          >
-            <Text style={s.link}>
-              {showPeople
-                ? "Done choosing people"
-                : "Who is eating this? Whole household selected"}
-            </Text>
-          </TouchableOpacity>
-          {showPeople && (
-            <View style={s.card}>
-              {household.members.map((member) => {
-                const ids =
-                  slot === "Dinner" ? allIds : slots[slot]?.memberIds || allIds;
-                const on = ids.includes(member.id);
-                return (
-                  <TouchableOpacity
-                    key={member.id}
-                    onPress={() => slot !== "Dinner" && togglePerson(member.id)}
-                    style={s.itemRow}
-                  >
-                    <View style={s.avatar}>
-                      <Text style={s.avatarText}>{member.name[0]}</Text>
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={s.rowTitle}>{member.name}</Text>
-                      <Text style={s.rowDetail}>{member.role}</Text>
-                    </View>
-                    <Ionicons
-                      name={on ? "checkbox" : "square-outline"}
-                      size={22}
-                      color={C.green}
-                    />
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          )}
-        </>
-      )}
       <Button
         text={
           completed
@@ -4828,6 +4895,78 @@ const s = StyleSheet.create({
   choiceChipOn: { backgroundColor: C.green, borderColor: C.green },
   choiceText: { fontSize: 12, fontWeight: "700", color: C.muted },
   choiceTextOn: { color: C.white },
+  quickActionArea: { gap: 12, marginTop: 8, marginBottom: 20 },
+  dayDecision: {
+    minHeight: 92,
+    backgroundColor: C.white,
+    borderWidth: 1,
+    borderColor: C.line,
+    borderRadius: 13,
+    padding: 17,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+  },
+  dayDecisionDone: { backgroundColor: C.green, borderColor: C.green },
+  dayDecisionText: {
+    fontFamily: "Georgia",
+    fontSize: 21,
+    fontWeight: "700",
+    color: C.green,
+  },
+  dayDecisionSub: { fontSize: 12, color: C.muted, marginTop: 4 },
+  quickChoiceStack: { gap: 10, marginBottom: 14 },
+  quickChoice: {
+    minHeight: 76,
+    backgroundColor: C.white,
+    borderWidth: 1,
+    borderColor: C.line,
+    borderRadius: 12,
+    padding: 13,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  quickChoiceTitle: { fontSize: 16, fontWeight: "700", color: C.ink },
+  bigDecision: {
+    minHeight: 142,
+    borderRadius: 14,
+    backgroundColor: C.green,
+    padding: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    borderBottomWidth: 3,
+    borderBottomColor: C.dark,
+  },
+  bigDecisionPale: {
+    backgroundColor: C.white,
+    borderWidth: 1,
+    borderColor: C.line,
+    borderBottomColor: C.line,
+  },
+  bigDecisionText: {
+    fontFamily: "Georgia",
+    fontSize: 24,
+    fontWeight: "700",
+    color: C.white,
+    marginTop: 9,
+  },
+  bigDecisionSub: {
+    fontSize: 11,
+    color: C.soft,
+    marginTop: 5,
+    textAlign: "center",
+  },
+  quickPerson: {
+    minHeight: 66,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 11,
+    borderBottomWidth: 1,
+    borderBottomColor: C.line,
+  },
   toggleRow: {
     padding: 15,
     flexDirection: "row",
