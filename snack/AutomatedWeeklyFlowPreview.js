@@ -2198,7 +2198,6 @@ function PlanShop({
   setDaySlots,
   setDinner,
   household,
-  addNonFood,
 }) {
   const start = 15 + (planWeek - 1) * 7;
   const [plannerTab, setPlannerTab] = useState("Meals");
