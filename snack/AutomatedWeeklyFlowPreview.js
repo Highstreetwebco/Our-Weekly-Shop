@@ -2159,82 +2159,24 @@ function ThisWeek({ plan, outcomes, finishDay, suggestion, setCurrent }) {
           </View>
         </View>
       )}
-      <View style={s.weekCard}>
-        {DAYS.map((day, i) => {
-          const status = outcomes[day];
-          return (
-            <View
-              key={day}
-              style={[s.calendarRow, day === today && s.todayRow]}
-            >
-              <View style={s.date}>
-                <Text style={[s.dayShort, day === today && { color: C.green }]}>
-                  SEP
-                </Text>
-                <Text style={s.dateNo}>{8 + i}</Text>
-              </View>
-              <View style={{ flex: 1 }}>
-                <View style={s.dayHeading}>
-                  <Text style={s.dayName}>{day}</Text>
-                  {day === today && <Text style={s.today}>TODAY</Text>}
-                </View>
-                <Text style={[s.mealName, status && s.crossed]}>
-                  {plan[day]}
-                </Text>
-                <Text style={s.mealMeta}>
-                  {MEALS[plan[day]].time} minutes · Dinner
-                </Text>
-                {day === today && !status && (
-                  <View style={s.outcomeRow}>
-                    <SmallButton
-                      icon="checkmark"
-                      text="Cooked"
-                      onPress={() => finishDay(day, "Cooked")}
-                    />
-                    <SmallButton
-                      icon="restaurant-outline"
-                      text="Ate out"
-                      onPress={() => finishDay(day, "Ate out")}
-                      pale
-                    />
-                    <SmallButton
-                      icon="bag-handle-outline"
-                      text="Takeaway"
-                      onPress={() => finishDay(day, "Takeaway")}
-                      pale
-                    />
-                  </View>
-                )}
-                {status && (
-                  <View style={s.status}>
-                    <Ionicons
-                      name={
-                        status === "Cooked"
-                          ? "checkmark-circle"
-                          : "information-circle"
-                      }
-                      size={15}
-                      color={C.green}
-                    />
-                    <Text style={s.statusText}>
-                      {status}
-                      {status === "Cooked"
-                        ? " · ingredients removed from home stock"
-                        : " · no ingredients used"}
-                    </Text>
-                  </View>
-                )}
-              </View>
-            </View>
-          );
-        })}
-      </View>
-      <View style={s.info}>
-        <Ionicons name="notifications-outline" size={19} color={C.green} />
-        <Text style={s.infoText}>
-          Each evening, the app will remind you to confirm whether the planned
-          meal was cooked, skipped or replaced.
+      <View style={[s.weekCard, { padding: 20 }]}>
+        <Text style={s.sectionLabel}>TONIGHT</Text>
+        <Text style={[s.mealName, { fontSize: 24 }]}>{tonight}</Text>
+        <Text style={s.mealMeta}>
+          {MEALS[tonight]?.time || 30} minutes
         </Text>
+        {!tonightDone ? (
+          <View style={s.outcomeRow}>
+            <SmallButton icon="checkmark" text="Cooked" onPress={() => finishDay(today, "Cooked")} />
+            <SmallButton icon="restaurant-outline" text="Ate out" onPress={() => finishDay(today, "Ate out")} pale />
+            <SmallButton icon="bag-handle-outline" text="Takeaway" onPress={() => finishDay(today, "Takeaway")} pale />
+          </View>
+        ) : (
+          <View style={s.status}>
+            <Ionicons name="checkmark-circle" size={17} color={C.green} />
+            <Text style={s.statusText}>{tonightDone}</Text>
+          </View>
+        )}
       </View>
     </>
   );
@@ -2412,6 +2354,7 @@ function GuidedPlanner({
   const [ingredientText, setIngredientText] = useState("");
   const [ingredients, setIngredients] = useState([]);
   const [expandedReviewDay, setExpandedReviewDay] = useState(null);
+  const [assignmentNotice, setAssignmentNotice] = useState("");
   const day = DAYS[dayIndex];
   const slots = daySlots[day] || {};
   const slotItems = (name) => {
@@ -2450,6 +2393,16 @@ function GuidedPlanner({
   const selected = slot === "Dinner" ? plan[day] : slots[slot]?.name;
   const allIds = household.members.map((member) => member.id);
   const saveSelection = (name, memberIds) => {
+    const previousItems = slot === "Dinner" ? dinnerItems : slotItems(slot);
+    const replaced = previousItems.find(
+      (item) =>
+        item[slot === "Dinner" ? "meal" : "name"] !== name &&
+        (item.memberIds || []).some((id) => memberIds.includes(id)),
+    );
+    if (replaced) {
+      const changedNames = memberIds.map((id) => household.members.find((member) => member.id === id)?.name.split(" ")[0]).filter(Boolean).join(" & ");
+      setAssignmentNotice(`${changedNames} will now have ${name} instead of ${replaced[slot === "Dinner" ? "meal" : "name"]}.`);
+    } else setAssignmentNotice("");
     if (slot === "Dinner") return setDinner(day, name, memberIds);
     setDaySlots((current) => ({
       ...current,
@@ -2514,7 +2467,7 @@ function GuidedPlanner({
     setScreen("day");
   };
   const completeDay = () => {
-    if (dayIndex === DAYS.length - 1) setFlow("review");
+    if (dayIndex === DAYS.length - 1) setFlow("extras");
     else {
       setDayIndex((index) => index + 1);
       setSlot("Breakfast");
@@ -2785,9 +2738,10 @@ function GuidedPlanner({
           ))}
         </View>
         <Button
-          text="Continue to extras"
+          text="Compare supermarkets"
           icon="arrow-forward"
-          onPress={() => setFlow("extras")}
+          disabled={reviewCompleteDays < 7}
+          onPress={() => open("Compare")}
         />
       </>
     );
@@ -2880,34 +2834,23 @@ function GuidedPlanner({
           title="Who is this for?"
           sub={pendingChoice}
         />
-        <View style={s.quickActionArea}>
-          <TouchableOpacity
-            style={s.bigDecision}
-            onPress={() => saveAndReturn(allIds)}
-          >
-            <Ionicons name="people-outline" size={28} color={C.white} />
-            <Text style={s.bigDecisionText}>Everyone</Text>
-            <Text style={s.bigDecisionSub}>Use the whole household</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[s.bigDecision, s.bigDecisionPale]}
-            onPress={() => setScreen("people")}
-          >
-            <Ionicons name="person-add-outline" size={28} color={C.green} />
-            <Text style={[s.bigDecisionText, { color: C.green }]}>
-              Choose people
-            </Text>
-            <Text style={[s.bigDecisionSub, { color: C.muted }]}>
-              Different meals for adults or children
-            </Text>
-          </TouchableOpacity>
+        <View style={s.card}>
+          {household.members.map((member) => {
+            const on = people.includes(member.id);
+            return <TouchableOpacity key={member.id} onPress={() => setPeople((current) => on ? current.filter((id) => id !== member.id) : [...current, member.id])} style={s.quickPerson}>
+              <View style={s.avatar}><Text style={s.avatarText}>{member.name[0]}</Text></View>
+              <Text style={[s.rowTitle, { flex: 1 }]}>{member.name.split(" ")[0]}</Text>
+              <Ionicons name={on ? "checkbox" : "square-outline"} size={25} color={C.green} />
+            </TouchableOpacity>;
+          })}
         </View>
         <TouchableOpacity
-          onPress={() => setScreen("choices")}
+          onPress={() => setPeople(allIds)}
           style={s.setupBack}
         >
-          <Text style={s.notNow}>Choose a different {slot.toLowerCase()}</Text>
+          <Text style={s.link}>Select everyone</Text>
         </TouchableOpacity>
+        <Button text={`Save for ${people.length || "no one"}`} icon="checkmark" disabled={!people.length} onPress={() => saveAndReturn(people)} />
       </>
     );
   if (screen === "people")
@@ -2962,21 +2905,14 @@ function GuidedPlanner({
       <Header
         overline={`PLAN DAY ${dayIndex + 1} OF 7`}
         title={day}
-        sub="Choose each part of the day. The app then moves you straight on."
+        sub={completed ? `${day} is ready` : `${day} needs ${!slotItems("Breakfast").length ? "breakfast" : !slotItems("Lunch").length ? "lunch" : "dinner"}`}
       />
-      <View style={s.progress}>
-        <View style={s.progressTop}>
-          <Text style={s.progressTitle}>
-            {dayIndex === 0
-              ? "This week starts here"
-              : `Monday to ${DAYS[dayIndex - 1]} complete`}
-          </Text>
-          <Text style={s.progressCount}>{dayIndex}/7 days</Text>
+      {!!assignmentNotice && (
+        <View style={s.confirm}>
+          <Ionicons name="checkmark-circle" size={18} color={C.green} />
+          <Text style={s.confirmTitle}>{assignmentNotice}</Text>
         </View>
-        <View style={s.track}>
-          <View style={[s.trackFill, { width: `${(dayIndex / 7) * 100}%` }]} />
-        </View>
-      </View>
+      )}
       <View style={s.quickActionArea}>
         {["Breakfast", "Lunch", "Dinner"].map((name) => {
           const items = name === "Dinner" ? dinnerItems : slotItems(name);
@@ -3004,7 +2940,7 @@ function GuidedPlanner({
                   {name}
                 </Text>
                 <Text style={[s.dayDecisionSub, choice && { color: C.white }]}>
-                  {choice || "Tap to choose"}
+                  {choice || "Not planned"}
                 </Text>
               </View>
               <Ionicons
@@ -3028,9 +2964,6 @@ function GuidedPlanner({
         disabled={!completed}
         onPress={completeDay}
       />
-      <TouchableOpacity onPress={() => setFlow("review")} style={s.setupBack}>
-        <Text style={s.notNow}>Review week so far</Text>
-      </TouchableOpacity>
     </>
   );
 }
