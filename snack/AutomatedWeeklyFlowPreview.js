@@ -338,6 +338,11 @@ export default function App() {
     Drinks: [],
     Snacks: [],
   });
+  const [quickMealChoices, setQuickMealChoices] = useState({
+    Breakfast: [],
+    Lunch: [],
+    Dinner: [],
+  });
   const [outcomes, setOutcomes] = useState({}),
     [extrasByWeek, setExtrasByWeek] = useState({
       1: ["Toilet roll", "Toothpaste"],
@@ -415,6 +420,7 @@ export default function App() {
         setWeeklyConsumables(saved.weeklyConsumables);
       if (saved.daySlots) setDaySlots(saved.daySlots);
       if (saved.customChoices) setCustomChoices(saved.customChoices);
+      if (saved.quickMealChoices) setQuickMealChoices(saved.quickMealChoices);
       if (saved.outcomes) setOutcomes(saved.outcomes);
       if (saved.extrasByWeek) setExtrasByWeek(saved.extrasByWeek);
       if (saved.itemHistory) setItemHistory(saved.itemHistory);
@@ -449,6 +455,7 @@ export default function App() {
         weeklyConsumables,
         daySlots,
         customChoices,
+        quickMealChoices,
         outcomes,
         extrasByWeek,
         itemHistory,
@@ -486,6 +493,7 @@ export default function App() {
     weeklyConsumables,
     daySlots,
     customChoices,
+    quickMealChoices,
     outcomes,
     extrasByWeek,
     itemHistory,
@@ -751,6 +759,15 @@ export default function App() {
                   weeklyConsumables[planWeek] || { Drinks: [], Snacks: [] }
                 }
                 customChoices={customChoices}
+                quickMealChoices={quickMealChoices}
+                rememberMealChoice={(category, name) =>
+                  setQuickMealChoices((current) => ({
+                    ...current,
+                    [category]: [
+                      ...new Set([...(current[category] || []), name]),
+                    ],
+                  }))
+                }
                 rememberChoice={(category, name) =>
                   setCustomChoices((current) => ({
                     ...current,
@@ -2194,6 +2211,8 @@ function PlanShop({
   consumables,
   openConsumableAudience,
   customChoices,
+  quickMealChoices,
+  rememberMealChoice,
   rememberChoice,
   daySlots,
   setDaySlots,
@@ -2216,6 +2235,8 @@ function PlanShop({
         open={open}
         basket={basket}
         addNonFood={addNonFood}
+        quickMealChoices={quickMealChoices}
+        rememberMealChoice={rememberMealChoice}
       />
     );
   return (
@@ -2435,6 +2456,8 @@ function GuidedPlanner({
   open,
   basket,
   addNonFood,
+  quickMealChoices,
+  rememberMealChoice,
 }) {
   const [dayIndex, setDayIndex] = useState(0);
   const [screen, setScreen] = useState("day");
@@ -2442,9 +2465,10 @@ function GuidedPlanner({
   const [pendingChoice, setPendingChoice] = useState("");
   const [people, setPeople] = useState([]);
   const [extra, setExtra] = useState("");
+  const [typedChoice, setTypedChoice] = useState("");
   const day = DAYS[dayIndex];
   const slots = daySlots[day] || {};
-  const options =
+  const starterOptions =
     slot === "Breakfast"
       ? ["Cereal", "Toast", "Porridge", "Yoghurt & fruit", "No meal needed"]
       : slot === "Lunch"
@@ -2462,6 +2486,9 @@ function GuidedPlanner({
             "Leftovers",
             "No meal needed",
           ];
+  const options = [
+    ...new Set([...(quickMealChoices?.[slot] || []), ...starterOptions]),
+  ];
   const selected = slot === "Dinner" ? plan[day] : slots[slot]?.name;
   const allIds = household.members.map((member) => member.id);
   const saveSelection = (name, memberIds) => {
@@ -2480,6 +2507,7 @@ function GuidedPlanner({
     setScreen("choices");
   };
   const chooseFood = (name) => {
+    rememberMealChoice(slot, name);
     setPendingChoice(name);
     setPeople(slot === "Dinner" ? allIds : slots[slot]?.memberIds || allIds);
     setScreen("audience");
@@ -2620,8 +2648,39 @@ function GuidedPlanner({
         <Header
           overline={`${day.toUpperCase()} · ${slot.toUpperCase()}`}
           title={`Choose ${slot.toLowerCase()}`}
-          sub="Pick one option. You can change it later in your weekly review."
+          sub="Start by typing what you want. We will remember it as a quick pick next time."
         />
+        <View style={s.addBar}>
+          <Ionicons name="create-outline" size={20} color={C.green} />
+          <TextInput
+            value={typedChoice}
+            onChangeText={setTypedChoice}
+            onSubmitEditing={() => {
+              const value = typedChoice.trim();
+              if (value) {
+                setTypedChoice("");
+                chooseFood(value);
+              }
+            }}
+            placeholder={`Type a ${slot.toLowerCase()}…`}
+            placeholderTextColor={C.muted}
+            style={s.input}
+          />
+          <TouchableOpacity
+            onPress={() => {
+              const value = typedChoice.trim();
+              if (value) {
+                setTypedChoice("");
+                chooseFood(value);
+              }
+            }}
+          >
+            <Text style={s.link}>Next</Text>
+          </TouchableOpacity>
+        </View>
+        {(quickMealChoices?.[slot] || []).length > 0 && (
+          <Text style={s.sectionLabel}>YOUR QUICK PICKS</Text>
+        )}
         <View style={s.quickChoiceStack}>
           {options.map((name) => (
             <TouchableOpacity
