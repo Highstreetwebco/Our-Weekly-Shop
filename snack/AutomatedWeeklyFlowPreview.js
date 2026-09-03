@@ -343,6 +343,7 @@ export default function App() {
     Lunch: [],
     Dinner: [],
   });
+  const [customRecipes, setCustomRecipes] = useState({});
   const [outcomes, setOutcomes] = useState({}),
     [extrasByWeek, setExtrasByWeek] = useState({
       1: ["Toilet roll", "Toothpaste"],
@@ -421,6 +422,7 @@ export default function App() {
       if (saved.daySlots) setDaySlots(saved.daySlots);
       if (saved.customChoices) setCustomChoices(saved.customChoices);
       if (saved.quickMealChoices) setQuickMealChoices(saved.quickMealChoices);
+      if (saved.customRecipes) setCustomRecipes(saved.customRecipes);
       if (saved.outcomes) setOutcomes(saved.outcomes);
       if (saved.extrasByWeek) setExtrasByWeek(saved.extrasByWeek);
       if (saved.itemHistory) setItemHistory(saved.itemHistory);
@@ -456,6 +458,7 @@ export default function App() {
         daySlots,
         customChoices,
         quickMealChoices,
+        customRecipes,
         outcomes,
         extrasByWeek,
         itemHistory,
@@ -494,6 +497,7 @@ export default function App() {
     daySlots,
     customChoices,
     quickMealChoices,
+    customRecipes,
     outcomes,
     extrasByWeek,
     itemHistory,
@@ -556,6 +560,7 @@ export default function App() {
         mealAssignments[planWeek],
         weeklyConsumables[planWeek],
         daySlots[planWeek],
+        customRecipes,
       ),
     [
       next,
@@ -564,6 +569,7 @@ export default function App() {
       mealAssignments,
       weeklyConsumables,
       daySlots,
+      customRecipes,
       planWeek,
     ],
   );
@@ -766,6 +772,13 @@ export default function App() {
                     [category]: [
                       ...new Set([...(current[category] || []), name]),
                     ],
+                  }))
+                }
+                customRecipes={customRecipes}
+                saveRecipe={(name, ingredients) =>
+                  setCustomRecipes((current) => ({
+                    ...current,
+                    [name]: { time: 30, ingredients },
                   }))
                 }
                 rememberChoice={(category, name) =>
@@ -1709,10 +1722,11 @@ function buildBasket(
   assignments = {},
   consumables = {},
   daySlots = {},
+  customRecipes = {},
 ) {
   const map = {};
   const addMeal = (mealName, memberIds) => {
-    const meal = MEALS[mealName];
+    const meal = MEALS[mealName] || customRecipes[mealName];
     if (!meal) return;
     const portions = (household?.members || [])
       .filter((member) => memberIds.includes(member.id))
@@ -2213,6 +2227,8 @@ function PlanShop({
   customChoices,
   quickMealChoices,
   rememberMealChoice,
+  customRecipes,
+  saveRecipe,
   rememberChoice,
   daySlots,
   setDaySlots,
@@ -2237,6 +2253,8 @@ function PlanShop({
         addNonFood={addNonFood}
         quickMealChoices={quickMealChoices}
         rememberMealChoice={rememberMealChoice}
+        customRecipes={customRecipes}
+        saveRecipe={saveRecipe}
       />
     );
   return (
@@ -2285,7 +2303,7 @@ function PlanShop({
       <Button
         text="Plan this week day by day"
         icon="calendar-outline"
-        onPress={() => setFlow("guided")}
+        onPress={() => setFlow("intro")}
       />
       <Button
         text="Use my usual week"
@@ -2458,6 +2476,8 @@ function GuidedPlanner({
   addNonFood,
   quickMealChoices,
   rememberMealChoice,
+  customRecipes,
+  saveRecipe,
 }) {
   const [dayIndex, setDayIndex] = useState(0);
   const [screen, setScreen] = useState("day");
@@ -2466,26 +2486,11 @@ function GuidedPlanner({
   const [people, setPeople] = useState([]);
   const [extra, setExtra] = useState("");
   const [typedChoice, setTypedChoice] = useState("");
+  const [ingredientText, setIngredientText] = useState("");
+  const [ingredients, setIngredients] = useState([]);
   const day = DAYS[dayIndex];
   const slots = daySlots[day] || {};
-  const starterOptions =
-    slot === "Breakfast"
-      ? ["Cereal", "Toast", "Porridge", "Yoghurt & fruit", "No meal needed"]
-      : slot === "Lunch"
-        ? [
-            "Packed lunch",
-            "School lunch",
-            "Sandwiches",
-            "Leftovers",
-            "No meal needed",
-          ]
-        : [
-            ...Object.keys(MEALS),
-            "Takeaway",
-            "Eat out",
-            "Leftovers",
-            "No meal needed",
-          ];
+  const starterOptions = ["No meal needed"];
   const options = [
     ...new Set([...(quickMealChoices?.[slot] || []), ...starterOptions]),
   ];
@@ -2507,6 +2512,13 @@ function GuidedPlanner({
     setScreen("choices");
   };
   const chooseFood = (name) => {
+    if (slot === "Dinner" && !MEALS[name] && !customRecipes?.[name]) {
+      setPendingChoice(name);
+      setIngredients([]);
+      setIngredientText("");
+      setScreen("ingredients");
+      return;
+    }
     rememberMealChoice(slot, name);
     setPendingChoice(name);
     setPeople(slot === "Dinner" ? allIds : slots[slot]?.memberIds || allIds);
@@ -2524,6 +2536,135 @@ function GuidedPlanner({
       setScreen("day");
     }
   };
+  if (flow === "intro")
+    return (
+      <>
+        <Header
+          overline="YOUR FIRST WEEK"
+          title="Tell us your usual meals"
+          sub="There are no preset choices. Start by typing what your household actually eats."
+        />
+        <View style={s.info}>
+          <Ionicons name="sparkles-outline" size={20} color={C.green} />
+          <Text style={s.infoText}>
+            For the first few shops, you will type meals and products in. We
+            remember them safely. Each week after that, your personal quick
+            picks grow — making planning faster and less stressful.
+          </Text>
+        </View>
+        <View style={s.quickActionArea}>
+          <View style={s.bigDecision}>
+            <Ionicons name="restaurant-outline" size={28} color={C.white} />
+            <Text style={s.bigDecisionText}>You type it once</Text>
+            <Text style={s.bigDecisionSub}>
+              We learn your meals, products and household routine.
+            </Text>
+          </View>
+        </View>
+        <Button
+          text="Start with Monday"
+          icon="arrow-forward"
+          onPress={() => setFlow("guided")}
+        />
+      </>
+    );
+  if (screen === "ingredients")
+    return (
+      <>
+        <Header
+          overline="SAVE A FAMILY MEAL"
+          title={`What goes in ${pendingChoice}?`}
+          sub="Add the ingredients you normally use. We will use this recipe for your basket from now on."
+        />
+        <View style={s.addBar}>
+          <Ionicons name="add" size={20} color={C.green} />
+          <TextInput
+            value={ingredientText}
+            onChangeText={setIngredientText}
+            onSubmitEditing={() => {
+              const value = ingredientText.trim();
+              if (value) {
+                setIngredients((current) => [...current, value]);
+                setIngredientText("");
+              }
+            }}
+            placeholder="e.g. chicken breast"
+            placeholderTextColor={C.muted}
+            style={s.input}
+          />
+          <TouchableOpacity
+            onPress={() => {
+              const value = ingredientText.trim();
+              if (value) {
+                setIngredients((current) => [...current, value]);
+                setIngredientText("");
+              }
+            }}
+          >
+            <Text style={s.link}>Add</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={s.card}>
+          {ingredients.length ? (
+            ingredients.map((item, index) => (
+              <View key={item + index} style={s.itemRow}>
+                <View style={s.iconBox}>
+                  <Ionicons name="basket-outline" size={18} color={C.green} />
+                </View>
+                <Text style={[s.rowTitle, { flex: 1 }]}>{item}</Text>
+                <TouchableOpacity
+                  onPress={() =>
+                    setIngredients((current) =>
+                      current.filter((_, i) => i !== index),
+                    )
+                  }
+                >
+                  <Ionicons
+                    name="close-circle-outline"
+                    size={20}
+                    color={C.muted}
+                  />
+                </TouchableOpacity>
+              </View>
+            ))
+          ) : (
+            <View style={s.itemRow}>
+              <Text style={s.rowDetail}>
+                Add each item one at a time — for example wraps, chicken, rice
+                and salsa.
+              </Text>
+            </View>
+          )}
+        </View>
+        <Button
+          text={
+            ingredients.length
+              ? `Save ${pendingChoice}`
+              : "Add ingredients to continue"
+          }
+          icon="checkmark"
+          disabled={!ingredients.length}
+          onPress={() => {
+            const recipeIngredients = ingredients.map((name) => [
+              name,
+              1,
+              "pack",
+              null,
+              false,
+            ]);
+            saveRecipe(pendingChoice, recipeIngredients);
+            rememberMealChoice("Dinner", pendingChoice);
+            setScreen("audience");
+          }}
+        />
+        <TouchableOpacity
+          onPress={() => setScreen("choices")}
+          style={s.setupBack}
+        >
+          <Text style={s.notNow}>Back to dinner</Text>
+        </TouchableOpacity>
+      </>
+    );
   if (flow === "extras")
     return (
       <>
