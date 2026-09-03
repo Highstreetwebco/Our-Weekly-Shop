@@ -2760,13 +2760,13 @@ function GuidedPlanner({
               <View style={{ flex: 1 }}>
                 <Text style={s.dayName}>{name}</Text>
                 <Text style={s.rowDetail}>
-                  Breakfast · {daySlots[name]?.Breakfast?.name || "Not set"}
+                  Breakfast · {itemSummary(Array.isArray(daySlots[name]?.Breakfast) ? daySlots[name].Breakfast : daySlots[name]?.Breakfast ? [daySlots[name].Breakfast] : []) || "Not set"}
                 </Text>
                 <Text style={s.rowDetail}>
-                  Lunch · {daySlots[name]?.Lunch?.name || "Not set"}
+                  Lunch · {itemSummary(Array.isArray(daySlots[name]?.Lunch) ? daySlots[name].Lunch : daySlots[name]?.Lunch ? [daySlots[name].Lunch] : []) || "Not set"}
                 </Text>
                 <Text style={s.mealName}>
-                  Dinner · {plan[name] || "Not set"}
+                  Dinner · {itemSummary(dinnerAssignments[name] || (plan[name] ? [{ meal: plan[name], memberIds: [] }] : []), "meal") || "Not set"}
                 </Text>
               </View>
               <Ionicons name="create-outline" size={19} color={C.green} />
