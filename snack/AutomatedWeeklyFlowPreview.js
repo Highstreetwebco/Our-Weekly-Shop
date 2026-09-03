@@ -2415,7 +2415,7 @@ function GuidedPlanner({
   const chooseFood = (name) => {
     if (name === "No meal needed") {
       setPendingChoice(name);
-      setPeople(allIds);
+      setPeople([]);
       setScreen("audience");
       return;
     }
@@ -2427,10 +2427,11 @@ function GuidedPlanner({
     }
     rememberMealChoice(slot, name);
     setPendingChoice(name);
-    setPeople(slot === "Dinner" ? allIds : slots[slot]?.memberIds || allIds);
+    setPeople([]);
     setScreen("audience");
   };
   const startIngredients = () => {
+    setPeople([]);
     setIngredients([]);
     setIngredientText("");
     setScreen("ingredients");
@@ -2439,6 +2440,7 @@ function GuidedPlanner({
     if (slot === "Dinner")
       saveRecipe(pendingChoice, [[pendingChoice, 1, "pack", null, false]]);
     rememberMealChoice(slot, pendingChoice);
+    setPeople([]);
     setScreen("audience");
   };
   const saveAndReturn = (memberIds) => {
@@ -2609,6 +2611,7 @@ function GuidedPlanner({
             ]);
             saveRecipe(pendingChoice, recipeIngredients);
             rememberMealChoice(slot, pendingChoice);
+            setPeople([]);
             setScreen("audience");
           }}
         />
