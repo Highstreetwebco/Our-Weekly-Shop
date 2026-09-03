@@ -283,6 +283,7 @@ export default function App() {
   const [pendingSwap, setPendingSwap] = useState(null);
   const [weeklyConsumables, setWeeklyConsumables] = useState(() => Object.fromEntries(Array.from({ length: 8 }, (_, i) => [i + 1, { Drinks: [], Snacks: [] }])));
   const [pendingConsumable, setPendingConsumable] = useState(null);
+  const [customChoices, setCustomChoices] = useState({ Drinks: [], Snacks: [] });
   const [outcomes, setOutcomes] = useState({}),
     [extrasByWeek, setExtrasByWeek] = useState({
       1: ["Toilet roll", "Toothpaste"],
@@ -356,6 +357,7 @@ export default function App() {
       if (saved.mealAssignments) setMealAssignments(saved.mealAssignments);
       if (saved.attendanceOverrides) setAttendanceOverrides(saved.attendanceOverrides);
       if (saved.weeklyConsumables) setWeeklyConsumables(saved.weeklyConsumables);
+      if (saved.customChoices) setCustomChoices(saved.customChoices);
       if (saved.outcomes) setOutcomes(saved.outcomes);
       if (saved.extrasByWeek) setExtrasByWeek(saved.extrasByWeek);
       if (saved.itemHistory) setItemHistory(saved.itemHistory);
@@ -389,6 +391,7 @@ export default function App() {
         mealAssignments,
         attendanceOverrides,
         weeklyConsumables,
+        customChoices,
         outcomes,
         extrasByWeek,
         itemHistory,
@@ -424,6 +427,7 @@ export default function App() {
     mealAssignments,
     attendanceOverrides,
     weeklyConsumables,
+    customChoices,
     outcomes,
     extrasByWeek,
     itemHistory,
@@ -596,6 +600,8 @@ export default function App() {
                 setPlanWeek={setPlanWeek}
                 mealAssignments={mealAssignments[planWeek] || {}}
                 consumables={weeklyConsumables[planWeek] || { Drinks: [], Snacks: [] }}
+                customChoices={customChoices}
+                rememberChoice={(category, name) => setCustomChoices((current) => ({ ...current, [category]: [...new Set([...(current[category] || []), name])] }))}
                 openConsumableAudience={(selection) => { setPendingConsumable(selection); setPage(`Consumable:${selection.category}:${selection.name}`); }}
                 showLow={showLow}
                 setShowLow={setShowLow}
@@ -1756,6 +1762,8 @@ function PlanShop({
   mealAssignments,
   consumables,
   openConsumableAudience,
+  customChoices,
+  rememberChoice,
 }) {
   const start = 15 + (planWeek - 1) * 7;
   const [plannerTab, setPlannerTab] = useState("Meals");
@@ -1888,15 +1896,30 @@ function PlanShop({
         </View>
       </View>
       </>}
-      {plannerTab !== "Meals" && <WeeklyConsumables category={plannerTab} items={consumables[plannerTab] || []} open={openConsumableAudience} />}
+      {plannerTab !== "Meals" && <WeeklyConsumables category={plannerTab} items={consumables[plannerTab] || []} savedChoices={customChoices[plannerTab] || []} rememberChoice={rememberChoice} open={openConsumableAudience} />}
     </>
   );
 }
 
-function WeeklyConsumables({ category, items, open }) {
+function WeeklyConsumables({ category, items, savedChoices, rememberChoice, open }) {
+  const [custom, setCustom] = useState("");
+  const [milkType, setMilkType] = useState("Semi-skimmed");
+  const [milkSize, setMilkSize] = useState("2 pints");
+  const choices = [...new Set([...WEEKLY_CHOICES[category], ...savedChoices])];
+  const addCustom = () => {
+    const name = custom.trim() || (category === "Drinks" ? `Milk · ${milkType} · ${milkSize}` : "");
+    if (!name) return;
+    rememberChoice(category, name);
+    open({ category, name, items });
+    setCustom("");
+  };
   return <>
     <Header overline={`PLAN ${category.toUpperCase()}`} title={`${category} for this week`} sub="Choose an item, then select exactly who will be consuming it." />
-    <View style={s.card}>{WEEKLY_CHOICES[category].map((name) => {
+    <View style={s.setupPanel}><TextInput value={custom} onChangeText={setCustom} placeholder={`Type a ${category.toLowerCase().slice(0, -1)}…`} placeholderTextColor={C.muted} style={s.setupInput} />
+      {category === "Drinks" && <><Text style={s.sectionLabel}>IF YOU ARE ADDING MILK</Text><View style={s.choiceRow}>{["Whole", "Semi-skimmed", "Skimmed", "Oat"].map((type) => <TouchableOpacity key={type} onPress={() => setMilkType(type)} style={[s.choiceChip, milkType === type && s.choiceChipOn]}><Text style={[s.choiceText, milkType === type && s.choiceTextOn]}>{type}</Text></TouchableOpacity>)}</View><View style={s.choiceRow}>{["1 pint", "2 pints", "4 pints"].map((size) => <TouchableOpacity key={size} onPress={() => setMilkSize(size)} style={[s.choiceChip, milkSize === size && s.choiceChipOn]}><Text style={[s.choiceText, milkSize === size && s.choiceTextOn]}>{size}</Text></TouchableOpacity>)}</View></>}
+      <Button text={custom.trim() ? "Add this item" : category === "Drinks" ? "Add selected milk" : "Type an item to add"} pale disabled={!custom.trim() && category !== "Drinks"} icon="add" onPress={addCustom} /></View>
+    {(savedChoices || []).length > 0 && <Text style={s.sectionLabel}>YOUR SAVED QUICK PICKS</Text>}
+    <View style={s.card}>{choices.map((name) => {
       const item = items.find((entry) => entry.name === name);
       return <TouchableOpacity key={name} onPress={() => open({ category, name, items })} style={[s.itemRow, item && s.mealChoiceOn]}><View style={s.iconBox}><Ionicons name={category === "Drinks" ? "cafe-outline" : "nutrition-outline"} size={18} color={C.green} /></View><View style={{ flex: 1 }}><Text style={s.rowTitle}>{name}</Text><Text style={s.rowDetail}>{item ? item.memberIds.length + " family member" + (item.memberIds.length === 1 ? "" : "s") + " selected" : "Choose who will have this"}</Text></View><Ionicons name={item ? "checkmark-circle" : "add-circle-outline"} size={21} color={C.green} /></TouchableOpacity>;
     })}</View>
