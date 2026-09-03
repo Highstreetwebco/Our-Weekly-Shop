@@ -1815,8 +1815,10 @@ function PlanShop({
         </TouchableOpacity>
       </View>
       <View style={s.info}><Ionicons name="sparkles-outline" size={19} color={C.green} /><Text style={s.infoText}>Start with your usual week, then only change what is different.</Text></View>
+      <Button text="Use my usual week" icon="sparkles-outline" onPress={repeatLastWeek} />
       <Button text="Use last week as my starting point" icon="copy-outline" pale onPress={repeatLastWeek} />
       <View style={s.progress}><View style={s.progressTop}><Text style={s.progressTitle}>This shop covers</Text><Text style={s.progressCount}>{Object.values(mealAssignments).filter((x) => x?.length).length}/7 meal days</Text></View><Text style={s.rowDetail}>Meals · drinks · snacks · household extras</Text></View>
+      <View style={s.lowPrompt}><View style={s.alertIcon}><Ionicons name="time-outline" size={20} color={C.amber} /></View><View style={{ flex: 1 }}><Text style={s.alertTitle}>Only review what has changed</Text><Text style={s.alertText}>Your usual meals, drinks and snacks are carried over. Add a takeaway, swap a meal, or leave a day blank when plans change.</Text></View></View>
       <View style={s.choiceRow}>
         {["Meals", "Drinks", "Snacks"].map((item) => <TouchableOpacity key={item} onPress={() => setPlannerTab(item)} style={[s.choiceChip, plannerTab === item && s.choiceChipOn]}><Text style={[s.choiceText, plannerTab === item && s.choiceTextOn]}>{item}</Text></TouchableOpacity>)}
       </View>
