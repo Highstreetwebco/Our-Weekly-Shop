@@ -1772,6 +1772,22 @@ function buildBasket(
       if (!item || item.name === "No meal needed") return;
       const memberCount =
         (item.memberIds || []).length || (household?.members || []).length;
+      const recipe = customRecipes[item.name];
+      if (recipe?.ingredients?.length) {
+        recipe.ingredients.forEach(
+          ([name, qty = 1, unit = "pack", , dated = false]) => {
+            if (!map[name])
+              map[name] = { name, qty: 0, unit, dated, meals: [] };
+            map[name].qty += Math.max(
+              1,
+              Math.ceil((Number(qty) * memberCount) / 2),
+            );
+            if (!map[name].meals.includes(`${day} ${slot}`))
+              map[name].meals.push(`${day} ${slot}`);
+          },
+        );
+        return;
+      }
       const key = item.name;
       if (!map[key])
         map[key] = { name: key, qty: 0, unit: "pack", dated: false, meals: [] };
@@ -2236,8 +2252,21 @@ function PlanShop({
   household,
 }) {
   const start = 15 + (planWeek - 1) * 7;
-  const [plannerTab, setPlannerTab] = useState("Meals");
   const [flow, setFlow] = useState("start");
+  const [resumeDay, setResumeDay] = useState(0);
+  const isDayComplete = (day) =>
+    Boolean(
+      daySlots[day]?.Breakfast?.name && daySlots[day]?.Lunch?.name && plan[day],
+    );
+  const completedDays = DAYS.filter(isDayComplete).length;
+  const nextDayIndex = Math.max(
+    0,
+    DAYS.findIndex((day) => !isDayComplete(day)),
+  );
+  const beginPlanning = () => {
+    setResumeDay(nextDayIndex);
+    setFlow(completedDays ? "guided" : "intro");
+  };
   if (flow !== "start")
     return (
       <GuidedPlanner
@@ -2255,14 +2284,15 @@ function PlanShop({
         rememberMealChoice={rememberMealChoice}
         customRecipes={customRecipes}
         saveRecipe={saveRecipe}
+        initialDayIndex={resumeDay}
       />
     );
   return (
     <>
       <Header
-        overline="FUTURE MEAL PLANS"
-        title="Plan your shop"
-        sub={`Your shop day is ${shopDay}. Plan up to eight weeks ahead.`}
+        overline="NEXT SHOP"
+        title="Plan your week"
+        sub="Choose your meals one day at a time. Your basket builds itself as you go."
       />
       <View style={s.weekNavigator}>
         <TouchableOpacity
@@ -2294,171 +2324,41 @@ function PlanShop({
           />
         </TouchableOpacity>
       </View>
-      <View style={s.info}>
-        <Ionicons name="sparkles-outline" size={19} color={C.green} />
-        <Text style={s.infoText}>
-          Start with your usual week, then only change what is different.
-        </Text>
-      </View>
       <Button
-        text="Plan this week day by day"
+        text={
+          completedDays
+            ? `Continue with ${DAYS[nextDayIndex]}`
+            : "Start planning Monday"
+        }
         icon="calendar-outline"
-        onPress={() => setFlow("intro")}
-      />
-      <Button
-        text="Use my usual week"
-        icon="sparkles-outline"
-        onPress={repeatLastWeek}
-      />
-      <Button
-        text="Use last week as my starting point"
-        icon="copy-outline"
-        pale
-        onPress={repeatLastWeek}
+        onPress={beginPlanning}
       />
       <View style={s.progress}>
         <View style={s.progressTop}>
-          <Text style={s.progressTitle}>This shop covers</Text>
-          <Text style={s.progressCount}>
-            {Object.values(mealAssignments).filter((x) => x?.length).length}/7
-            meal days
-          </Text>
+          <Text style={s.progressTitle}>Your plan</Text>
+          <Text style={s.progressCount}>{completedDays}/7 days complete</Text>
         </View>
-        <Text style={s.rowDetail}>
-          Meals · drinks · snacks · household extras
-        </Text>
-      </View>
-      <View style={s.lowPrompt}>
-        <View style={s.alertIcon}>
-          <Ionicons name="time-outline" size={20} color={C.amber} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={s.alertTitle}>Only review what has changed</Text>
-          <Text style={s.alertText}>
-            Your usual meals, drinks and snacks are carried over. Add a
-            takeaway, swap a meal, or leave a day blank when plans change.
-          </Text>
-        </View>
-      </View>
-      <View style={s.choiceRow}>
-        {["Meals", "Drinks", "Snacks"].map((item) => (
-          <TouchableOpacity
-            key={item}
-            onPress={() => setPlannerTab(item)}
-            style={[s.choiceChip, plannerTab === item && s.choiceChipOn]}
-          >
-            <Text style={[s.choiceText, plannerTab === item && s.choiceTextOn]}>
-              {item}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-      {plannerTab === "Meals" && (
-        <>
-          <Button
-            text="Choose from our family meals"
-            icon="restaurant-outline"
-            onPress={() => open("MealLibrary")}
+        <View style={s.track}>
+          <View
+            style={[
+              s.trackFill,
+              { width: `${Math.round((completedDays / 7) * 100)}%` },
+            ]}
           />
-          <Button
-            text="Add anything else"
-            icon="add"
-            pale
-            onPress={() => open("NonFood")}
-          />
-          {showLow && (
-            <View style={s.lowPrompt}>
-              <View style={s.alertIcon}>
-                <Ionicons name="repeat-outline" size={20} color={C.amber} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={s.alertTitle}>Running low on toilet roll?</Text>
-                <Text style={s.alertText}>
-                  You normally reorder this around every 3 weeks.
-                </Text>
-                <View style={s.promptActions}>
-                  <TouchableOpacity
-                    onPress={() => {
-                      addNonFood("Toilet roll");
-                      setShowLow(false);
-                    }}
-                  >
-                    <Text style={s.link}>Add to this shop</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={() => setShowLow(false)}>
-                    <Text style={s.notNow}>Not now</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </View>
-          )}
-          <View style={s.progress}>
-            <View style={s.progressTop}>
-              <Text style={s.progressTitle}>Meal plan</Text>
-              <Text style={s.progressCount}>7 of 7 dinners planned</Text>
-            </View>
-            <View style={s.track}>
-              <View style={[s.trackFill, { width: "100%" }]} />
-            </View>
-          </View>
-          <View style={s.weekCard}>
-            {DAYS.map((day, i) => (
-              <TouchableOpacity
-                key={day}
-                style={s.planRow}
-                onPress={() => open(`Choose:${day}`)}
-              >
-                <View style={s.date}>
-                  <Text style={s.dayShort}>SEP</Text>
-                  <Text style={s.dateNo}>{start + i}</Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={s.dayName}>{day}</Text>
-                  {(
-                    mealAssignments[day] || [{ meal: plan[day], memberIds: [] }]
-                  ).map((item, index) => (
-                    <View key={item.meal + index} style={s.assignmentLine}>
-                      <Text style={s.mealName}>{item.meal}</Text>
-                      <Text style={s.assignmentAudience}>
-                        {item.memberIds.length
-                          ? item.memberIds.length + " eating"
-                          : "Choose who is eating"}
-                      </Text>
-                    </View>
-                  ))}
-                  {!(mealAssignments[day] || []).length && !plan[day] && (
-                    <Text style={s.mealName}>No meal planned yet</Text>
-                  )}
-                  <Text style={s.mealMeta}>
-                    Tap to add an adult or children’s meal
-                  </Text>
-                </View>
-                <Ionicons name="chevron-forward" size={18} color={C.muted} />
-              </TouchableOpacity>
-            ))}
-          </View>
-          <View style={s.basketCallout}>
-            <View style={s.iconBox}>
-              <Ionicons name="basket-outline" size={21} color={C.green} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={s.rowTitle}>Shopping list created</Text>
-              <Text style={s.rowDetail}>
-                {basket.length} products calculated for this week
-              </Text>
-            </View>
-          </View>
-        </>
-      )}
-      {plannerTab !== "Meals" && (
-        <WeeklyConsumables
-          category={plannerTab}
-          items={consumables[plannerTab] || []}
-          savedChoices={customChoices[plannerTab] || []}
-          rememberChoice={rememberChoice}
-          open={openConsumableAudience}
+        </View>
+      </View>
+      {completedDays > 0 && (
+        <Button
+          text="Review and edit my week"
+          icon="create-outline"
+          pale
+          onPress={() => setFlow("review")}
         />
       )}
+      <Text style={s.rowDetail}>
+        Drinks, snacks and household extras are added after your meals — not
+        before.
+      </Text>
     </>
   );
 }
@@ -2478,8 +2378,9 @@ function GuidedPlanner({
   rememberMealChoice,
   customRecipes,
   saveRecipe,
+  initialDayIndex = 0,
 }) {
-  const [dayIndex, setDayIndex] = useState(0);
+  const [dayIndex, setDayIndex] = useState(initialDayIndex);
   const [screen, setScreen] = useState("day");
   const [slot, setSlot] = useState("Breakfast");
   const [pendingChoice, setPendingChoice] = useState("");
@@ -2512,16 +2413,32 @@ function GuidedPlanner({
     setScreen("choices");
   };
   const chooseFood = (name) => {
-    if (slot === "Dinner" && !MEALS[name] && !customRecipes?.[name]) {
+    if (name === "No meal needed") {
       setPendingChoice(name);
-      setIngredients([]);
-      setIngredientText("");
-      setScreen("ingredients");
+      setPeople(allIds);
+      setScreen("audience");
+      return;
+    }
+    const knownQuickPick = (quickMealChoices?.[slot] || []).includes(name);
+    if (!MEALS[name] && !customRecipes?.[name] && !knownQuickPick) {
+      setPendingChoice(name);
+      setScreen("kind");
       return;
     }
     rememberMealChoice(slot, name);
     setPendingChoice(name);
     setPeople(slot === "Dinner" ? allIds : slots[slot]?.memberIds || allIds);
+    setScreen("audience");
+  };
+  const startIngredients = () => {
+    setIngredients([]);
+    setIngredientText("");
+    setScreen("ingredients");
+  };
+  const savePrePacked = () => {
+    if (slot === "Dinner")
+      saveRecipe(pendingChoice, [[pendingChoice, 1, "pack", null, false]]);
+    rememberMealChoice(slot, pendingChoice);
     setScreen("audience");
   };
   const saveAndReturn = (memberIds) => {
@@ -2566,6 +2483,44 @@ function GuidedPlanner({
           icon="arrow-forward"
           onPress={() => setFlow("guided")}
         />
+      </>
+    );
+  if (screen === "kind")
+    return (
+      <>
+        <Header
+          overline="ONE QUICK QUESTION"
+          title={`What is ${pendingChoice}?`}
+          sub="This lets us build an accurate basket."
+        />
+        <View style={s.quickActionArea}>
+          <TouchableOpacity style={s.bigDecision} onPress={savePrePacked}>
+            <Ionicons name="cube-outline" size={29} color={C.white} />
+            <Text style={s.bigDecisionText}>Pre-packed item</Text>
+            <Text style={s.bigDecisionSub}>
+              Buy it as one product — such as cereal, microwave rice or a ready
+              meal.
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[s.bigDecision, s.bigDecisionPale]}
+            onPress={startIngredients}
+          >
+            <Ionicons name="restaurant-outline" size={29} color={C.green} />
+            <Text style={[s.bigDecisionText, { color: C.green }]}>
+              Made from ingredients
+            </Text>
+            <Text style={[s.bigDecisionSub, { color: C.muted }]}>
+              Tell us what normally goes in it — such as burritos or curry.
+            </Text>
+          </TouchableOpacity>
+        </View>
+        <TouchableOpacity
+          onPress={() => setScreen("choices")}
+          style={s.setupBack}
+        >
+          <Text style={s.notNow}>Type something else</Text>
+        </TouchableOpacity>
       </>
     );
   if (screen === "ingredients")
@@ -2653,7 +2608,7 @@ function GuidedPlanner({
               false,
             ]);
             saveRecipe(pendingChoice, recipeIngredients);
-            rememberMealChoice("Dinner", pendingChoice);
+            rememberMealChoice(slot, pendingChoice);
             setScreen("audience");
           }}
         />
@@ -2661,7 +2616,7 @@ function GuidedPlanner({
           onPress={() => setScreen("choices")}
           style={s.setupBack}
         >
-          <Text style={s.notNow}>Back to dinner</Text>
+          <Text style={s.notNow}>Back to choice</Text>
         </TouchableOpacity>
       </>
     );
