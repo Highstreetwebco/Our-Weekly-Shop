@@ -561,6 +561,7 @@ export default function App() {
         weeklyConsumables[planWeek],
         daySlots[planWeek],
         customRecipes,
+        pantry,
       ),
     [
       next,
@@ -570,6 +571,7 @@ export default function App() {
       weeklyConsumables,
       daySlots,
       customRecipes,
+      pantry,
       planWeek,
     ],
   );
@@ -599,19 +601,18 @@ export default function App() {
   };
   const applyMealSelection = (meals) => {
     setFuturePlans((p) => {
-      const updated = { ...p[planWeek] };
+      const updated = {};
       DAYS.forEach((day, i) => {
-        if (meals[i]) updated[day] = meals[i];
+        updated[day] = meals[i] || null;
       });
       return { ...p, [planWeek]: updated };
     });
     setMealAssignments((p) => {
       const updated = { ...(p[planWeek] || {}) };
       DAYS.forEach((day, i) => {
-        if (meals[i])
-          updated[day] = [
-            { meal: meals[i], memberIds: household.members.map((m) => m.id) },
-          ];
+        updated[day] = meals[i]
+          ? [{ meal: meals[i], memberIds: household.members.map((m) => m.id) }]
+          : [];
       });
       return { ...p, [planWeek]: updated };
     });
@@ -1736,6 +1737,7 @@ function buildBasket(
   consumables = {},
   daySlots = {},
   customRecipes = {},
+  pantry = {},
 ) {
   const map = {};
   const addMeal = (mealName, memberIds) => {
@@ -1821,7 +1823,10 @@ function buildBasket(
         meals: ["Household"],
       }),
   );
-  return Object.values(map);
+  Object.entries(pantry || {}).forEach(([name, quantity]) => {
+    if (map[name]) map[name].qty = Math.max(0, map[name].qty - Number(quantity || 0));
+  });
+  return Object.values(map).filter((item) => item.qty > 0);
 }
 
 function MealAudience({
@@ -2214,24 +2219,13 @@ function PlanShop({
   const [flow, setFlow] = useState("start");
   const [resumeDay, setResumeDay] = useState(0);
   const isDayComplete = (day) =>
-    Boolean(
-      (Array.isArray(daySlots[day]?.Breakfast)
-        ? daySlots[day].Breakfast.length
-        : daySlots[day]?.Breakfast?.name) &&
-        (Array.isArray(daySlots[day]?.Lunch)
-          ? daySlots[day].Lunch.length
-          : daySlots[day]?.Lunch?.name) &&
-        (mealAssignments[day]?.length || plan[day]),
-    );
+    Boolean(mealAssignments[day]?.length || plan[day]);
   const completedDays = DAYS.filter(isDayComplete).length;
   const nextDayIndex = Math.max(
     0,
     DAYS.findIndex((day) => !isDayComplete(day)),
   );
-  const beginPlanning = () => {
-    setResumeDay(nextDayIndex);
-    setFlow(completedDays ? "guided" : "intro");
-  };
+  const beginPlanning = () => open("MealLibrary");
   if (flow !== "start")
     return (
       <GuidedPlanner
@@ -2257,8 +2251,8 @@ function PlanShop({
     <>
       <Header
         overline="NEXT SHOP"
-        title="Plan your week"
-        sub="Choose your meals one day at a time. Your basket builds itself as you go."
+        title="What do we fancy?"
+        sub="Choose your dinners. We will add the ingredients."
       />
       <View style={s.weekNavigator}>
         <TouchableOpacity
@@ -2291,18 +2285,14 @@ function PlanShop({
         </TouchableOpacity>
       </View>
       <Button
-        text={
-          completedDays
-            ? `Continue with ${DAYS[nextDayIndex]}`
-            : "Start planning Monday"
-        }
-        icon="calendar-outline"
-        onPress={beginPlanning}
+        text={completedDays ? "Continue to essentials" : "Choose dinners"}
+        icon={completedDays ? "arrow-forward" : "restaurant-outline"}
+        onPress={completedDays ? () => setFlow("extras") : beginPlanning}
       />
       <View style={s.progress}>
         <View style={s.progressTop}>
-          <Text style={s.progressTitle}>Your plan</Text>
-          <Text style={s.progressCount}>{completedDays}/7 days complete</Text>
+          <Text style={s.progressTitle}>Dinners selected</Text>
+          <Text style={s.progressCount}>{completedDays} this week</Text>
         </View>
         <View style={s.track}>
           <View
@@ -2314,17 +2304,10 @@ function PlanShop({
         </View>
       </View>
       {completedDays > 0 && (
-        <Button
-          text="Review and edit my week"
-          icon="create-outline"
-          pale
-          onPress={() => setFlow("review")}
-        />
+        <TouchableOpacity style={s.setupBack} onPress={beginPlanning}>
+          <Text style={s.link}>Change dinners</Text>
+        </TouchableOpacity>
       )}
-      <Text style={s.rowDetail}>
-        Drinks, snacks and household extras are added after your meals — not
-        before.
-      </Text>
     </>
   );
 }
@@ -2380,14 +2363,7 @@ function GuidedPlanner({
       .map((item) => `${peopleFor(item.memberIds) || "No one"} — ${item[mealKey]}`)
       .join("\n");
   const reviewCompleteDays = DAYS.filter(
-    (name) => {
-      const saved = daySlots[name] || {};
-      const breakfast = Array.isArray(saved.Breakfast)
-        ? saved.Breakfast.length
-        : saved.Breakfast?.name;
-      const lunch = Array.isArray(saved.Lunch) ? saved.Lunch.length : saved.Lunch?.name;
-      return Boolean(breakfast && lunch && (dinnerAssignments[name]?.length || plan[name]));
-    },
+    (name) => Boolean(dinnerAssignments[name]?.length || plan[name]),
   ).length;
   const starterOptions = ["No meal needed"];
   const options = [
@@ -2471,7 +2447,8 @@ function GuidedPlanner({
   };
   const saveAndReturn = (memberIds) => {
     saveSelection(pendingChoice, memberIds);
-    setScreen("day");
+    setExpandedReviewDay(null);
+    setFlow("review");
   };
   const completeDay = () => {
     if (dayIndex === DAYS.length - 1) setFlow("extras");
@@ -2722,19 +2699,13 @@ function GuidedPlanner({
                     ? daySlots[name].Lunch
                     : daySlots[name]?.Lunch ? [daySlots[name].Lunch] : [];
                   const dinner = dinnerAssignments[name] || (plan[name] ? [{ meal: plan[name], memberIds: [] }] : []);
-                  const ready = breakfast.length && lunch.length && dinner.length;
                   return <>
                     <Text style={[s.mealName, !dinner.length && { color: C.muted }]}>
                       {dinner.length ? itemSummary(dinner, "meal") : `${name} — still to plan`}
                     </Text>
-                    <Text style={s.rowDetail}>
-                      {breakfast.length && lunch.length ? "Breakfast and lunch planned" : "Needs breakfast or lunch"}
-                    </Text>
                     {expandedReviewDay === name && <View style={{ marginTop: 10 }}>
-                      <Text style={s.rowDetail}>Breakfast · {itemSummary(breakfast) || "Not set"}</Text>
-                      <Text style={s.rowDetail}>Lunch · {itemSummary(lunch) || "Not set"}</Text>
-                      <TouchableOpacity onPress={() => { setDayIndex(index); setSlot("Breakfast"); setFlow("guided"); }}>
-                        <Text style={s.link}>Edit {name}</Text>
+                      <TouchableOpacity onPress={() => { setDayIndex(index); setSlot("Dinner"); setFlow("guided"); setScreen("choices"); }}>
+                        <Text style={s.link}>Change {name}'s dinner</Text>
                       </TouchableOpacity>
                     </View>}
                   </>;
@@ -2747,7 +2718,7 @@ function GuidedPlanner({
         <Button
           text="Compare supermarkets"
           icon="arrow-forward"
-          disabled={reviewCompleteDays < 7}
+          disabled={!reviewCompleteDays}
           onPress={() => open("Compare")}
         />
       </>
@@ -3727,6 +3698,7 @@ function Sub({
         currentPlan={next}
         apply={applyMealSelection}
         household={household}
+        customRecipes={customRecipes}
       />
     );
   if (page === "Brands")
@@ -3784,8 +3756,10 @@ function Sub({
   return null;
 }
 
-function MealLibrary({ back, currentPlan, apply, household }) {
-  const [selected, setSelected] = useState([]);
+function MealLibrary({ back, currentPlan, apply, household, customRecipes = {} }) {
+  const [selected, setSelected] = useState(() =>
+    Object.values(currentPlan || {}).filter(Boolean),
+  );
   const totalPortions = household.members.reduce(
     (sum, member) => sum + Number(member.portion || 0),
     0,
@@ -3804,7 +3778,7 @@ function MealLibrary({ back, currentPlan, apply, household }) {
       <Header
         overline="OUR FAMILY MEALS"
         title="What do we fancy this week?"
-        sub="Tick the meals your household wants. We will place them into the week and calculate the ingredients."
+        sub="Choose the dinners. Ingredients are added automatically."
       />
       <View style={s.familyContext}>
         <Ionicons name="people-outline" size={19} color={C.green} />
@@ -3825,7 +3799,7 @@ function MealLibrary({ back, currentPlan, apply, household }) {
         </View>
       </View>
       <View style={s.card}>
-        {Object.entries(MEALS).map(([name, meal]) => {
+        {Object.entries({ ...MEALS, ...customRecipes }).map(([name, meal]) => {
           const on = selected.includes(name);
           const alreadyUsed = Object.values(currentPlan).includes(name);
           return (
