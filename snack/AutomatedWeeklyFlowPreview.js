@@ -739,6 +739,8 @@ export default function App() {
             setHousehold={setHousehold}
             brandRules={brandRules}
             setBrandRules={setBrandRules}
+            customRecipes={customRecipes}
+            setCustomRecipes={setCustomRecipes}
           />
         ) : (
           <>
@@ -869,6 +871,7 @@ export default function App() {
                 household={household}
                 setHousehold={setHousehold}
                 brandRules={brandRules}
+                customRecipes={customRecipes}
                 email={session.user.email}
                 saveStatus={saveStatus}
                 signOut={() => supabase.auth.signOut()}
@@ -2388,7 +2391,11 @@ function GuidedPlanner({
   ).length;
   const starterOptions = ["No meal needed"];
   const options = [
-    ...new Set([...(quickMealChoices?.[slot] || []), ...starterOptions]),
+    ...new Set([
+      ...(slot === "Dinner" ? Object.keys(customRecipes || {}) : []),
+      ...(quickMealChoices?.[slot] || []),
+      ...starterOptions,
+    ]),
   ];
   const selected = slot === "Dinner" ? plan[day] : slots[slot]?.name;
   const allIds = household.members.map((member) => member.id);
@@ -3272,6 +3279,7 @@ function Account({
   household,
   setHousehold,
   brandRules,
+  customRecipes,
   email,
   saveStatus,
   signOut,
@@ -3314,9 +3322,9 @@ function Account({
         />
         <Setting
           icon="restaurant-outline"
-          name="Our family meals"
-          detail={Object.keys(MEALS).length + " saved meals"}
-          onPress={() => open("MealLibrary")}
+          name="My recipes"
+          detail={Object.keys(customRecipes || {}).length + " household recipes"}
+          onPress={() => open("Recipes")}
         />
         <Setting
           icon="calendar-outline"
@@ -3358,6 +3366,48 @@ function Setting({ icon, name, detail, onPress }) {
       {onPress && <Ionicons name="chevron-forward" size={18} color={C.muted} />}
     </TouchableOpacity>
   );
+}
+
+function RecipeLibrary({ recipes = {}, setRecipes, back }) {
+  const blank = { name: "", servings: "4", time: "30", method: "", ingredients: [] };
+  const [draft, setDraft] = useState(blank);
+  const [editing, setEditing] = useState("");
+  const [ingredient, setIngredient] = useState({ name: "", qty: "1", unit: "pack" });
+  const addIngredient = () => {
+    if (!ingredient.name.trim()) return;
+    setDraft((current) => ({ ...current, ingredients: [...current.ingredients, [ingredient.name.trim(), Number(ingredient.qty) || 1, ingredient.unit.trim() || "pack", null, false]] }));
+    setIngredient({ name: "", qty: "1", unit: "pack" });
+  };
+  const edit = (name, recipe) => {
+    setEditing(name);
+    setDraft({ name, servings: String(recipe.servings || 4), time: String(recipe.time || 30), method: recipe.method || "", ingredients: recipe.ingredients || [] });
+  };
+  const save = () => {
+    const name = draft.name.trim();
+    if (!name || !draft.ingredients.length) return;
+    setRecipes((current) => {
+      const next = { ...current };
+      if (editing && editing !== name) delete next[editing];
+      next[name] = { servings: Number(draft.servings) || 4, time: Number(draft.time) || 30, method: draft.method.trim(), ingredients: draft.ingredients };
+      return next;
+    });
+    setDraft(blank);
+    setEditing("");
+  };
+  return <>
+    <Back onPress={back} />
+    <Header overline="MY ACCOUNT" title="My recipes" sub="Meals saved for planning and shopping." />
+    {!!Object.keys(recipes).length && <View style={s.card}>{Object.entries(recipes).map(([name, recipe]) => <TouchableOpacity key={name} style={s.itemRow} onPress={() => edit(name, recipe)}><View style={s.iconBox}><Ionicons name="restaurant-outline" size={19} color={C.green} /></View><View style={{ flex: 1 }}><Text style={s.rowTitle}>{name}</Text><Text style={s.rowDetail}>{recipe.ingredients?.length || 0} ingredients · {recipe.time || 30} minutes</Text></View><Ionicons name="create-outline" size={18} color={C.muted} /></TouchableOpacity>)}</View>}
+    <Text style={s.sectionLabel}>{editing ? "EDIT RECIPE" : "ADD A RECIPE"}</Text>
+    <TextInput value={draft.name} onChangeText={(name) => setDraft((current) => ({ ...current, name }))} placeholder="Recipe name" placeholderTextColor={C.muted} style={s.setupInput} />
+    <View style={s.optionRow}><TextInput value={draft.servings} onChangeText={(servings) => setDraft((current) => ({ ...current, servings }))} placeholder="Servings" keyboardType="number-pad" placeholderTextColor={C.muted} style={[s.setupInput, { flex: 1 }]} /><TextInput value={draft.time} onChangeText={(time) => setDraft((current) => ({ ...current, time }))} placeholder="Minutes" keyboardType="number-pad" placeholderTextColor={C.muted} style={[s.setupInput, { flex: 1 }]} /></View>
+    <Text style={s.sectionLabel}>INGREDIENTS</Text>
+    <View style={s.optionRow}><TextInput value={ingredient.name} onChangeText={(name) => setIngredient((current) => ({ ...current, name }))} placeholder="Ingredient" placeholderTextColor={C.muted} style={[s.setupInput, { flex: 2 }]} /><TextInput value={ingredient.qty} onChangeText={(qty) => setIngredient((current) => ({ ...current, qty }))} placeholder="Qty" keyboardType="decimal-pad" placeholderTextColor={C.muted} style={[s.setupInput, { flex: 0.7 }]} /><TextInput value={ingredient.unit} onChangeText={(unit) => setIngredient((current) => ({ ...current, unit }))} placeholder="Unit" placeholderTextColor={C.muted} style={[s.setupInput, { flex: 1 }]} /></View>
+    <TouchableOpacity onPress={addIngredient} style={s.inlineAdd}><Text style={s.inlineAddText}>Add ingredient</Text></TouchableOpacity>
+    {!!draft.ingredients.length && <View style={[s.card, { marginTop: 14 }]}>{draft.ingredients.map((item, index) => <View key={`${item[0]}-${index}`} style={s.itemRow}><Text style={[s.rowTitle, { flex: 1 }]}>{item[1]} {item[2]} {item[0]}</Text><TouchableOpacity onPress={() => setDraft((current) => ({ ...current, ingredients: current.ingredients.filter((_, i) => i !== index) }))}><Ionicons name="close-circle-outline" size={20} color={C.muted} /></TouchableOpacity></View>)}</View>}
+    <TextInput value={draft.method} onChangeText={(method) => setDraft((current) => ({ ...current, method }))} placeholder="Cooking method (optional)" multiline placeholderTextColor={C.muted} style={[s.setupInput, { minHeight: 96, paddingTop: 14 }]} />
+    <Button text={editing ? "Save recipe" : "Add recipe"} icon="checkmark" disabled={!draft.name.trim() || !draft.ingredients.length} onPress={save} />
+  </>;
 }
 
 function HouseholdEditor({ household, setHousehold, back }) {
@@ -3490,6 +3540,8 @@ function Sub({
   setHousehold,
   brandRules,
   setBrandRules,
+  customRecipes,
+  setCustomRecipes,
 }) {
   if (page === "SwapConfirm" && pendingSwap)
     return (
@@ -3554,6 +3606,14 @@ function Sub({
       <HouseholdEditor
         household={household}
         setHousehold={setHousehold}
+        back={back}
+      />
+    );
+  if (page === "Recipes")
+    return (
+      <RecipeLibrary
+        recipes={customRecipes}
+        setRecipes={setCustomRecipes}
         back={back}
       />
     );
