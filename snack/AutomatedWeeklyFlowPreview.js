@@ -50,18 +50,37 @@ const BRAND_CATALOGUE = {
   Müller: ["Corner yoghurts", "Light yoghurts", "Rice pots"],
   Andrex: ["Classic Clean toilet roll", "Gentle Clean toilet roll", "Washlets"],
   Ariel: ["Washing capsules", "Washing powder", "Washing liquid"],
-  Persil: ["Non-bio liquid", "Bio liquid", "Laundry capsules", "Washing powder"],
+  Persil: [
+    "Non-bio liquid",
+    "Bio liquid",
+    "Laundry capsules",
+    "Washing powder",
+  ],
   Comfort: ["Fabric conditioner", "Scent booster", "Intense conditioner"],
-  Colgate: ["Total toothpaste", "Max White toothpaste", "Toothbrushes", "Mouthwash"],
+  Colgate: [
+    "Total toothpaste",
+    "Max White toothpaste",
+    "Toothbrushes",
+    "Mouthwash",
+  ],
   Sensodyne: ["Repair & Protect", "Pronamel", "Complete Protection"],
   Dove: ["Body wash", "Deodorant", "Soap", "Shampoo"],
   "Hellmann's": ["Real mayonnaise", "Light mayonnaise", "Vegan mayonnaise"],
   Bisto: ["Beef gravy granules", "Chicken gravy granules", "Best gravy"],
   Dolmio: ["Original pasta sauce", "Lasagne sauce", "Pasta bake sauce"],
   "Old El Paso": ["Fajita kit", "Taco kit", "Tortilla wraps", "Mexican rice"],
-  "Birds Eye": ["Garden peas", "Fish fingers", "Chicken dippers", "Frozen vegetables"],
+  "Birds Eye": [
+    "Garden peas",
+    "Fish fingers",
+    "Chicken dippers",
+    "Frozen vegetables",
+  ],
   McCain: ["Home Chips", "French Fries", "Roast Potatoes", "Smiles"],
-  "Chicago Town": ["Tiger Crust pizza", "Deep Dish pizza", "Stuffed Crust pizza"],
+  "Chicago Town": [
+    "Tiger Crust pizza",
+    "Deep Dish pizza",
+    "Stuffed Crust pizza",
+  ],
   Ristorante: ["Pollo pizza", "Pepperoni pizza", "Mozzarella pizza"],
   Richmond: ["Pork sausages", "Skinless sausages", "Meat-free sausages"],
   Hovis: ["Soft White loaf", "Best of Both", "Granary loaf"],
@@ -76,7 +95,11 @@ const BRAND_CATALOGUE = {
   Tetley: ["Original tea bags", "Decaf tea bags", "Green tea"],
   "Yorkshire Tea": ["Tea bags", "Gold tea bags", "Decaf tea bags"],
   "PG Tips": ["Original tea bags", "Decaf tea bags"],
-  Robinsons: ["Orange squash", "Apple & blackcurrant squash", "Fruit Creations"],
+  Robinsons: [
+    "Orange squash",
+    "Apple & blackcurrant squash",
+    "Fruit Creations",
+  ],
   Vimto: ["No Added Sugar squash", "Original squash", "Fizzy cans"],
   Ribena: ["Blackcurrant squash", "Light squash", "Cartons"],
 };
@@ -167,8 +190,24 @@ const shops = [
   ["Sainsbury's", 5372],
 ];
 const WEEKLY_CHOICES = {
-  Drinks: ["Milk", "Fruit squash", "Still water", "Sparkling water", "Tea bags", "Coffee", "Juice cartons"],
-  Snacks: ["Crisps multipack", "Yoghurts", "Fruit", "Cereal bars", "Biscuits", "Popcorn", "Chocolate treats"],
+  Drinks: [
+    "Milk",
+    "Fruit squash",
+    "Still water",
+    "Sparkling water",
+    "Tea bags",
+    "Coffee",
+    "Juice cartons",
+  ],
+  Snacks: [
+    "Crisps multipack",
+    "Yoghurts",
+    "Fruit",
+    "Cereal bars",
+    "Biscuits",
+    "Popcorn",
+    "Chocolate treats",
+  ],
 };
 const VAN_IMAGE =
   "data:image/jpeg;base64,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ENDm0Q5+YdzMOhbgBAYklRGouZ2HPhEshqI1kbRtm2bJsk6hpDzlWoMsezR+WGPaVaFjLSNE0eRXZNk2TZNk2TZNk2TZNk2TZNk2TZNk2zZNk2zbNs2zZNsUUqc1cWu9xZ4PmUvQW5FgiXAJcxmn/wCpv//aAAwDAQACAAMAAAAQ+++++++++++++++++++++++++++++++++6+++++2+e+++++++++e++++++6++++++++2Oq+++6+u+26++++6+++++e++++++66+u++eu+++C+O++2eqmy++2+kc+++u+++++++e+ue+sV++a6a+e6++C9989998999999v7X99Ka66i++++++m98uHbW90+2+997fPUtEY/6Wu+++++e8t3kQcC8vi726+PjonUmI03m+++++u8l4qI/W8nvTjP+jy/b2X9UMn++++2W9b7PK2f8XXH+/wCZo1EUERTAQCkvvnvvb65YQlvI/tlfXU57khobaYPwGnlvvvfXvvjvnLXbXfPICA5KGdqaQcUUF/uscMMMPOcMccdMJCQRXqfJJ4KmyrcPv5NvoCLCCAEcEAAAACQHOtu4cVCTQPvrDFwxB74cGUAAJEDTBPqTTZsw8fb/AL6LbeY/euzJAHFElGEEFHww+WRPEL75430322++233333333333331n58WX7777bb776677p67774Lb777777574L47r75777brr77777744777r777777r7777775777777777777577777777777/xAAiEQADAAICAgIDAQAAAAAAAAAAAREQISAxMEFRYEBQYXH/2gAIAQMBAT8Q+8px7xCEIQmITEIQhMvb1+sZCC8SUIXWbCryND0LZEfeJice51wuBO+GlHsf2Gk0i3EIexHrPd40R0yvCyCF1D/RcVmjFBSl2PaPgglRPwMtIex+FkfYuk2X0XCEF4IiIiJmlKXC7I+D+Q22oJeAmvefg/DdLskkkkbdKhtGioqKVYWIyKbNlZc1lKylZWUrKysrFsjIyMnFcNkJ4YQjIQjwpcMQnlLnMUjZCEITEIQhCEGIxOFEuNKUpSCRSlKUpSlKUpSlKPZCl+uf/8QAIhEAAwACAgMAAgMAAAAAAAAAAAERECEgMTBAQVBgUWGB/9oACAECAQE/EP3lpta9LYqlv2WtaKdjX3Hfgm32hsmu0u8zxtVDNdi3ivRU34Gq7OqHLheRqi0glBG1EJrtiv3wdBCRYJC6F7E3ENfREJvYtKdMXDfobE2Viwn07FVh/QlP8OnCl88REREw2isbbFp0rzb+DvzP8npufXEASKcYQnCC+CfiXwWGhc6UuailKVFRUVFRUVFKUqLicoiERCZhCEIQhCEIQhCEFrEIv1z/xAAqEAEAAgECBAYDAQEBAQAAAAABABEhMVFBYZHxEHGBodHwILHB4TBAgP/aAAgBAQABPxD/AO4mHLQTei5QattIL5BpLdSpWGLw0zsWdiTsWdizsWdizsCdiTsSdiTsSdiTsSdizsWdizsWdizsSdiztWdizsWdiztWdizs2diTsWdizsWdizsWdixNKAVlRetEqPGCI8ejK96EQaopft/5fsd0JSDetHZp2admnZp2admnZp2admnZp2admnZp2admnZp2admnZp2admnZp2admnZp2admnZp2admnZp2admnZp2adigCoARp5orfl+z/y/c7v/ahxcqksdpjLzGHy8BkNdNr/AC9k/ae1/Z/5fsd3/tQw+0w7O8pyusd+ZAr6G/pHJGafx+Xsn7RHYK5Au2rcvFexknXmM9l/9UTg/wB63pT9xAB3Bx/HvAQk0Rsf/B9ju/NAywLV0CGoiijB5HGfc/E+5+IPwMcT5iCtLYn/AIdV7a7ekxMHeDrNQ2rXdm3pAZr5RUC4WuAgguSmik8KhYeWyFkIyDOXRc1PZP2iFA77XFClCluHeUa+kn9lT+h/UStc6hV9YpWPms/M0dKggNNY357fk5/7/Y7vxwUKtC9PCtEuw4GFfLQHiiMQpHRlLJCy8HifeX4JrvGh6ngDqmiWnIJdV4suBy3mqjqiRrXMEamtMMa5htEpVY3xNT2RxSOycPytqH1aw+cC2BsnImfBW2H+TEulN1FnW41ZlQXjzmZCDq5wTDYIHb/YQvQBYKovSEhZ+aniz2T9p9fujJUgvKVUFxkU5z+C7+zQGnG34mVB4CveFaPHB6mOPRhhx8i7PJ7/APb7nd+OCuLtgTUl/eaFr/iKpcJ4Db28KTbVRcccbrU14P76jvL9REjPAwjy1qL38PqNzwV3B4dMs+tRODFpqfwitsJud3RK7gZ5GIySChenZLYAyVulfmgomq6HzBLtcKYK+hRHCJjr/IjiyresrrKuvIlMCk5wnl6QBa4RxAUPnjrKz5NjRrh54h/hafVPrd0+rJIas5+KDqXHJDTPQ7JGrU1U/KOfGEoKLPBueZxP+v3uz+OhbTRSPGLkPIGpy5xcgKL0yxYVKivHMLItA0NWXShSHIaxgaCNWjQBYEQBZvQxnill8PoNzwow1QnJzOMZqApWobZbIMatudXnwiToYVscrW5SFjBcbax9+1Vl+YRYHUAWRGYahEJRC7q48ojUBqXWMabXXgXXnpkjZx8myiYr9WFLNEmUSgHmiBs+LxnBaCzOHzNPQoOcle4RsudRLHIJRZxOLqzPrd01h3/yX+zMnNP5Cv1NSyJZaby9kRxe0oQ/bIezJ5RivlctD4P7A0B4GnC5T7f9Pvdn8YEytGS9HzA9GHSc+kCFiJ1RyPRPeD40yy836SzAk+ADUZIBlsWpcKVbb4swpg8sXuUoOhEBBVlj4fQbngSuAvfQv0ZjewU46epfWPQVDg5jBaQrThSt76kx1DbZ1xLlHDhWGvDzZV6mdof634QSpwGlQ1gDZ80sGEXg+jMzxJniJqvr40zLUVqVNWTiNXLoFDo5sTASigxR4LmuBCUy6/sFkJuvNHKMig4lOrrPrd0+nyJtA1euf74alLozTW1y5RDc2afTSOl3LjU5dX6cwgkQxtBeLmhOqi3r8Wz/AM/vdn8MFDQA1G31iohCsZGMuUfSG1kVYxcBy/wBcJ3i1Tlg02LEOGFCmXK0QP8AlIcnyEVCS6qiq9YzgGZgn1G/gvsqprUmLDWcuEYxIVZwnBLgWa25q4FLTKA5NNY80UAAdCGqK0isFYmNRKdVG0PABvC2tuauaLYoGU01h4NiigGzEoNGDDHK0OgCuL2mhZoDzjhF8pxma2gtvTSNXlQfId5RSmMl7RlwBXlbPp90+tyJVaQX2rwG90p95VEWCKmSmx5Q3OBjmQJRmy5g09VT039e0Vkq3ADU8zgyjYvU5PP/AJfc7P4QY6tUnmZP1FUsXuU4vpUP5YKuVAnQgWUWW+wJI19sPtHdtlwjwzCVRG9o8vMYK/4VTcn0lyfct23Fxhg4vULM6zFa2/V39vD6jc8CktYlKvhpmqlokyRLW164lFLrCrt41LMMqiqLUcPDfWuQAxRGAaTVoYZTh1czG7OHn+CgK6ETYQxxMcBHSsoF4Qrr2MZgWg84Ouig4VMyxgc+cBAwaE1gGNoTEwKD1rhm7AeRln1+6exfoiFENDXkc5w4cI6XCZGFSiaQBHdrNuu8qU1WGDcMvUM2RzRsUvG/ZG6B7LVbD9nrODdso/4/e7P4QIJTow8ipjytP54AQuqPMzH158oR+FlnvBzg96jiKUVxR8j1g4jWffYlrSVHq1xDjjhA/BvM/jDRM1LkZ/vh9RueFbRaLkOc6OIB1aEEeByl2UQKabV25w3xcmEb+YecizIOFlZqLwJQuKYI2YOl/AgGgjgMoEbRiC7sAbOkBc1Gw3goKo06zR0wj6zgTgYgiVDdOMQKt2J12jD9nWGPKUdAFBviz6/dPfn6g1EVBd4Jqt7wP6fEGBZKF/pr7S3e9hT0Y2KEi6kPFtraZBnS4yFGC7yjyjSZp4jNa3vYOSHCZuj11Hpc31tbTzOH5/e7P44OvNV9MPtBwCsTiTURWLV3lS8qRzdSJRVpy0dWoSeH0dPc94IFgGw6HQJiPUHOCqhiximdZchVn5ufD6Dc8EVrbsQepz5Y6zMs0Z0YlLhriY+k6ZWzMHEDYYzpB2XDl+FgwSiUHOVhx5xNqhTCZuGr+TaBFU2rWNZiDhlxsUuXlsvLSOzFLkRlNi2jQIVjUF31Z9fuiBVoAYHGyAxyix0xblvDwcuOEy/q93vZpEaRQC1tZSwTfJ2/lFTqKa3hLFpFqAaVEs3BDqdpbb4a+6a+sNJD4IPpp6KjECwQpNkcn4/e7vxwsQNGxxJXnWgBcbMFcMiPKGCdsfMyoUGAr6dIVPQssOcr30MNCERbbsPSIt+1JuQQACgKDw+g3PDGDQpfPErWcl5NL4xLCwWXTYltdHqrrcQqrNiNUQnaUQOMaDABd82l8Zemzf8ABQAnQeMpYqxPe/5FVNn2QAPBA5GLUqc7nnNAcRDTFVkF4ORGiZuHw5IRrWxOrmYfbylFhAJuZi1QXwtUymnOiZ6wADQKnNxWC/FFhmCcA4P0lJYy1tNqnHzIqF2aQp2Hk68ZZBLdvYs95SOBiLPPc5MW+uICNnc/D63Z/LByw9Ws9J3NO9p3pO9J3tAEVK4Kh8/4CvFvY0VPOvjwd3YATNzGHOKlbNt1mttId5xVXU1hUor4wBC6cFyggiwpiVakOWv4U3aC+PWNAI4jiTUL+qmICry+IuCVFPF94AKKaHb6x+3OtLZjRRhQ5NolF8OBQQfYSvPLKt/3UBzy+7KbzzSw44sUPFXPh6zSWfoN7g0Vslmht6fgTWiF6IPX6wl7NAXz8MD4G0P0H02ldcH0P8gaZsqyy8zR9ZZbGKVYDjhYn4fW7P8A7cFZ5vBfxcDV5T2b9s+t3TBN7P7/ADwOiwlquacKhzSvDZLMSkKpJT1ZqZwwgPF/TMLovDx8bryxp7EVxi2thlgUBwPBEJCkeJKhEZTh5Xo9/OX2pZBp6OY5nFZ8xgE6ATx+t3f+zBaF2i2rv4X+KvzoavKeyfthp/XKe9fp8MOGMQIRBaxk7RKwhjHve59oHGkYnsFa8ViqzC6HywuH1dVnMg3GIMSprYfM+lEU1QaiqHhVhqEquyfMKfc8fud00cJ5SyPv/wBz7/8Ac+//AHPvfzPvfzPvfzL/AN/5n3v5n3v5n3v5n1uFOvWwL0b1x9bj63H1uPrcfW4+px9Ti/8AVj6nH1OPqcX/AKMfU4CNUVrij5vzO6fmd6/M71+Z3L8zuX5nevzEq5H64ziln1vFJgWynF5xgNMVTT/UW1dtuzDjdNO8EdR/MUu1+hznsgfJN7ovmVfIksOWY+ukYKr6xBPJ1vViy2zzx8o5y99ZagWpKPkwuaUp7NvAzAHRCKyC/kt4uyiFWyVNGVFTGm0Uc2lwiD+WduztWdqztWdqw/xM7BjteYpKTDxCX6Rs+YVjVjmIQyxfJ+8Y4/RBO152tO14Zv152tO1p2vO1J2hO0J2B/xAABAEYTB4Rm59hw3EqLVr6I6kuXLlstiswGqYt6sCcSclii/TYqhKSPU6NefggUcsO1S5j9PH4OgizkwsdEhKurjBQ1mLROQmbSFEScggABlgFq8WXltG0MAHrHWV8pUtsh8ftcuxycJypypypyvecr3nI95yPecj3n0uU+spz6spz6ynPrKc+rKc+rKc+rKc+rK8+spz6ynPrMt+sJRXab3f+JhF6T3+ceEfX/c2eq+Z3R8zb6mP++iQYjat/EqwBqmlRogzG2hRqlB6wr4nrXWoTpXoGx8mBQmGjKPzpl1C6uTlFuXSM6BrdShj3/CrTU40x1hUagckxkIaAkK2US4h5RrtbUx/2fMzWvO0eUQGtl4LfaadzzP7SaQoobHS3jL3LUwMsLTQbx/43il2A+YdUGZR67RogwJNhNSIHiJxae9sup2yMXXBInWNhde8GbAcJroR/wB34RDU/V8R1Aef+ZZ1bVGtoAGLVa4g/Q+01D0X8TiD5SfplLsPgKfd+EtsNbo/ktiA4tjLt5TnD5sv3Z0Jcu/xrNqxPNp7QlRq/qPeUvLscWC3q1Lh4Xr5yvOpiFWi18ygXmhht9S5qrtPOCk75i+ADKKmSGwtQar9fhovgV4W1U4NPVDCK92fuVFByP5cu+jv26b1fw84WERwK7/2JUSOg4FyyJPcw0HsxcyAKrrisRp0Zta4MCZ1MmtfWdDDFBa2j5Q8gn60M/UKmfFl95dy4sLtIu8o9Ifs9P8AIaAet/IvS+SQb9BfMYDlyl0PKpxD6f7nEHyEBqnp8IgCUbS25gnJ+3lOT9PKW4aXx4PaFG64Un7uY1b4cksF7wKsedyw16HgxU5N5J7SwHVzQrCkFZb/AHD/AA0/sH+Rg3Fi/R1ljaFjvAM/T/YBRxxdJnht6Bsg26VzhUJkm6+a9ZQLeLedIrxbVtdJiHeaP3EjnC56EaJzBNB5Hz/1JnTphFcFAW5r/kMKmg9YWyURuN3+5jrIQK6+kAtMRW61Y1BsCC/feUVljQCEblWr1HznAHmX9irdT6usMpSxbV1/8N0DuKzAwThWL6r6Itq322i+v3uUW16KGcHSUG1Jbuy95eh4MzHrut+UJEopL/wSY+yGVAeV1CQNy1rsB0jP2pXnEM1TeTB/f+KhqhEtetKPmnLT7hnN9Jz3SBgjRDCQSfQUiYwgArR4QFrcE1E2Y67+hHrSSnO1UvYf2IWqbVhWhEih9WI1fI4rm8fKBFAB4d3Sd0ndJ3SdwnMdZzHWcx1nMdZzHWcx1nMdZzHWcx1ndJ3Sd0ndPyYirO2xcQEpE1iRW5R9jwlIeeokNnNkBFrOpHUiha2pqPmcYAwOxl+6l/y0zw+ITsO022OcIDYA6EE0b1gjo/iLRacyP/VFO/zJs9DxLOb1T6GfQzldU5fVFBIcIusb2jiY9HhFRbncfuP1QbmQohOJ7t4AAIMAOk5brOW6zlnWcs6zlnWcvqnL6py+qcvqnK6py+qcvqnK6py+qcvqnL6pyuqcrqnL6pyuqcvqnL6pyeqcvqnK6pyeqcnqnI6p9DPsZ9DK6Y6NQizU7XH2iWkTe3xBgCbwPrALhEEOIOkN/tgv5QVY/m4/+pv/2Q==";
@@ -281,9 +320,24 @@ export default function App() {
   const [pendingMeal, setPendingMeal] = useState(null);
   const [pendingDiners, setPendingDiners] = useState(null);
   const [pendingSwap, setPendingSwap] = useState(null);
-  const [weeklyConsumables, setWeeklyConsumables] = useState(() => Object.fromEntries(Array.from({ length: 8 }, (_, i) => [i + 1, { Drinks: [], Snacks: [] }])));
+  const [weeklyConsumables, setWeeklyConsumables] = useState(() =>
+    Object.fromEntries(
+      Array.from({ length: 8 }, (_, i) => [i + 1, { Drinks: [], Snacks: [] }]),
+    ),
+  );
+  const [daySlots, setDaySlots] = useState(() =>
+    Object.fromEntries(
+      Array.from({ length: 8 }, (_, i) => [
+        i + 1,
+        Object.fromEntries(DAYS.map((day) => [day, {}])),
+      ]),
+    ),
+  );
   const [pendingConsumable, setPendingConsumable] = useState(null);
-  const [customChoices, setCustomChoices] = useState({ Drinks: [], Snacks: [] });
+  const [customChoices, setCustomChoices] = useState({
+    Drinks: [],
+    Snacks: [],
+  });
   const [outcomes, setOutcomes] = useState({}),
     [extrasByWeek, setExtrasByWeek] = useState({
       1: ["Toilet roll", "Toothpaste"],
@@ -355,14 +409,16 @@ export default function App() {
       if (saved.brandRules) setBrandRules(saved.brandRules);
       if (saved.futurePlans) setFuturePlans(saved.futurePlans);
       if (saved.mealAssignments) setMealAssignments(saved.mealAssignments);
-      if (saved.attendanceOverrides) setAttendanceOverrides(saved.attendanceOverrides);
-      if (saved.weeklyConsumables) setWeeklyConsumables(saved.weeklyConsumables);
+      if (saved.attendanceOverrides)
+        setAttendanceOverrides(saved.attendanceOverrides);
+      if (saved.weeklyConsumables)
+        setWeeklyConsumables(saved.weeklyConsumables);
+      if (saved.daySlots) setDaySlots(saved.daySlots);
       if (saved.customChoices) setCustomChoices(saved.customChoices);
       if (saved.outcomes) setOutcomes(saved.outcomes);
       if (saved.extrasByWeek) setExtrasByWeek(saved.extrasByWeek);
       if (saved.itemHistory) setItemHistory(saved.itemHistory);
-      if (saved.checkoutShop !== undefined)
-        setCheckoutShop(saved.checkoutShop);
+      if (saved.checkoutShop !== undefined) setCheckoutShop(saved.checkoutShop);
       if (saved.delivery !== undefined) setDelivery(saved.delivery);
       if (saved.arrivalLogged !== undefined)
         setArrivalLogged(saved.arrivalLogged);
@@ -391,6 +447,7 @@ export default function App() {
         mealAssignments,
         attendanceOverrides,
         weeklyConsumables,
+        daySlots,
         customChoices,
         outcomes,
         extrasByWeek,
@@ -427,6 +484,7 @@ export default function App() {
     mealAssignments,
     attendanceOverrides,
     weeklyConsumables,
+    daySlots,
     customChoices,
     outcomes,
     extrasByWeek,
@@ -442,14 +500,64 @@ export default function App() {
   const repeatLastWeek = () => {
     const sourceWeek = planWeek > 1 ? planWeek - 1 : 1;
     const sourcePlan = futurePlans[sourceWeek] || initialNext;
-    const sourceAssignments = mealAssignments[sourceWeek] || Object.fromEntries(DAYS.map((day) => [day, sourcePlan[day] ? [{ meal: sourcePlan[day], memberIds: household.members.map((m) => m.id) }] : []]));
-    setFuturePlans((current) => ({ ...current, [planWeek]: { ...sourcePlan } }));
-    setMealAssignments((current) => ({ ...current, [planWeek]: JSON.parse(JSON.stringify(sourceAssignments)) }));
-    setWeeklyConsumables((current) => ({ ...current, [planWeek]: JSON.parse(JSON.stringify(current[sourceWeek] || { Drinks: [], Snacks: [] })) }));
+    const sourceAssignments =
+      mealAssignments[sourceWeek] ||
+      Object.fromEntries(
+        DAYS.map((day) => [
+          day,
+          sourcePlan[day]
+            ? [
+                {
+                  meal: sourcePlan[day],
+                  memberIds: household.members.map((m) => m.id),
+                },
+              ]
+            : [],
+        ]),
+      );
+    setFuturePlans((current) => ({
+      ...current,
+      [planWeek]: { ...sourcePlan },
+    }));
+    setMealAssignments((current) => ({
+      ...current,
+      [planWeek]: JSON.parse(JSON.stringify(sourceAssignments)),
+    }));
+    setWeeklyConsumables((current) => ({
+      ...current,
+      [planWeek]: JSON.parse(
+        JSON.stringify(current[sourceWeek] || { Drinks: [], Snacks: [] }),
+      ),
+    }));
+    setDaySlots((current) => ({
+      ...current,
+      [planWeek]: JSON.parse(
+        JSON.stringify(
+          current[sourceWeek] ||
+            Object.fromEntries(DAYS.map((day) => [day, {}])),
+        ),
+      ),
+    }));
   };
   const basket = useMemo(
-    () => buildBasket(next, basketExtras, household, mealAssignments[planWeek], weeklyConsumables[planWeek]),
-    [next, basketExtras, household, mealAssignments, weeklyConsumables, planWeek],
+    () =>
+      buildBasket(
+        next,
+        basketExtras,
+        household,
+        mealAssignments[planWeek],
+        weeklyConsumables[planWeek],
+        daySlots[planWeek],
+      ),
+    [
+      next,
+      basketExtras,
+      household,
+      mealAssignments,
+      weeklyConsumables,
+      daySlots,
+      planWeek,
+    ],
   );
   const suggestion = useMemo(
     () => findExpirySuggestion(current, dates),
@@ -465,7 +573,9 @@ export default function App() {
       [planWeek]: {
         ...p[planWeek],
         [day]: [
-          ...((p[planWeek]?.[day] || []).filter((item) => item.meal !== meal && item.meal !== replaceMeal)),
+          ...(p[planWeek]?.[day] || []).filter(
+            (item) => item.meal !== meal && item.meal !== replaceMeal,
+          ),
           { meal, memberIds },
         ],
       },
@@ -485,7 +595,9 @@ export default function App() {
       const updated = { ...(p[planWeek] || {}) };
       DAYS.forEach((day, i) => {
         if (meals[i])
-          updated[day] = [{ meal: meals[i], memberIds: household.members.map((m) => m.id) }];
+          updated[day] = [
+            { meal: meals[i], memberIds: household.members.map((m) => m.id) },
+          ];
       });
       return { ...p, [planWeek]: updated };
     });
@@ -562,9 +674,36 @@ export default function App() {
             }}
             pendingConsumable={pendingConsumable}
             setPendingConsumable={setPendingConsumable}
-            openConsumableAudience={(selection) => { setPendingConsumable(selection); setPage("ConsumableAudience"); }}
-            addConsumable={(category, name, memberIds) => setWeeklyConsumables((current) => ({ ...current, [planWeek]: { ...(current[planWeek] || { Drinks: [], Snacks: [] }), [category]: [...((current[planWeek]?.[category] || []).filter((item) => item.name !== name)), { name, memberIds }] } }))}
-            clearDay={(day) => { setFuturePlans((current) => ({ ...current, [planWeek]: { ...current[planWeek], [day]: null } })); setMealAssignments((current) => ({ ...current, [planWeek]: { ...current[planWeek], [day]: [] } })); setPage(""); setTab("Plan Shop"); }}
+            openConsumableAudience={(selection) => {
+              setPendingConsumable(selection);
+              setPage("ConsumableAudience");
+            }}
+            addConsumable={(category, name, memberIds) =>
+              setWeeklyConsumables((current) => ({
+                ...current,
+                [planWeek]: {
+                  ...(current[planWeek] || { Drinks: [], Snacks: [] }),
+                  [category]: [
+                    ...(current[planWeek]?.[category] || []).filter(
+                      (item) => item.name !== name,
+                    ),
+                    { name, memberIds },
+                  ],
+                },
+              }))
+            }
+            clearDay={(day) => {
+              setFuturePlans((current) => ({
+                ...current,
+                [planWeek]: { ...current[planWeek], [day]: null },
+              }));
+              setMealAssignments((current) => ({
+                ...current,
+                [planWeek]: { ...current[planWeek], [day]: [] },
+              }));
+              setPage("");
+              setTab("Plan Shop");
+            }}
             mealAssignments={mealAssignments[planWeek] || {}}
             attendanceOverrides={attendanceOverrides}
             setAttendanceOverrides={setAttendanceOverrides}
@@ -608,10 +747,50 @@ export default function App() {
                 setPlanWeek={setPlanWeek}
                 mealAssignments={mealAssignments[planWeek] || {}}
                 repeatLastWeek={repeatLastWeek}
-                consumables={weeklyConsumables[planWeek] || { Drinks: [], Snacks: [] }}
+                consumables={
+                  weeklyConsumables[planWeek] || { Drinks: [], Snacks: [] }
+                }
                 customChoices={customChoices}
-                rememberChoice={(category, name) => setCustomChoices((current) => ({ ...current, [category]: [...new Set([...(current[category] || []), name])] }))}
-                openConsumableAudience={(selection) => { setPendingConsumable(selection); setPage(`Consumable:${selection.category}:${selection.name}`); }}
+                rememberChoice={(category, name) =>
+                  setCustomChoices((current) => ({
+                    ...current,
+                    [category]: [
+                      ...new Set([...(current[category] || []), name]),
+                    ],
+                  }))
+                }
+                openConsumableAudience={(selection) => {
+                  setPendingConsumable(selection);
+                  setPage(`Consumable:${selection.category}:${selection.name}`);
+                }}
+                daySlots={daySlots[planWeek] || {}}
+                setDaySlots={(updater) =>
+                  setDaySlots((current) => ({
+                    ...current,
+                    [planWeek]:
+                      typeof updater === "function"
+                        ? updater(current[planWeek] || {})
+                        : updater,
+                  }))
+                }
+                setDinner={(day, meal) => {
+                  const memberIds = household.members.map(
+                    (member) => member.id,
+                  );
+                  setFuturePlans((current) => ({
+                    ...current,
+                    [planWeek]: { ...current[planWeek], [day]: meal },
+                  }));
+                  setMealAssignments((current) => ({
+                    ...current,
+                    [planWeek]: {
+                      ...current[planWeek],
+                      [day]: [{ meal, memberIds }],
+                    },
+                  }));
+                }}
+                household={household}
+                addNonFood={addNonFood}
                 showLow={showLow}
                 setShowLow={setShowLow}
                 addNonFood={addNonFood}
@@ -699,8 +878,7 @@ function AuthScreen({ onSession }) {
         password,
         options: {
           data: { display_name: name.trim() },
-          emailRedirectTo:
-            "https://highstreetwebco.github.io/Our-Weekly-Shop/",
+          emailRedirectTo: "https://highstreetwebco.github.io/Our-Weekly-Shop/",
         },
       });
       setBusy(false);
@@ -947,7 +1125,10 @@ function HouseholdSetup({
                     </Text>
                     {m.partTimeHome && (
                       <Text style={s.profileNote}>
-                        At home: {(m.usualDays || []).map((d) => d.slice(0, 3)).join(", ")}
+                        At home:{" "}
+                        {(m.usualDays || [])
+                          .map((d) => d.slice(0, 3))
+                          .join(", ")}
                       </Text>
                     )}
                   </View>
@@ -1001,18 +1182,42 @@ function HouseholdSetup({
                     onPress={() => setPartTimeHome((value) => !value)}
                   >
                     <View style={{ flex: 1 }}>
-                      <Text style={s.rowTitle}>They stay here part of the time</Text>
-                      <Text style={s.rowDetail}>We will ask about their days when you plan each week.</Text>
+                      <Text style={s.rowTitle}>
+                        They stay here part of the time
+                      </Text>
+                      <Text style={s.rowDetail}>
+                        We will ask about their days when you plan each week.
+                      </Text>
                     </View>
-                    <Ionicons name={partTimeHome ? "checkmark-circle" : "ellipse-outline"} size={23} color={partTimeHome ? C.green : C.muted} />
+                    <Ionicons
+                      name={
+                        partTimeHome ? "checkmark-circle" : "ellipse-outline"
+                      }
+                      size={23}
+                      color={partTimeHome ? C.green : C.muted}
+                    />
                   </TouchableOpacity>
                   {partTimeHome && (
                     <View style={s.dayPicker}>
                       {DAYS.map((day) => {
                         const on = usualDays.includes(day);
                         return (
-                          <TouchableOpacity key={day} onPress={() => setUsualDays((current) => on ? current.filter((item) => item !== day) : [...current, day])} style={[s.dayPill, on && s.dayPillOn]}>
-                            <Text style={[s.dayPillText, on && s.dayPillTextOn]}>{day.slice(0, 3)}</Text>
+                          <TouchableOpacity
+                            key={day}
+                            onPress={() =>
+                              setUsualDays((current) =>
+                                on
+                                  ? current.filter((item) => item !== day)
+                                  : [...current, day],
+                              )
+                            }
+                            style={[s.dayPill, on && s.dayPillOn]}
+                          >
+                            <Text
+                              style={[s.dayPillText, on && s.dayPillTextOn]}
+                            >
+                              {day.slice(0, 3)}
+                            </Text>
                           </TouchableOpacity>
                         );
                       })}
@@ -1121,7 +1326,8 @@ function HouseholdSetup({
             </Text>
             <Text style={s.sectionLabel}>
               {brandSearch.trim()
-                ? matchingBrands.length + " SEARCH RESULT" +
+                ? matchingBrands.length +
+                  " SEARCH RESULT" +
                   (matchingBrands.length === 1 ? "" : "S")
                 : "POPULAR BRANDS"}
             </Text>
@@ -1178,41 +1384,45 @@ function HouseholdSetup({
               </View>
             ) : (
               <View style={s.brandPicker}>
-              {Object.keys(BRAND_CATALOGUE).slice(0, 10).map((brand) => {
-                const hasChoices = (brandRules[brand] || []).length > 0;
-                const active = activeBrand === brand;
-                return (
-                  <TouchableOpacity
-                    key={brand}
-                    onPress={() => setActiveBrand(brand)}
-                    style={[
-                      s.brandPickerChip,
-                      active && s.brandPickerChipActive,
-                    ]}
-                  >
-                    {hasChoices && (
-                      <Ionicons
-                        name="checkmark-circle"
-                        size={15}
-                        color={active ? C.white : C.green}
-                      />
-                    )}
-                    <Text
-                      style={[
-                        s.brandPickerText,
-                        active && s.brandPickerTextActive,
-                      ]}
-                    >
-                      {brand}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
+                {Object.keys(BRAND_CATALOGUE)
+                  .slice(0, 10)
+                  .map((brand) => {
+                    const hasChoices = (brandRules[brand] || []).length > 0;
+                    const active = activeBrand === brand;
+                    return (
+                      <TouchableOpacity
+                        key={brand}
+                        onPress={() => setActiveBrand(brand)}
+                        style={[
+                          s.brandPickerChip,
+                          active && s.brandPickerChipActive,
+                        ]}
+                      >
+                        {hasChoices && (
+                          <Ionicons
+                            name="checkmark-circle"
+                            size={15}
+                            color={active ? C.white : C.green}
+                          />
+                        )}
+                        <Text
+                          style={[
+                            s.brandPickerText,
+                            active && s.brandPickerTextActive,
+                          ]}
+                        >
+                          {brand}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
               </View>
             )}
             <View style={s.brandCard}>
               <View style={s.brandBadge}>
-                <Text style={s.brandBadgeText}>{activeBrand.toUpperCase()}</Text>
+                <Text style={s.brandBadgeText}>
+                  {activeBrand.toUpperCase()}
+                </Text>
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={s.rowTitle}>{activeBrand}</Text>
@@ -1267,12 +1477,21 @@ function HouseholdSetup({
                     onPress={() => setActiveBrand(brand)}
                     style={s.selectedBrandRow}
                   >
-                    <Ionicons name="shield-checkmark" size={18} color={C.green} />
+                    <Ionicons
+                      name="shield-checkmark"
+                      size={18}
+                      color={C.green}
+                    />
                     <Text style={s.selectedBrandName}>{brand}</Text>
                     <Text style={s.selectedBrandCount}>
-                      {products.length} product{products.length === 1 ? "" : "s"}
+                      {products.length} product
+                      {products.length === 1 ? "" : "s"}
                     </Text>
-                    <Ionicons name="chevron-forward" size={16} color={C.muted} />
+                    <Ionicons
+                      name="chevron-forward"
+                      size={16}
+                      color={C.muted}
+                    />
                   </TouchableOpacity>
                 ))}
               </View>
@@ -1465,7 +1684,14 @@ function DeliverySplash({ onFinish }) {
   );
 }
 
-function buildBasket(plan, extras, household, assignments = {}, consumables = {}) {
+function buildBasket(
+  plan,
+  extras,
+  household,
+  assignments = {},
+  consumables = {},
+  daySlots = {},
+) {
   const map = {};
   const addMeal = (mealName, memberIds) => {
     const meal = MEALS[mealName];
@@ -1484,14 +1710,44 @@ function buildBasket(plan, extras, household, assignments = {}, consumables = {}
   };
   DAYS.forEach((day) => {
     const meals = assignments[day];
-    if (meals?.length) meals.forEach((item) => addMeal(item.meal, item.memberIds || []));
-    else if (plan[day]) addMeal(plan[day], (household?.members || []).map((m) => m.id));
+    if (meals?.length)
+      meals.forEach((item) => addMeal(item.meal, item.memberIds || []));
+    else if (plan[day])
+      addMeal(
+        plan[day],
+        (household?.members || []).map((m) => m.id),
+      );
   });
-  Object.entries(consumables).forEach(([category, items]) => (items || []).forEach((item) => {
-    const portions = (household?.members || []).filter((member) => (item.memberIds || []).includes(member.id)).reduce((sum, member) => sum + Number(member.portion || 0), 0);
-    if (!map[item.name]) map[item.name] = { name: item.name, qty: 0, unit: "pack", dated: false, meals: [category] };
-    map[item.name].qty += Math.max(1, Math.ceil(portions / 2));
-  }));
+  Object.entries(consumables).forEach(([category, items]) =>
+    (items || []).forEach((item) => {
+      const portions = (household?.members || [])
+        .filter((member) => (item.memberIds || []).includes(member.id))
+        .reduce((sum, member) => sum + Number(member.portion || 0), 0);
+      if (!map[item.name])
+        map[item.name] = {
+          name: item.name,
+          qty: 0,
+          unit: "pack",
+          dated: false,
+          meals: [category],
+        };
+      map[item.name].qty += Math.max(1, Math.ceil(portions / 2));
+    }),
+  );
+  Object.entries(daySlots || {}).forEach(([day, slots]) => {
+    ["Breakfast", "Lunch"].forEach((slot) => {
+      const item = slots?.[slot];
+      if (!item || item.name === "No meal needed") return;
+      const memberCount =
+        (item.memberIds || []).length || (household?.members || []).length;
+      const key = item.name;
+      if (!map[key])
+        map[key] = { name: key, qty: 0, unit: "pack", dated: false, meals: [] };
+      map[key].qty += Math.max(1, Math.ceil(memberCount / 2));
+      if (!map[key].meals.includes(`${day} ${slot}`))
+        map[key].meals.push(`${day} ${slot}`);
+    });
+  });
   extras.forEach(
     (name) =>
       (map[name] = {
@@ -1524,14 +1780,21 @@ function MealAudience({
   };
   const available = household.members.filter(isAtHome);
   const [selected, setSelected] = useState(
-    existingMemberIds.length ? existingMemberIds : available.map((member) => member.id),
+    existingMemberIds.length
+      ? existingMemberIds
+      : available.map((member) => member.id),
   );
   const toggle = (id) =>
     setSelected((current) =>
-      current.includes(id) ? current.filter((item) => item !== id) : [...current, id],
+      current.includes(id)
+        ? current.filter((item) => item !== id)
+        : [...current, id],
     );
   const updateAttendance = (member, atHome) => {
-    setAttendanceOverrides((current) => ({ ...current, [keyFor(member.id)]: atHome }));
+    setAttendanceOverrides((current) => ({
+      ...current,
+      [keyFor(member.id)]: atHome,
+    }));
     setSelected((current) =>
       atHome && !current.includes(member.id)
         ? [...current, member.id]
@@ -1550,26 +1813,48 @@ function MealAudience({
         title={meal}
         sub={`Choose the people eating this on ${day}. You can add another meal for the children or adults afterwards.`}
       />
-      {household.members.filter((member) => member.partTimeHome).map((member) => (
-        <View key={member.id} style={s.custodyPrompt}>
-          <View style={{ flex: 1 }}>
-            <Text style={s.rowTitle}>Is {member.name} at yours on {day}?</Text>
-            <Text style={s.rowDetail}>Usual pattern: {(member.usualDays || []).join(", ") || "not set"}</Text>
+      {household.members
+        .filter((member) => member.partTimeHome)
+        .map((member) => (
+          <View key={member.id} style={s.custodyPrompt}>
+            <View style={{ flex: 1 }}>
+              <Text style={s.rowTitle}>
+                Is {member.name} at yours on {day}?
+              </Text>
+              <Text style={s.rowDetail}>
+                Usual pattern:{" "}
+                {(member.usualDays || []).join(", ") || "not set"}
+              </Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => updateAttendance(member, !isAtHome(member))}
+              style={[s.homeToggle, isAtHome(member) && s.homeToggleOn]}
+            >
+              <Text
+                style={[
+                  s.homeToggleText,
+                  isAtHome(member) && s.homeToggleTextOn,
+                ]}
+              >
+                {isAtHome(member) ? "At yours" : "Away"}
+              </Text>
+            </TouchableOpacity>
           </View>
-          <TouchableOpacity
-            onPress={() => updateAttendance(member, !isAtHome(member))}
-            style={[s.homeToggle, isAtHome(member) && s.homeToggleOn]}
-          >
-            <Text style={[s.homeToggleText, isAtHome(member) && s.homeToggleTextOn]}>
-              {isAtHome(member) ? "At yours" : "Away"}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      ))}
+        ))}
       <Text style={s.sectionLabel}>ADULTS</Text>
-      <AudienceGroup members={adults} selected={selected} toggle={toggle} empty="No adults at home for this meal." />
+      <AudienceGroup
+        members={adults}
+        selected={selected}
+        toggle={toggle}
+        empty="No adults at home for this meal."
+      />
       <Text style={s.sectionLabel}>CHILDREN</Text>
-      <AudienceGroup members={children} selected={selected} toggle={toggle} empty="No children at home for this meal." />
+      <AudienceGroup
+        members={children}
+        selected={selected}
+        toggle={toggle}
+        empty="No children at home for this meal."
+      />
       <View style={s.info}>
         <Ionicons name="basket-outline" size={19} color={C.green} />
         <Text style={s.infoText}>
@@ -1578,7 +1863,16 @@ function MealAudience({
             : "Select at least one person before adding this meal."}
         </Text>
       </View>
-      <Button text={selected.length ? "Add meal for selected people" : "Select who is eating"} disabled={!selected.length} icon="people-outline" onPress={() => done(selected)} />
+      <Button
+        text={
+          selected.length
+            ? "Add meal for selected people"
+            : "Select who is eating"
+        }
+        disabled={!selected.length}
+        icon="people-outline"
+        onPress={() => done(selected)}
+      />
     </>
   );
 }
@@ -1590,13 +1884,25 @@ function AudienceGroup({ members, selected, toggle, empty }) {
       {members.map((member) => {
         const on = selected.includes(member.id);
         return (
-          <TouchableOpacity key={member.id} onPress={() => toggle(member.id)} style={s.itemRow}>
-            <View style={s.avatar}><Text style={s.avatarText}>{member.name[0]}</Text></View>
+          <TouchableOpacity
+            key={member.id}
+            onPress={() => toggle(member.id)}
+            style={s.itemRow}
+          >
+            <View style={s.avatar}>
+              <Text style={s.avatarText}>{member.name[0]}</Text>
+            </View>
             <View style={{ flex: 1 }}>
               <Text style={s.rowTitle}>{member.name}</Text>
-              <Text style={s.rowDetail}>{member.portion} adult portion{member.portion === 1 ? "" : "s"}</Text>
+              <Text style={s.rowDetail}>
+                {member.portion} adult portion{member.portion === 1 ? "" : "s"}
+              </Text>
             </View>
-            <Ionicons name={on ? "checkbox" : "square-outline"} size={24} color={on ? C.green : C.muted} />
+            <Ionicons
+              name={on ? "checkbox" : "square-outline"}
+              size={24}
+              color={on ? C.green : C.muted}
+            />
           </TouchableOpacity>
         );
       })}
@@ -1605,20 +1911,134 @@ function AudienceGroup({ members, selected, toggle, empty }) {
 }
 
 function DinerPicker({ day, household, done, back, clear }) {
-  const [selected, setSelected] = useState(household.members.map((member) => member.id));
+  const [selected, setSelected] = useState(
+    household.members.map((member) => member.id),
+  );
   const adults = household.members.filter((member) => member.role !== "Child");
-  const children = household.members.filter((member) => member.role === "Child");
-  const choose = (members) => { setSelected(members.map((member) => member.id)); };
-  return <><Back onPress={back} /><Header overline="PLAN THIS DAY" title={day} sub="Who are you setting this meal for? This keeps adult and children’s meals separate when needed." /><View style={s.choiceRow}><TouchableOpacity onPress={() => choose(adults)} style={s.choiceChip}><Text style={s.choiceText}>Adults</Text></TouchableOpacity><TouchableOpacity onPress={() => choose(children)} style={s.choiceChip}><Text style={s.choiceText}>Children</Text></TouchableOpacity><TouchableOpacity onPress={() => choose(household.members)} style={s.choiceChip}><Text style={s.choiceText}>Everyone</Text></TouchableOpacity></View><Text style={s.sectionLabel}>OR PICK PEOPLE</Text><AudienceGroup members={household.members} selected={selected} toggle={(id) => setSelected((items) => items.includes(id) ? items.filter((item) => item !== id) : [...items, id])} empty="Add household members first." /><Button text={selected.length ? "Choose a meal" : "Select someone"} disabled={!selected.length} icon="restaurant-outline" onPress={() => done(selected)} /><Button text="Leave this day blank" icon="close-circle-outline" pale onPress={clear} /></>;
+  const children = household.members.filter(
+    (member) => member.role === "Child",
+  );
+  const choose = (members) => {
+    setSelected(members.map((member) => member.id));
+  };
+  return (
+    <>
+      <Back onPress={back} />
+      <Header
+        overline="PLAN THIS DAY"
+        title={day}
+        sub="Who are you setting this meal for? This keeps adult and children’s meals separate when needed."
+      />
+      <View style={s.choiceRow}>
+        <TouchableOpacity onPress={() => choose(adults)} style={s.choiceChip}>
+          <Text style={s.choiceText}>Adults</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => choose(children)} style={s.choiceChip}>
+          <Text style={s.choiceText}>Children</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => choose(household.members)}
+          style={s.choiceChip}
+        >
+          <Text style={s.choiceText}>Everyone</Text>
+        </TouchableOpacity>
+      </View>
+      <Text style={s.sectionLabel}>OR PICK PEOPLE</Text>
+      <AudienceGroup
+        members={household.members}
+        selected={selected}
+        toggle={(id) =>
+          setSelected((items) =>
+            items.includes(id)
+              ? items.filter((item) => item !== id)
+              : [...items, id],
+          )
+        }
+        empty="Add household members first."
+      />
+      <Button
+        text={selected.length ? "Choose a meal" : "Select someone"}
+        disabled={!selected.length}
+        icon="restaurant-outline"
+        onPress={() => done(selected)}
+      />
+      <Button
+        text="Leave this day blank"
+        icon="close-circle-outline"
+        pale
+        onPress={clear}
+      />
+    </>
+  );
 }
 
 function SwapConfirm({ oldMeal, newMeal, confirm, back }) {
-  return <><Back onPress={back} /><Header overline="UPDATE MEAL PLAN" title="Swap this meal?" sub={`Would you like to swap ${oldMeal} for ${newMeal}? The basket will update using the same people and portion sizes.`} /><View style={s.info}><Ionicons name="swap-horizontal-outline" size={20} color={C.green} /><Text style={s.infoText}>{oldMeal} will be removed for these family members and replaced with {newMeal}.</Text></View><Button text={`Swap for ${newMeal}`} icon="swap-horizontal-outline" onPress={confirm} /><Button text="Keep current meal" pale onPress={back} /></>;
+  return (
+    <>
+      <Back onPress={back} />
+      <Header
+        overline="UPDATE MEAL PLAN"
+        title="Swap this meal?"
+        sub={`Would you like to swap ${oldMeal} for ${newMeal}? The basket will update using the same people and portion sizes.`}
+      />
+      <View style={s.info}>
+        <Ionicons name="swap-horizontal-outline" size={20} color={C.green} />
+        <Text style={s.infoText}>
+          {oldMeal} will be removed for these family members and replaced with{" "}
+          {newMeal}.
+        </Text>
+      </View>
+      <Button
+        text={`Swap for ${newMeal}`}
+        icon="swap-horizontal-outline"
+        onPress={confirm}
+      />
+      <Button text="Keep current meal" pale onPress={back} />
+    </>
+  );
 }
 
-function ConsumableAudience({ category, name, household, existingMemberIds, done, back }) {
-  const [selected, setSelected] = useState(existingMemberIds.length ? existingMemberIds : household.members.map((member) => member.id));
-  return <><Back onPress={back} /><Header overline={`PLAN ${category.toUpperCase()}`} title={name} sub="Tick everyone who will use this this week. We will turn their portion sizes into the right amount to buy." /><AudienceGroup members={household.members} selected={selected} toggle={(id) => setSelected((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id])} empty="No household members added." /><Button text={selected.length ? "Add for selected people" : "Select someone"} disabled={!selected.length} icon="people-outline" onPress={() => done(selected)} /></>;
+function ConsumableAudience({
+  category,
+  name,
+  household,
+  existingMemberIds,
+  done,
+  back,
+}) {
+  const [selected, setSelected] = useState(
+    existingMemberIds.length
+      ? existingMemberIds
+      : household.members.map((member) => member.id),
+  );
+  return (
+    <>
+      <Back onPress={back} />
+      <Header
+        overline={`PLAN ${category.toUpperCase()}`}
+        title={name}
+        sub="Tick everyone who will use this this week. We will turn their portion sizes into the right amount to buy."
+      />
+      <AudienceGroup
+        members={household.members}
+        selected={selected}
+        toggle={(id) =>
+          setSelected((current) =>
+            current.includes(id)
+              ? current.filter((item) => item !== id)
+              : [...current, id],
+          )
+        }
+        empty="No household members added."
+      />
+      <Button
+        text={selected.length ? "Add for selected people" : "Select someone"}
+        disabled={!selected.length}
+        icon="people-outline"
+        onPress={() => done(selected)}
+      />
+    </>
+  );
 }
 function findExpirySuggestion(plan, dates) {
   for (const day of DAYS) {
@@ -1774,9 +2194,30 @@ function PlanShop({
   openConsumableAudience,
   customChoices,
   rememberChoice,
+  daySlots,
+  setDaySlots,
+  setDinner,
+  household,
+  addNonFood,
 }) {
   const start = 15 + (planWeek - 1) * 7;
   const [plannerTab, setPlannerTab] = useState("Meals");
+  const [flow, setFlow] = useState("start");
+  if (flow !== "start")
+    return (
+      <GuidedPlanner
+        flow={flow}
+        setFlow={setFlow}
+        plan={plan}
+        daySlots={daySlots}
+        setDaySlots={setDaySlots}
+        setDinner={setDinner}
+        household={household}
+        open={open}
+        basket={basket}
+        addNonFood={addNonFood}
+      />
+    );
   return (
     <>
       <Header
@@ -1814,131 +2255,632 @@ function PlanShop({
           />
         </TouchableOpacity>
       </View>
-      <View style={s.info}><Ionicons name="sparkles-outline" size={19} color={C.green} /><Text style={s.infoText}>Start with your usual week, then only change what is different.</Text></View>
-      <Button text="Use my usual week" icon="sparkles-outline" onPress={repeatLastWeek} />
-      <Button text="Use last week as my starting point" icon="copy-outline" pale onPress={repeatLastWeek} />
-      <View style={s.progress}><View style={s.progressTop}><Text style={s.progressTitle}>This shop covers</Text><Text style={s.progressCount}>{Object.values(mealAssignments).filter((x) => x?.length).length}/7 meal days</Text></View><Text style={s.rowDetail}>Meals · drinks · snacks · household extras</Text></View>
-      <View style={s.lowPrompt}><View style={s.alertIcon}><Ionicons name="time-outline" size={20} color={C.amber} /></View><View style={{ flex: 1 }}><Text style={s.alertTitle}>Only review what has changed</Text><Text style={s.alertText}>Your usual meals, drinks and snacks are carried over. Add a takeaway, swap a meal, or leave a day blank when plans change.</Text></View></View>
-      <View style={s.choiceRow}>
-        {["Meals", "Drinks", "Snacks"].map((item) => <TouchableOpacity key={item} onPress={() => setPlannerTab(item)} style={[s.choiceChip, plannerTab === item && s.choiceChipOn]}><Text style={[s.choiceText, plannerTab === item && s.choiceTextOn]}>{item}</Text></TouchableOpacity>)}
+      <View style={s.info}>
+        <Ionicons name="sparkles-outline" size={19} color={C.green} />
+        <Text style={s.infoText}>
+          Start with your usual week, then only change what is different.
+        </Text>
       </View>
-      {plannerTab === "Meals" && <>
       <Button
-        text="Choose from our family meals"
-        icon="restaurant-outline"
-        onPress={() => open("MealLibrary")}
+        text="Plan this week day by day"
+        icon="calendar-outline"
+        onPress={() => setFlow("guided")}
       />
       <Button
-        text="Add anything else"
-        icon="add"
+        text="Use my usual week"
+        icon="sparkles-outline"
+        onPress={repeatLastWeek}
+      />
+      <Button
+        text="Use last week as my starting point"
+        icon="copy-outline"
         pale
-        onPress={() => open("NonFood")}
+        onPress={repeatLastWeek}
       />
-      {showLow && (
-        <View style={s.lowPrompt}>
-          <View style={s.alertIcon}>
-            <Ionicons name="repeat-outline" size={20} color={C.amber} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={s.alertTitle}>Running low on toilet roll?</Text>
-            <Text style={s.alertText}>
-              You normally reorder this around every 3 weeks.
-            </Text>
-            <View style={s.promptActions}>
-              <TouchableOpacity
-                onPress={() => {
-                  addNonFood("Toilet roll");
-                  setShowLow(false);
-                }}
-              >
-                <Text style={s.link}>Add to this shop</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => setShowLow(false)}>
-                <Text style={s.notNow}>Not now</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      )}
       <View style={s.progress}>
         <View style={s.progressTop}>
-          <Text style={s.progressTitle}>Meal plan</Text>
-          <Text style={s.progressCount}>7 of 7 dinners planned</Text>
+          <Text style={s.progressTitle}>This shop covers</Text>
+          <Text style={s.progressCount}>
+            {Object.values(mealAssignments).filter((x) => x?.length).length}/7
+            meal days
+          </Text>
         </View>
-        <View style={s.track}>
-          <View style={[s.trackFill, { width: "100%" }]} />
-        </View>
+        <Text style={s.rowDetail}>
+          Meals · drinks · snacks · household extras
+        </Text>
       </View>
-      <View style={s.weekCard}>
-        {DAYS.map((day, i) => (
-          <TouchableOpacity
-            key={day}
-            style={s.planRow}
-            onPress={() => open(`Choose:${day}`)}
-          >
-            <View style={s.date}>
-              <Text style={s.dayShort}>SEP</Text>
-              <Text style={s.dateNo}>{start + i}</Text>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={s.dayName}>{day}</Text>
-              {(mealAssignments[day] || [{ meal: plan[day], memberIds: [] }]).map((item, index) => (
-                <View key={item.meal + index} style={s.assignmentLine}>
-                  <Text style={s.mealName}>{item.meal}</Text>
-                  <Text style={s.assignmentAudience}>
-                    {item.memberIds.length ? item.memberIds.length + " eating" : "Choose who is eating"}
-                  </Text>
-                </View>
-              ))}
-              {!(mealAssignments[day] || []).length && !plan[day] && <Text style={s.mealName}>No meal planned yet</Text>}
-              <Text style={s.mealMeta}>
-                Tap to add an adult or children’s meal
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={C.muted} />
-          </TouchableOpacity>
-        ))}
-      </View>
-      <View style={s.basketCallout}>
-        <View style={s.iconBox}>
-          <Ionicons name="basket-outline" size={21} color={C.green} />
+      <View style={s.lowPrompt}>
+        <View style={s.alertIcon}>
+          <Ionicons name="time-outline" size={20} color={C.amber} />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={s.rowTitle}>Shopping list created</Text>
-          <Text style={s.rowDetail}>
-            {basket.length} products calculated for this week
+          <Text style={s.alertTitle}>Only review what has changed</Text>
+          <Text style={s.alertText}>
+            Your usual meals, drinks and snacks are carried over. Add a
+            takeaway, swap a meal, or leave a day blank when plans change.
           </Text>
         </View>
       </View>
-      </>}
-      {plannerTab !== "Meals" && <WeeklyConsumables category={plannerTab} items={consumables[plannerTab] || []} savedChoices={customChoices[plannerTab] || []} rememberChoice={rememberChoice} open={openConsumableAudience} />}
+      <View style={s.choiceRow}>
+        {["Meals", "Drinks", "Snacks"].map((item) => (
+          <TouchableOpacity
+            key={item}
+            onPress={() => setPlannerTab(item)}
+            style={[s.choiceChip, plannerTab === item && s.choiceChipOn]}
+          >
+            <Text style={[s.choiceText, plannerTab === item && s.choiceTextOn]}>
+              {item}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+      {plannerTab === "Meals" && (
+        <>
+          <Button
+            text="Choose from our family meals"
+            icon="restaurant-outline"
+            onPress={() => open("MealLibrary")}
+          />
+          <Button
+            text="Add anything else"
+            icon="add"
+            pale
+            onPress={() => open("NonFood")}
+          />
+          {showLow && (
+            <View style={s.lowPrompt}>
+              <View style={s.alertIcon}>
+                <Ionicons name="repeat-outline" size={20} color={C.amber} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={s.alertTitle}>Running low on toilet roll?</Text>
+                <Text style={s.alertText}>
+                  You normally reorder this around every 3 weeks.
+                </Text>
+                <View style={s.promptActions}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      addNonFood("Toilet roll");
+                      setShowLow(false);
+                    }}
+                  >
+                    <Text style={s.link}>Add to this shop</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => setShowLow(false)}>
+                    <Text style={s.notNow}>Not now</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          )}
+          <View style={s.progress}>
+            <View style={s.progressTop}>
+              <Text style={s.progressTitle}>Meal plan</Text>
+              <Text style={s.progressCount}>7 of 7 dinners planned</Text>
+            </View>
+            <View style={s.track}>
+              <View style={[s.trackFill, { width: "100%" }]} />
+            </View>
+          </View>
+          <View style={s.weekCard}>
+            {DAYS.map((day, i) => (
+              <TouchableOpacity
+                key={day}
+                style={s.planRow}
+                onPress={() => open(`Choose:${day}`)}
+              >
+                <View style={s.date}>
+                  <Text style={s.dayShort}>SEP</Text>
+                  <Text style={s.dateNo}>{start + i}</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.dayName}>{day}</Text>
+                  {(
+                    mealAssignments[day] || [{ meal: plan[day], memberIds: [] }]
+                  ).map((item, index) => (
+                    <View key={item.meal + index} style={s.assignmentLine}>
+                      <Text style={s.mealName}>{item.meal}</Text>
+                      <Text style={s.assignmentAudience}>
+                        {item.memberIds.length
+                          ? item.memberIds.length + " eating"
+                          : "Choose who is eating"}
+                      </Text>
+                    </View>
+                  ))}
+                  {!(mealAssignments[day] || []).length && !plan[day] && (
+                    <Text style={s.mealName}>No meal planned yet</Text>
+                  )}
+                  <Text style={s.mealMeta}>
+                    Tap to add an adult or children’s meal
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={C.muted} />
+              </TouchableOpacity>
+            ))}
+          </View>
+          <View style={s.basketCallout}>
+            <View style={s.iconBox}>
+              <Ionicons name="basket-outline" size={21} color={C.green} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={s.rowTitle}>Shopping list created</Text>
+              <Text style={s.rowDetail}>
+                {basket.length} products calculated for this week
+              </Text>
+            </View>
+          </View>
+        </>
+      )}
+      {plannerTab !== "Meals" && (
+        <WeeklyConsumables
+          category={plannerTab}
+          items={consumables[plannerTab] || []}
+          savedChoices={customChoices[plannerTab] || []}
+          rememberChoice={rememberChoice}
+          open={openConsumableAudience}
+        />
+      )}
     </>
   );
 }
 
-function WeeklyConsumables({ category, items, savedChoices, rememberChoice, open }) {
+function GuidedPlanner({
+  flow,
+  setFlow,
+  plan,
+  daySlots,
+  setDaySlots,
+  setDinner,
+  household,
+  open,
+  basket,
+  addNonFood,
+}) {
+  const [dayIndex, setDayIndex] = useState(0);
+  const [slot, setSlot] = useState("Breakfast");
+  const [showPeople, setShowPeople] = useState(false);
+  const [extra, setExtra] = useState("");
+  const day = DAYS[dayIndex];
+  const slots = daySlots[day] || {};
+  const options =
+    slot === "Breakfast"
+      ? ["Cereal", "Toast", "Porridge", "Yoghurt & fruit", "No meal needed"]
+      : slot === "Lunch"
+        ? [
+            "Packed lunch",
+            "School lunch",
+            "Sandwiches",
+            "Leftovers",
+            "No meal needed",
+          ]
+        : [
+            ...Object.keys(MEALS),
+            "Takeaway",
+            "Eat out",
+            "Leftovers",
+            "No meal needed",
+          ];
+  const selected = slot === "Dinner" ? plan[day] : slots[slot]?.name;
+  const allIds = household.members.map((member) => member.id);
+  const setSelection = (name) => {
+    if (slot === "Dinner") {
+      setDinner(day, name);
+      return;
+    }
+    setDaySlots((current) => ({
+      ...current,
+      [day]: {
+        ...(current[day] || {}),
+        [slot]: { name, memberIds: slots[slot]?.memberIds || allIds },
+      },
+    }));
+  };
+  const togglePerson = (id) =>
+    setDaySlots((current) => {
+      const currentSlot = current[day]?.[slot] || {
+        name: selected || "No meal needed",
+        memberIds: allIds,
+      };
+      const memberIds = currentSlot.memberIds.includes(id)
+        ? currentSlot.memberIds.filter((item) => item !== id)
+        : [...currentSlot.memberIds, id];
+      return {
+        ...current,
+        [day]: {
+          ...(current[day] || {}),
+          [slot]: { ...currentSlot, memberIds },
+        },
+      };
+    });
+  const completeDay = () => {
+    if (dayIndex === DAYS.length - 1) setFlow("review");
+    else {
+      setDayIndex((index) => index + 1);
+      setSlot("Breakfast");
+      setShowPeople(false);
+    }
+  };
+  if (flow === "extras")
+    return (
+      <>
+        <Header
+          overline="ONE LAST STEP"
+          title="Add extras"
+          sub="Add drinks, snacks and household items you need. We remember them for an easier shop next time."
+        />
+        <View style={s.info}>
+          <Ionicons name="repeat-outline" size={19} color={C.green} />
+          <Text style={s.infoText}>
+            For example: Coke for the family, or toothpaste that normally lasts
+            four weeks.
+          </Text>
+        </View>
+        <View style={s.addBar}>
+          <Ionicons name="add" size={20} color={C.green} />
+          <TextInput
+            value={extra}
+            onChangeText={setExtra}
+            placeholder="Coke, toothpaste, toilet roll…"
+            placeholderTextColor={C.muted}
+            style={s.input}
+          />
+          <TouchableOpacity
+            onPress={() => {
+              if (extra.trim()) {
+                addNonFood(extra.trim());
+                setExtra("");
+              }
+            }}
+          >
+            <Text style={s.link}>Add</Text>
+          </TouchableOpacity>
+        </View>
+        <Button
+          text="Add drinks and snacks"
+          icon="cafe-outline"
+          pale
+          onPress={() => setFlow("start")}
+        />
+        <Button
+          text="Add household essentials"
+          icon="cube-outline"
+          pale
+          onPress={() => open("NonFood")}
+        />
+        <Button
+          text={`Review my ${basket.length} basket items`}
+          icon="basket-outline"
+          onPress={() => setFlow("review")}
+        />
+      </>
+    );
+  if (flow === "review")
+    return (
+      <>
+        <Header
+          overline="READY TO CHECK"
+          title="Your week at a glance"
+          sub="Everything is still editable. Tap a day to change it before you compare supermarkets."
+        />
+        <View style={s.progress}>
+          <View style={s.progressTop}>
+            <Text style={s.progressTitle}>Weekly plan complete</Text>
+            <Text style={s.progressCount}>7 days planned</Text>
+          </View>
+          <View style={s.track}>
+            <View style={[s.trackFill, { width: "100%" }]} />
+          </View>
+        </View>
+        <View style={s.weekCard}>
+          {DAYS.map((name, index) => (
+            <TouchableOpacity
+              key={name}
+              style={s.planRow}
+              onPress={() => {
+                setDayIndex(index);
+                setSlot("Breakfast");
+                setFlow("guided");
+              }}
+            >
+              <View style={s.date}>
+                <Text style={s.dayShort}>DAY</Text>
+                <Text style={s.dateNo}>{index + 1}</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={s.dayName}>{name}</Text>
+                <Text style={s.rowDetail}>
+                  Breakfast · {daySlots[name]?.Breakfast?.name || "Not set"}
+                </Text>
+                <Text style={s.rowDetail}>
+                  Lunch · {daySlots[name]?.Lunch?.name || "Not set"}
+                </Text>
+                <Text style={s.mealName}>
+                  Dinner · {plan[name] || "Not set"}
+                </Text>
+              </View>
+              <Ionicons name="create-outline" size={19} color={C.green} />
+            </TouchableOpacity>
+          ))}
+        </View>
+        <Button
+          text="Add extras before checkout"
+          icon="add-circle-outline"
+          pale
+          onPress={() => setFlow("extras")}
+        />
+        <Button
+          text="My shopping basket"
+          icon="basket-outline"
+          onPress={() => setFlow("start")}
+        />
+      </>
+    );
+  const completed = Boolean(
+    slots.Breakfast?.name && slots.Lunch?.name && plan[day],
+  );
+  return (
+    <>
+      <Header
+        overline={`PLAN DAY ${dayIndex + 1} OF 7`}
+        title={day}
+        sub="Three quick choices, then you are on to the next day."
+      />
+      <View style={s.progress}>
+        <View style={s.progressTop}>
+          <Text style={s.progressTitle}>
+            {dayIndex === 0
+              ? "This week starts here"
+              : `Monday to ${DAYS[dayIndex - 1]} complete`}
+          </Text>
+          <Text style={s.progressCount}>{dayIndex}/7 days</Text>
+        </View>
+        <View style={s.track}>
+          <View style={[s.trackFill, { width: `${(dayIndex / 7) * 100}%` }]} />
+        </View>
+      </View>
+      <View style={s.choiceRow}>
+        {["Breakfast", "Lunch", "Dinner"].map((name) => (
+          <TouchableOpacity
+            key={name}
+            onPress={() => {
+              setSlot(name);
+              setShowPeople(false);
+            }}
+            style={[s.choiceChip, slot === name && s.choiceChipOn]}
+          >
+            <Text style={[s.choiceText, slot === name && s.choiceTextOn]}>
+              {slots[name]?.name || (name === "Dinner" && plan[day])
+                ? "✓ "
+                : ""}
+              {name}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+      <Text style={s.sectionLabel}>CHOOSE {slot.toUpperCase()}</Text>
+      <View style={s.card}>
+        {options.map((name) => (
+          <TouchableOpacity
+            key={name}
+            style={[s.itemRow, selected === name && s.mealChoiceOn]}
+            onPress={() => setSelection(name)}
+          >
+            <View style={s.iconBox}>
+              <Ionicons
+                name={
+                  slot === "Dinner"
+                    ? "restaurant-outline"
+                    : slot === "Breakfast"
+                      ? "sunny-outline"
+                      : "briefcase-outline"
+                }
+                size={18}
+                color={C.green}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={s.rowTitle}>{name}</Text>
+              <Text style={s.rowDetail}>
+                {slot === "Dinner" && MEALS[name]
+                  ? `${MEALS[name].time} minutes · family meal`
+                  : "Quick family choice"}
+              </Text>
+            </View>
+            {selected === name && (
+              <Ionicons name="checkmark-circle" size={21} color={C.green} />
+            )}
+          </TouchableOpacity>
+        ))}
+      </View>
+      {selected && (
+        <>
+          <TouchableOpacity
+            onPress={() => setShowPeople(!showPeople)}
+            style={s.setupBack}
+          >
+            <Text style={s.link}>
+              {showPeople
+                ? "Done choosing people"
+                : "Who is eating this? Whole household selected"}
+            </Text>
+          </TouchableOpacity>
+          {showPeople && (
+            <View style={s.card}>
+              {household.members.map((member) => {
+                const ids =
+                  slot === "Dinner" ? allIds : slots[slot]?.memberIds || allIds;
+                const on = ids.includes(member.id);
+                return (
+                  <TouchableOpacity
+                    key={member.id}
+                    onPress={() => slot !== "Dinner" && togglePerson(member.id)}
+                    style={s.itemRow}
+                  >
+                    <View style={s.avatar}>
+                      <Text style={s.avatarText}>{member.name[0]}</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={s.rowTitle}>{member.name}</Text>
+                      <Text style={s.rowDetail}>{member.role}</Text>
+                    </View>
+                    <Ionicons
+                      name={on ? "checkbox" : "square-outline"}
+                      size={22}
+                      color={C.green}
+                    />
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
+        </>
+      )}
+      <Button
+        text={
+          completed
+            ? dayIndex === 6
+              ? "Finish week and review"
+              : `Complete ${day} →`
+            : "Choose breakfast, lunch and dinner"
+        }
+        icon="arrow-forward"
+        disabled={!completed}
+        onPress={completeDay}
+      />
+      <TouchableOpacity onPress={() => setFlow("review")} style={s.setupBack}>
+        <Text style={s.notNow}>Review week so far</Text>
+      </TouchableOpacity>
+    </>
+  );
+}
+
+function WeeklyConsumables({
+  category,
+  items,
+  savedChoices,
+  rememberChoice,
+  open,
+}) {
   const [custom, setCustom] = useState("");
   const [milkType, setMilkType] = useState("Semi-skimmed");
   const [milkSize, setMilkSize] = useState("2 pints");
   const choices = [...new Set([...WEEKLY_CHOICES[category], ...savedChoices])];
   const addCustom = () => {
-    const name = custom.trim() || (category === "Drinks" ? `Milk · ${milkType} · ${milkSize}` : "");
+    const name =
+      custom.trim() ||
+      (category === "Drinks" ? `Milk · ${milkType} · ${milkSize}` : "");
     if (!name) return;
     rememberChoice(category, name);
     open({ category, name, items });
     setCustom("");
   };
-  return <>
-    <Header overline={`PLAN ${category.toUpperCase()}`} title={`${category} for this week`} sub="Choose an item, then select exactly who will be consuming it." />
-    <View style={s.setupPanel}><TextInput value={custom} onChangeText={setCustom} placeholder={`Type a ${category.toLowerCase().slice(0, -1)}…`} placeholderTextColor={C.muted} style={s.setupInput} />
-      {category === "Drinks" && <><Text style={s.sectionLabel}>IF YOU ARE ADDING MILK</Text><View style={s.choiceRow}>{["Whole", "Semi-skimmed", "Skimmed", "Oat"].map((type) => <TouchableOpacity key={type} onPress={() => setMilkType(type)} style={[s.choiceChip, milkType === type && s.choiceChipOn]}><Text style={[s.choiceText, milkType === type && s.choiceTextOn]}>{type}</Text></TouchableOpacity>)}</View><View style={s.choiceRow}>{["1 pint", "2 pints", "4 pints"].map((size) => <TouchableOpacity key={size} onPress={() => setMilkSize(size)} style={[s.choiceChip, milkSize === size && s.choiceChipOn]}><Text style={[s.choiceText, milkSize === size && s.choiceTextOn]}>{size}</Text></TouchableOpacity>)}</View></>}
-      <Button text={custom.trim() ? "Add this item" : category === "Drinks" ? "Add selected milk" : "Type an item to add"} pale disabled={!custom.trim() && category !== "Drinks"} icon="add" onPress={addCustom} /></View>
-    {(savedChoices || []).length > 0 && <Text style={s.sectionLabel}>YOUR SAVED QUICK PICKS</Text>}
-    <View style={s.card}>{choices.map((name) => {
-      const item = items.find((entry) => entry.name === name);
-      return <TouchableOpacity key={name} onPress={() => open({ category, name, items })} style={[s.itemRow, item && s.mealChoiceOn]}><View style={s.iconBox}><Ionicons name={category === "Drinks" ? "cafe-outline" : "nutrition-outline"} size={18} color={C.green} /></View><View style={{ flex: 1 }}><Text style={s.rowTitle}>{name}</Text><Text style={s.rowDetail}>{item ? item.memberIds.length + " family member" + (item.memberIds.length === 1 ? "" : "s") + " selected" : "Choose who will have this"}</Text></View><Ionicons name={item ? "checkmark-circle" : "add-circle-outline"} size={21} color={C.green} /></TouchableOpacity>;
-    })}</View>
-  </>;
+  return (
+    <>
+      <Header
+        overline={`PLAN ${category.toUpperCase()}`}
+        title={`${category} for this week`}
+        sub="Choose an item, then select exactly who will be consuming it."
+      />
+      <View style={s.setupPanel}>
+        <TextInput
+          value={custom}
+          onChangeText={setCustom}
+          placeholder={`Type a ${category.toLowerCase().slice(0, -1)}…`}
+          placeholderTextColor={C.muted}
+          style={s.setupInput}
+        />
+        {category === "Drinks" && (
+          <>
+            <Text style={s.sectionLabel}>IF YOU ARE ADDING MILK</Text>
+            <View style={s.choiceRow}>
+              {["Whole", "Semi-skimmed", "Skimmed", "Oat"].map((type) => (
+                <TouchableOpacity
+                  key={type}
+                  onPress={() => setMilkType(type)}
+                  style={[s.choiceChip, milkType === type && s.choiceChipOn]}
+                >
+                  <Text
+                    style={[s.choiceText, milkType === type && s.choiceTextOn]}
+                  >
+                    {type}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <View style={s.choiceRow}>
+              {["1 pint", "2 pints", "4 pints"].map((size) => (
+                <TouchableOpacity
+                  key={size}
+                  onPress={() => setMilkSize(size)}
+                  style={[s.choiceChip, milkSize === size && s.choiceChipOn]}
+                >
+                  <Text
+                    style={[s.choiceText, milkSize === size && s.choiceTextOn]}
+                  >
+                    {size}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </>
+        )}
+        <Button
+          text={
+            custom.trim()
+              ? "Add this item"
+              : category === "Drinks"
+                ? "Add selected milk"
+                : "Type an item to add"
+          }
+          pale
+          disabled={!custom.trim() && category !== "Drinks"}
+          icon="add"
+          onPress={addCustom}
+        />
+      </View>
+      {(savedChoices || []).length > 0 && (
+        <Text style={s.sectionLabel}>YOUR SAVED QUICK PICKS</Text>
+      )}
+      <View style={s.card}>
+        {choices.map((name) => {
+          const item = items.find((entry) => entry.name === name);
+          return (
+            <TouchableOpacity
+              key={name}
+              onPress={() => open({ category, name, items })}
+              style={[s.itemRow, item && s.mealChoiceOn]}
+            >
+              <View style={s.iconBox}>
+                <Ionicons
+                  name={
+                    category === "Drinks" ? "cafe-outline" : "nutrition-outline"
+                  }
+                  size={18}
+                  color={C.green}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={s.rowTitle}>{name}</Text>
+                <Text style={s.rowDetail}>
+                  {item
+                    ? item.memberIds.length +
+                      " family member" +
+                      (item.memberIds.length === 1 ? "" : "s") +
+                      " selected"
+                    : "Choose who will have this"}
+                </Text>
+              </View>
+              <Ionicons
+                name={item ? "checkmark-circle" : "add-circle-outline"}
+                size={21}
+                color={C.green}
+              />
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    </>
+  );
 }
 
 function Basket({
@@ -2207,31 +3149,92 @@ function Setting({ icon, name, detail, onPress }) {
 function HouseholdEditor({ household, setHousehold, back }) {
   const [selectedId, setSelectedId] = useState(household.members[0]?.id);
   const member = household.members.find((item) => item.id === selectedId);
-  const update = (key, value) => setHousehold((current) => ({
-    ...current,
-    members: current.members.map((item) => item.id === selectedId ? { ...item, [key]: value } : item),
-  }));
-  return <>
-    <Back onPress={back} />
-    <Header overline="MY HOUSEHOLD" title="Family profiles" sub="Make a quick change whenever real life changes. Your meal plans and saved preferences stay exactly where they are." />
-    <View style={s.card}>
-      {household.members.map((item) => <TouchableOpacity key={item.id} onPress={() => setSelectedId(item.id)} style={[s.itemRow, selectedId === item.id && s.mealChoiceOn]}>
-        <View style={s.avatar}><Text style={s.avatarText}>{item.name[0]}</Text></View>
-        <View style={{ flex: 1 }}><Text style={s.rowTitle}>{item.name}</Text><Text style={s.rowDetail}>{item.role} · age {item.age || "not set"}</Text></View>
-        <Ionicons name="chevron-forward" size={18} color={C.muted} />
-      </TouchableOpacity>)}
-    </View>
-    {member && <View style={s.setupPanel}>
-      <Text style={s.sectionLabel}>EDIT {member.name.toUpperCase()}</Text>
-      <TextInput value={member.name} onChangeText={(value) => update("name", value)} style={s.setupInput} placeholder="Name" />
-      <TextInput value={String(member.age || "")} onChangeText={(value) => update("age", value)} keyboardType="number-pad" style={s.setupInput} placeholder="Age" />
-      <TextInput value={String(member.portion || "")} onChangeText={(value) => update("portion", Number(value) || 0)} keyboardType="decimal-pad" style={s.setupInput} placeholder="Portion size" />
-      <TextInput value={member.dislikes || ""} onChangeText={(value) => update("dislikes", value)} style={s.setupInput} placeholder="Foods they don't like" />
-      <TextInput value={member.allergies === "None" ? "" : member.allergies} onChangeText={(value) => update("allergies", value || "None")} style={s.setupInput} placeholder="Allergies" />
-      <TextInput value={member.intolerances || ""} onChangeText={(value) => update("intolerances", value)} style={s.setupInput} placeholder="Intolerances" />
-      <Button text="Changes saved" icon="checkmark-circle-outline" pale onPress={back} />
-    </View>}
-  </>;
+  const update = (key, value) =>
+    setHousehold((current) => ({
+      ...current,
+      members: current.members.map((item) =>
+        item.id === selectedId ? { ...item, [key]: value } : item,
+      ),
+    }));
+  return (
+    <>
+      <Back onPress={back} />
+      <Header
+        overline="MY HOUSEHOLD"
+        title="Family profiles"
+        sub="Make a quick change whenever real life changes. Your meal plans and saved preferences stay exactly where they are."
+      />
+      <View style={s.card}>
+        {household.members.map((item) => (
+          <TouchableOpacity
+            key={item.id}
+            onPress={() => setSelectedId(item.id)}
+            style={[s.itemRow, selectedId === item.id && s.mealChoiceOn]}
+          >
+            <View style={s.avatar}>
+              <Text style={s.avatarText}>{item.name[0]}</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={s.rowTitle}>{item.name}</Text>
+              <Text style={s.rowDetail}>
+                {item.role} · age {item.age || "not set"}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={C.muted} />
+          </TouchableOpacity>
+        ))}
+      </View>
+      {member && (
+        <View style={s.setupPanel}>
+          <Text style={s.sectionLabel}>EDIT {member.name.toUpperCase()}</Text>
+          <TextInput
+            value={member.name}
+            onChangeText={(value) => update("name", value)}
+            style={s.setupInput}
+            placeholder="Name"
+          />
+          <TextInput
+            value={String(member.age || "")}
+            onChangeText={(value) => update("age", value)}
+            keyboardType="number-pad"
+            style={s.setupInput}
+            placeholder="Age"
+          />
+          <TextInput
+            value={String(member.portion || "")}
+            onChangeText={(value) => update("portion", Number(value) || 0)}
+            keyboardType="decimal-pad"
+            style={s.setupInput}
+            placeholder="Portion size"
+          />
+          <TextInput
+            value={member.dislikes || ""}
+            onChangeText={(value) => update("dislikes", value)}
+            style={s.setupInput}
+            placeholder="Foods they don't like"
+          />
+          <TextInput
+            value={member.allergies === "None" ? "" : member.allergies}
+            onChangeText={(value) => update("allergies", value || "None")}
+            style={s.setupInput}
+            placeholder="Allergies"
+          />
+          <TextInput
+            value={member.intolerances || ""}
+            onChangeText={(value) => update("intolerances", value)}
+            style={s.setupInput}
+            placeholder="Intolerances"
+          />
+          <Button
+            text="Changes saved"
+            icon="checkmark-circle-outline"
+            pale
+            onPress={back}
+          />
+        </View>
+      )}
+    </>
+  );
 }
 
 function Sub({
@@ -2274,21 +3277,77 @@ function Sub({
   brandRules,
   setBrandRules,
 }) {
-  if (page === "SwapConfirm" && pendingSwap) return <SwapConfirm oldMeal={pendingSwap.oldMeal} newMeal={pendingSwap.meal} back={() => { setPendingSwap(null); back(); }} confirm={() => { chooseMeal(pendingSwap.day, pendingSwap.meal, pendingSwap.memberIds, pendingSwap.oldMeal); setPendingSwap(null); }} />;
+  if (page === "SwapConfirm" && pendingSwap)
+    return (
+      <SwapConfirm
+        oldMeal={pendingSwap.oldMeal}
+        newMeal={pendingSwap.meal}
+        back={() => {
+          setPendingSwap(null);
+          back();
+        }}
+        confirm={() => {
+          chooseMeal(
+            pendingSwap.day,
+            pendingSwap.meal,
+            pendingSwap.memberIds,
+            pendingSwap.oldMeal,
+          );
+          setPendingSwap(null);
+        }}
+      />
+    );
   if (page.startsWith("DayGroup:")) {
     const day = page.split(":")[1];
-    return <DinerPicker day={day} household={household} back={back} clear={() => clearDay(day)} done={(memberIds) => { setPendingDiners({ day, memberIds }); navigate(`Choose:${day}`); }} />;
+    return (
+      <DinerPicker
+        day={day}
+        household={household}
+        back={back}
+        clear={() => clearDay(day)}
+        done={(memberIds) => {
+          setPendingDiners({ day, memberIds });
+          navigate(`Choose:${day}`);
+        }}
+      />
+    );
   }
   if (page.startsWith("Consumable:") && pendingConsumable) {
     const [, category, name] = page.split(":");
-    const existing = (pendingConsumable.items || []).find((item) => item.name === name);
-    return <ConsumableAudience category={category} name={name} household={household} existingMemberIds={existing?.memberIds || []} back={() => { setPendingConsumable(null); back(); }} done={(memberIds) => { addConsumable(category, name, memberIds); setPendingConsumable(null); back(); }} />;
+    const existing = (pendingConsumable.items || []).find(
+      (item) => item.name === name,
+    );
+    return (
+      <ConsumableAudience
+        category={category}
+        name={name}
+        household={household}
+        existingMemberIds={existing?.memberIds || []}
+        back={() => {
+          setPendingConsumable(null);
+          back();
+        }}
+        done={(memberIds) => {
+          addConsumable(category, name, memberIds);
+          setPendingConsumable(null);
+          back();
+        }}
+      />
+    );
   }
   if (page === "Household")
-    return <HouseholdEditor household={household} setHousehold={setHousehold} back={back} />;
+    return (
+      <HouseholdEditor
+        household={household}
+        setHousehold={setHousehold}
+        back={back}
+      />
+    );
   if (page === "MealAudience" && pendingMeal) {
     const { day, meal } = pendingMeal;
-    const existing = (mealAssignments[day] || []).find((item) => item.meal === meal);
+    const existing = (mealAssignments[day] || []).find(
+      (item) => item.meal === meal,
+    );
     return (
       <MealAudience
         day={day}
@@ -2299,9 +3358,18 @@ function Sub({
         attendanceOverrides={attendanceOverrides}
         setAttendanceOverrides={setAttendanceOverrides}
         done={(memberIds) => {
-          const old = (mealAssignments[day] || []).find((item) => item.meal !== meal && item.memberIds.some((id) => memberIds.includes(id)));
-          if (old) { setPendingSwap({ day, meal, memberIds, oldMeal: old.meal }); navigate("SwapConfirm"); }
-          else { chooseMeal(day, meal, memberIds); setPendingMeal(null); }
+          const old = (mealAssignments[day] || []).find(
+            (item) =>
+              item.meal !== meal &&
+              item.memberIds.some((id) => memberIds.includes(id)),
+          );
+          if (old) {
+            setPendingSwap({ day, meal, memberIds, oldMeal: old.meal });
+            navigate("SwapConfirm");
+          } else {
+            chooseMeal(day, meal, memberIds);
+            setPendingMeal(null);
+          }
         }}
         back={() => {
           setPendingMeal(null);
@@ -2327,9 +3395,16 @@ function Sub({
               style={[s.mealChoice, next[day] === name && s.mealChoiceOn]}
               onPress={() => {
                 const memberIds = household.members.map((member) => member.id);
-                const old = (mealAssignments[day] || []).find((item) => item.meal !== name);
+                const old = (mealAssignments[day] || []).find(
+                  (item) => item.meal !== name,
+                );
                 if (old) {
-                  setPendingSwap({ day, meal: name, memberIds, oldMeal: old.meal });
+                  setPendingSwap({
+                    day,
+                    meal: name,
+                    memberIds,
+                    oldMeal: old.meal,
+                  });
                   navigate("SwapConfirm");
                 } else chooseMeal(day, name, memberIds);
               }}
@@ -2349,8 +3424,13 @@ function Sub({
             </TouchableOpacity>
           ))}
         </View>
-        <TouchableOpacity onPress={() => navigate(`DayGroup:${day}`)} style={s.setupBack}>
-          <Text style={s.link}>Need different meals for adults and children?</Text>
+        <TouchableOpacity
+          onPress={() => navigate(`DayGroup:${day}`)}
+          style={s.setupBack}
+        >
+          <Text style={s.link}>
+            Need different meals for adults and children?
+          </Text>
         </TouchableOpacity>
       </>
     );
@@ -3501,7 +4581,12 @@ const s = StyleSheet.create({
   homeToggleOn: { backgroundColor: C.green, borderColor: C.green },
   homeToggleText: { color: C.green, fontSize: 11, fontWeight: "700" },
   homeToggleTextOn: { color: C.white },
-  emptyAudience: { color: C.muted, fontSize: 12, marginBottom: 17, marginTop: -2 },
+  emptyAudience: {
+    color: C.muted,
+    fontSize: 12,
+    marginBottom: 17,
+    marginTop: -2,
+  },
   shop: {
     backgroundColor: C.white,
     borderWidth: 1,
