@@ -2409,6 +2409,7 @@ function GuidedPlanner({
   const [typedChoice, setTypedChoice] = useState("");
   const [ingredientText, setIngredientText] = useState("");
   const [ingredients, setIngredients] = useState([]);
+  const [expandedReviewDay, setExpandedReviewDay] = useState(null);
   const day = DAYS[dayIndex];
   const slots = daySlots[day] || {};
   const slotItems = (name) => {
@@ -2690,17 +2691,10 @@ function GuidedPlanner({
     return (
       <>
         <Header
-          overline="ONE LAST STEP"
-          title="Add extras"
-          sub="Add drinks, snacks and household items you need. We remember them for an easier shop next time."
+          overline="STEP 2 OF 4"
+          title="Anything else this week?"
+          sub="Add food, drinks or household items."
         />
-        <View style={s.info}>
-          <Ionicons name="repeat-outline" size={19} color={C.green} />
-          <Text style={s.infoText}>
-            For example: Coke for the family, or toothpaste that normally lasts
-            four weeks.
-          </Text>
-        </View>
         <View style={s.addBar}>
           <Ionicons name="add" size={20} color={C.green} />
           <TextInput
@@ -2722,20 +2716,8 @@ function GuidedPlanner({
           </TouchableOpacity>
         </View>
         <Button
-          text="Add drinks and snacks"
-          icon="cafe-outline"
-          pale
-          onPress={() => setFlow("start")}
-        />
-        <Button
-          text="Add household essentials"
-          icon="cube-outline"
-          pale
-          onPress={() => open("NonFood")}
-        />
-        <Button
-          text={`Review my ${basket.length} basket items`}
-          icon="basket-outline"
+          text={`Review ${basket.length} basket items`}
+          icon="arrow-forward"
           onPress={() => setFlow("review")}
         />
       </>
@@ -2744,9 +2726,9 @@ function GuidedPlanner({
     return (
       <>
         <Header
-          overline="READY TO CHECK"
-          title="Review your week"
-          sub="Tap a day to edit it. You can continue planning whenever you are ready."
+          overline="STEP 3 OF 4"
+          title="Review your meals"
+          sub="Open a day only if you want to change it."
         />
         <View style={s.progress}>
           <View style={s.progressTop}>
@@ -2762,42 +2744,48 @@ function GuidedPlanner({
             <TouchableOpacity
               key={name}
               style={s.planRow}
-              onPress={() => {
-                setDayIndex(index);
-                setSlot("Breakfast");
-                setFlow("guided");
-              }}
+              onPress={() =>
+                setExpandedReviewDay((current) =>
+                  current === name ? null : name,
+                )
+              }
             >
-              <View style={s.date}>
-                <Text style={s.dayShort}>DAY</Text>
-                <Text style={s.dateNo}>{index + 1}</Text>
-              </View>
               <View style={{ flex: 1 }}>
                 <Text style={s.dayName}>{name}</Text>
-                <Text style={s.rowDetail}>
-                  Breakfast · {itemSummary(Array.isArray(daySlots[name]?.Breakfast) ? daySlots[name].Breakfast : daySlots[name]?.Breakfast ? [daySlots[name].Breakfast] : []) || "Not set"}
-                </Text>
-                <Text style={s.rowDetail}>
-                  Lunch · {itemSummary(Array.isArray(daySlots[name]?.Lunch) ? daySlots[name].Lunch : daySlots[name]?.Lunch ? [daySlots[name].Lunch] : []) || "Not set"}
-                </Text>
-                <Text style={s.mealName}>
-                  Dinner · {itemSummary(dinnerAssignments[name] || (plan[name] ? [{ meal: plan[name], memberIds: [] }] : []), "meal") || "Not set"}
-                </Text>
+                {(() => {
+                  const breakfast = Array.isArray(daySlots[name]?.Breakfast)
+                    ? daySlots[name].Breakfast
+                    : daySlots[name]?.Breakfast ? [daySlots[name].Breakfast] : [];
+                  const lunch = Array.isArray(daySlots[name]?.Lunch)
+                    ? daySlots[name].Lunch
+                    : daySlots[name]?.Lunch ? [daySlots[name].Lunch] : [];
+                  const dinner = dinnerAssignments[name] || (plan[name] ? [{ meal: plan[name], memberIds: [] }] : []);
+                  const ready = breakfast.length && lunch.length && dinner.length;
+                  return <>
+                    <Text style={[s.mealName, !dinner.length && { color: C.muted }]}>
+                      {dinner.length ? itemSummary(dinner, "meal") : `${name} — still to plan`}
+                    </Text>
+                    <Text style={s.rowDetail}>
+                      {breakfast.length && lunch.length ? "Breakfast and lunch planned" : "Needs breakfast or lunch"}
+                    </Text>
+                    {expandedReviewDay === name && <View style={{ marginTop: 10 }}>
+                      <Text style={s.rowDetail}>Breakfast · {itemSummary(breakfast) || "Not set"}</Text>
+                      <Text style={s.rowDetail}>Lunch · {itemSummary(lunch) || "Not set"}</Text>
+                      <TouchableOpacity onPress={() => { setDayIndex(index); setSlot("Breakfast"); setFlow("guided"); }}>
+                        <Text style={s.link}>Edit {name}</Text>
+                      </TouchableOpacity>
+                    </View>}
+                  </>;
+                })()}
               </View>
-              <Ionicons name="create-outline" size={19} color={C.green} />
+              <Ionicons name={expandedReviewDay === name ? "chevron-up" : "chevron-down"} size={19} color={C.muted} />
             </TouchableOpacity>
           ))}
         </View>
         <Button
-          text="Add extras before checkout"
-          icon="add-circle-outline"
-          pale
+          text="Continue to extras"
+          icon="arrow-forward"
           onPress={() => setFlow("extras")}
-        />
-        <Button
-          text="My shopping basket"
-          icon="basket-outline"
-          onPress={() => setFlow("start")}
         />
       </>
     );
