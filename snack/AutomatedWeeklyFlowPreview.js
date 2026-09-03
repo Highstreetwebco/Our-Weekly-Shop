@@ -2418,13 +2418,28 @@ function GuidedPlanner({
   const dinnerItems = dinnerAssignments[day] || (plan[day] ? [{ meal: plan[day], memberIds: [] }] : []);
   const peopleFor = (memberIds) =>
     (memberIds || [])
-      .map((id) => household.members.find((member) => member.id === id)?.name)
+      .map(
+        (id) =>
+          household.members
+            .find((member) => member.id === id)
+            ?.name.split(" ")[0],
+      )
       .filter(Boolean)
       .join(" & ");
   const itemSummary = (items, mealKey = "name") =>
     items
       .map((item) => `${peopleFor(item.memberIds) || "No one"} — ${item[mealKey]}`)
       .join("\n");
+  const reviewCompleteDays = DAYS.filter(
+    (name) => {
+      const saved = daySlots[name] || {};
+      const breakfast = Array.isArray(saved.Breakfast)
+        ? saved.Breakfast.length
+        : saved.Breakfast?.name;
+      const lunch = Array.isArray(saved.Lunch) ? saved.Lunch.length : saved.Lunch?.name;
+      return Boolean(breakfast && lunch && (dinnerAssignments[name]?.length || plan[name]));
+    },
+  ).length;
   const starterOptions = ["No meal needed"];
   const options = [
     ...new Set([...(quickMealChoices?.[slot] || []), ...starterOptions]),
@@ -2730,16 +2745,16 @@ function GuidedPlanner({
       <>
         <Header
           overline="READY TO CHECK"
-          title="Your week at a glance"
-          sub="Everything is still editable. Tap a day to change it before you compare supermarkets."
+          title="Review your week"
+          sub="Tap a day to edit it. You can continue planning whenever you are ready."
         />
         <View style={s.progress}>
           <View style={s.progressTop}>
-            <Text style={s.progressTitle}>Weekly plan complete</Text>
-            <Text style={s.progressCount}>7 days planned</Text>
+              <Text style={s.progressTitle}>Your plan so far</Text>
+              <Text style={s.progressCount}>{reviewCompleteDays} of 7 days complete</Text>
           </View>
           <View style={s.track}>
-            <View style={[s.trackFill, { width: "100%" }]} />
+            <View style={[s.trackFill, { width: `${(reviewCompleteDays / 7) * 100}%` }]} />
           </View>
         </View>
         <View style={s.weekCard}>
