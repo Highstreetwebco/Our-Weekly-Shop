@@ -468,7 +468,7 @@ export default function ConversationalWeeklyShop() {
     setProposal(null);
   }
 
-  function startVoice() {
+  function startVoice(onTranscript) {
     if (typeof window === "undefined") {
       Alert.alert("Voice input", "Voice input is available when you open the web preview in a compatible browser.");
       return;
@@ -486,8 +486,12 @@ export default function ConversationalWeeklyShop() {
     recognition.onerror = () => setVoiceListening(false);
     recognition.onresult = (event) => {
       const transcript = event.results?.[0]?.[0]?.transcript || "";
-      setInput(transcript);
-      setTimeout(() => sendMessage(transcript, "voice"), 0);
+      if (onTranscript) {
+        onTranscript(transcript);
+      } else {
+        setInput(transcript);
+        setTimeout(() => sendMessage(transcript, "voice"), 0);
+      }
     };
     recognition.start();
   }
@@ -529,7 +533,7 @@ export default function ConversationalWeeklyShop() {
             <TouchableOpacity style={styles.avatar} onPress={() => setTab("More")}><Text style={styles.avatarText}>{String(household?.name || "O").slice(0, 1).toUpperCase()}</Text></TouchableOpacity>
           </View>
           <Text style={styles.saveStatus}>{saveStatus}</Text>
-          {tab === "Home" && <HomeView messages={messages} proposal={proposal} input={input} setInput={setInput} sendMessage={sendMessage} approveProposal={approveProposal} rejectProposal={rejectProposal} startVoice={startVoice} voiceListening={voiceListening} setTab={setTab} plannedDays={plannedDays} basketCount={basket.length} />}
+          {tab === "Home" && <HomeView setInput={setInput} sendMessage={sendMessage} startVoice={startVoice} voiceListening={voiceListening} setTab={setTab} plannedDays={plannedDays} basketCount={basket.length} recordFridge={(value) => { const names = value.split(/,|\\band\\b/i).map((item) => item.trim()).filter(Boolean); const next = names.map((name) => ({ name, quantity: 1 })); setInventory(next); saveSnapshot(plan, extras, next, brandRules, budget); }} />}
           {tab === "Week" && <WeekView plan={plan} recipes={recipes} people={people} setInput={setInput} sendMessage={sendMessage} />}
           {tab === "Shop" && <ShopView basket={basket} budget={budget} setBudget={(value) => { setBudget(value); saveSnapshot(plan, extras, inventory, brandRules, value); }} extras={extras} addExtra={(value) => { const next = [...new Set([...extras, value])]; setExtras(next); saveSnapshot(plan, next, inventory, brandRules, budget); }} />}
           {tab === "More" && <MoreView people={people} inventory={inventory} brandRules={brandRules} setInput={setInput} sendMessage={sendMessage} signOut={() => supabase.auth.signOut()} />}
@@ -567,10 +571,86 @@ function SetupScreen({ household, onComplete }) {
   return <SafeAreaView style={styles.safe}><ScrollView contentContainerStyle={styles.setupPage}><Text style={styles.kicker}>FIRST, A LITTLE HOUSEKEEPING</Text><Text style={styles.authTitle}>Who is in your household?</Text><Text style={styles.authLead}>Add everyone who eats at home so the assistant can plan different meals, portions and days for each person.</Text><Text style={styles.label}>Household name</Text><TextInput style={styles.field} value={name} onChangeText={setName} placeholder="The Parker family" placeholderTextColor={C.muted} /><Text style={styles.label}>People</Text><View style={styles.peopleList}>{people.map((person) => <View style={styles.personPill} key={person.id}><Text style={styles.personPillText}>{person.name}</Text><Text style={styles.personRole}>{person.role}</Text></View>)}</View><View style={styles.addPersonRow}><TextInput style={[styles.field, styles.personInput]} value={personName} onChangeText={setPersonName} placeholder="Add a household member" placeholderTextColor={C.muted} /><TouchableOpacity style={styles.smallButton} onPress={() => addPerson("Adult")}><Text style={styles.smallButtonText}>Adult</Text></TouchableOpacity><TouchableOpacity style={styles.smallButtonLight} onPress={() => addPerson("Child")}><Text style={styles.smallButtonLightText}>Child</Text></TouchableOpacity></View><TouchableOpacity style={[styles.primaryButton, !people.length && styles.primaryButtonDisabled]} onPress={() => onComplete(name, people)} disabled={!people.length}><Text style={styles.primaryText}>Continue</Text></TouchableOpacity></ScrollView></SafeAreaView>;
 }
 
-function HomeView({ messages, proposal, input, setInput, sendMessage, approveProposal, rejectProposal, startVoice, voiceListening, setTab, plannedDays, basketCount }) {
-  return <><View style={styles.hero}><Text style={styles.heroKicker}>YOUR WEEKLY ASSISTANT</Text><Text style={styles.heroTitle}>Just tell me what’s happening.</Text><Text style={styles.heroText}>Meals, people, what’s already at home — I’ll turn it into a plan for you to check.</Text></View><View style={styles.chatCard}>{messages.slice(-5).map((message, index) => <View key={index} style={[styles.message, message.role === "user" ? styles.userMessage : styles.assistantMessage]}><Text style={[styles.messageText, message.role === "user" && styles.userMessageText]}>{message.text}</Text></View>)}{proposal && <ProposalCard proposal={proposal} approve={approveProposal} reject={rejectProposal} />}</View><View style={styles.inputRow}><TextInput style={styles.chatInput} value={input} onChangeText={setInput} onSubmitEditing={() => sendMessage()} placeholder="Tell me about your week…" placeholderTextColor={C.muted} multiline /><TouchableOpacity style={[styles.iconButton, voiceListening && styles.iconButtonActive]} onPress={startVoice}><Ionicons name={voiceListening ? "radio" : "mic-outline"} size={21} color={voiceListening ? C.white : C.green} /></TouchableOpacity><TouchableOpacity style={styles.sendButton} onPress={() => sendMessage()}><Ionicons name="arrow-up" size={21} color={C.white} /></TouchableOpacity></View><Text style={styles.exampleLabel}>TRY SAYING</Text><ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chips}><TouchableOpacity style={styles.chip} onPress={() => sendMessage("Put chilli on Thursday for me") }><Text style={styles.chipText}>“Chilli on Thursday”</Text></TouchableOpacity><TouchableOpacity style={styles.chip} onPress={() => sendMessage("Monday me and the kids are having salmon and broccoli; children waffles") }><Text style={styles.chipText}>“Monday’s meals”</Text></TouchableOpacity><TouchableOpacity style={styles.chip} onPress={() => sendMessage("Add toothpaste to my shop") }><Text style={styles.chipText}>“Add toothpaste”</Text></TouchableOpacity></ScrollView><View style={styles.dashboardRow}><TouchableOpacity style={styles.dashboardCard} onPress={() => setTab("Week")}><Text style={styles.dashboardNumber}>{plannedDays}/7</Text><Text style={styles.dashboardLabel}>days planned</Text></TouchableOpacity><TouchableOpacity style={styles.dashboardCard} onPress={() => setTab("Shop")}><Text style={styles.dashboardNumber}>{basketCount}</Text><Text style={styles.dashboardLabel}>shop items</Text></TouchableOpacity></View></>;
-}
+function HomeView({ setInput, sendMessage, startVoice, voiceListening, setTab, plannedDays, basketCount, recordFridge }) {
+  const [phase, setPhase] = useState("fridge");
+  const [dayIndex, setDayIndex] = useState(0);
+  const [mealName, setMealName] = useState("");
+  const [answer, setAnswer] = useState("");
+  const [lastAnswer, setLastAnswer] = useState("");
+  const days = DAYS;
 
+  const question = phase === "fridge"
+    ? "Tell me what’s in your fridge."
+    : phase === "home"
+      ? "Is everyone at home this week?"
+      : phase === "time"
+        ? "Are you all eating at the same time?"
+        : phase === "meal"
+          ? "What do you want for dinner on " + days[dayIndex] + "?"
+          : "What ingredients are included in " + mealName + "?";
+
+  const helper = phase === "fridge"
+    ? "Tell me everything you already have. I’ll leave it out of the shop."
+    : phase === "home"
+      ? "Tell me who is home this week, and who is away."
+      : phase === "time"
+        ? "Tell me whether everyone eats together or if people eat separately."
+        : phase === "meal"
+          ? "Tell me what each person wants. You can name different meals for different people."
+          : "Take your time — tell me what goes into this meal and I’ll remember it for next time.";
+
+  function moveForward(value) {
+    const clean = (value || answer).trim();
+    if (!clean) return;
+    setAnswer("");
+    setLastAnswer(clean);
+    if (phase === "fridge") {
+      if (recordFridge) recordFridge(clean);
+      setPhase("home");
+    } else if (phase === "home") {
+      setPhase("time");
+    } else if (phase === "time") {
+      setPhase("meal");
+    } else if (phase === "meal") {
+      setMealName(clean);
+      setPhase("ingredients");
+    } else {
+      sendMessage("Put " + mealName + " on " + days[dayIndex] + ". Ingredients: " + clean, "voice");
+      if (dayIndex < days.length - 1) {
+        setDayIndex((current) => current + 1);
+        setMealName("");
+        setPhase("meal");
+      } else {
+        setPhase("complete");
+      }
+    }
+  }
+
+  if (phase === "complete") {
+    return <View style={styles.guidedPage}>
+      <Text style={styles.guidedKicker}>WEEKLY PLAN</Text>
+      <Text style={styles.guidedTitle}>That’s the week started.</Text>
+      <Text style={styles.guidedLead}>I’ve captured your answers. You can keep talking, review the Week, or check the shop.</Text>
+      <TouchableOpacity style={styles.primaryButton} onPress={() => setTab("Week")}><Text style={styles.primaryText}>Review my week</Text></TouchableOpacity>
+      <TouchableOpacity style={styles.guidedSkip} onPress={() => { setPhase("meal"); setDayIndex(0); }}><Text style={styles.switchText}>Start again</Text></TouchableOpacity>
+      <View style={styles.dashboardRow}><TouchableOpacity style={styles.dashboardCard} onPress={() => setTab("Week")}><Text style={styles.dashboardNumber}>{plannedDays}/7</Text><Text style={styles.dashboardLabel}>days planned</Text></TouchableOpacity><TouchableOpacity style={styles.dashboardCard} onPress={() => setTab("Shop")}><Text style={styles.dashboardNumber}>{basketCount}</Text><Text style={styles.dashboardLabel}>shop items</Text></TouchableOpacity></View>
+    </View>;
+  }
+
+  return <ScrollView contentContainerStyle={styles.guidedPage} showsVerticalScrollIndicator={false}>
+    <Text style={styles.guidedKicker}>ONE QUESTION AT A TIME</Text>
+    <Text style={styles.guidedProgress}>{phase === "meal" || phase === "ingredients" ? days[dayIndex] + " · dinner" : "Getting to know your week"}</Text>
+    <Text style={styles.guidedTitle}>{question}</Text>
+    <Text style={styles.guidedLead}>{helper}</Text>
+    {lastAnswer ? <View style={styles.guidedTranscript}><Text style={styles.guidedTranscriptLabel}>Last answer</Text><Text style={styles.guidedTranscriptText}>{lastAnswer}</Text></View> : null}
+    <TouchableOpacity style={[styles.guidedMic, voiceListening && styles.guidedMicActive]} onPress={() => startVoice(moveForward)}>
+      <Ionicons name={voiceListening ? "radio" : "mic"} size={45} color={voiceListening ? C.white : C.green} />
+      <Text style={[styles.guidedMicLabel, voiceListening && { color: C.white }]}>{voiceListening ? "Listening…" : "Tap to answer"}</Text>
+    </TouchableOpacity>
+    <View style={styles.guidedTextRow}><TextInput style={styles.guidedInput} value={answer} onChangeText={setAnswer} onSubmitEditing={() => moveForward()} placeholder="Or type your answer…" placeholderTextColor={C.muted} multiline /><TouchableOpacity style={styles.guidedSend} onPress={() => moveForward()}><Ionicons name="arrow-up" size={21} color={C.white} /></TouchableOpacity></View>
+    <TouchableOpacity style={styles.guidedSkip} onPress={() => moveForward("I’m not sure yet")}><Text style={styles.switchText}>I’ll decide later</Text></TouchableOpacity>
+  </ScrollView>;
+}
 function ProposalCard({ proposal, approve, reject }) {
   return <View style={styles.proposal}><View style={styles.proposalHeader}><View style={styles.proposalDot}><Ionicons name="sparkles-outline" size={17} color={C.gold} /></View><View style={{ flex: 1 }}><Text style={styles.proposalTitle}>I understood</Text><Text style={styles.proposalSummary}>{proposal.summary || "Save this change"}</Text></View></View>{proposal.type === "plan_meal" && <Text style={styles.proposalDetail}>{proposal.assignments?.map((assignment) => assignment.meal + " for " + (assignment.peopleIds?.length || 1) + " people").join(" + ")}</Text>}<View style={styles.proposalButtons}><TouchableOpacity style={styles.approveButton} onPress={approve}><Text style={styles.approveText}>Approve</Text></TouchableOpacity><TouchableOpacity style={styles.rejectButton} onPress={reject}><Text style={styles.rejectText}>Keep unchanged</Text></TouchableOpacity></View></View>;
 }
@@ -683,6 +763,21 @@ const styles = StyleSheet.create({
   authPage: { padding: 24, flexGrow: 1, justifyContent: "center" },
   authTitle: { color: C.green, fontSize: 31, lineHeight: 37, fontWeight: "800", marginTop: 15, marginBottom: 9 },
   authLead: { color: C.muted, fontSize: 15, lineHeight: 22, marginBottom: 22 },
+  guidedPage: { padding: 24, paddingTop: 34, paddingBottom: 120, flexGrow: 1, justifyContent: "center" },
+  guidedKicker: { color: C.gold, fontSize: 12, fontWeight: "900", letterSpacing: 1.5, textAlign: "center" },
+  guidedProgress: { color: C.muted, fontSize: 12, textAlign: "center", marginTop: 12 },
+  guidedTitle: { color: C.green, fontSize: 34, lineHeight: 40, fontWeight: "900", textAlign: "center", marginTop: 16 },
+  guidedLead: { color: C.muted, fontSize: 16, lineHeight: 23, textAlign: "center", marginTop: 13, marginBottom: 20 },
+  guidedTranscript: { backgroundColor: C.goldSoft, borderRadius: 16, padding: 13, marginBottom: 16 },
+  guidedTranscriptLabel: { color: C.gold, fontSize: 11, fontWeight: "900", textTransform: "uppercase" },
+  guidedTranscriptText: { color: C.ink, fontSize: 14, lineHeight: 20, marginTop: 4 },
+  guidedMic: { width: 168, height: 168, borderRadius: 84, backgroundColor: C.greenSoft, alignSelf: "center", alignItems: "center", justifyContent: "center", marginVertical: 20, borderWidth: 2, borderColor: C.gold },
+  guidedMicActive: { backgroundColor: C.green, borderColor: C.green },
+  guidedMicLabel: { color: C.green, fontWeight: "900", fontSize: 14, marginTop: 10 },
+  guidedTextRow: { flexDirection: "row", alignItems: "flex-end", marginTop: 5 },
+  guidedInput: { flex: 1, minHeight: 50, maxHeight: 100, backgroundColor: C.white, borderRadius: 15, paddingHorizontal: 14, paddingVertical: 13, color: C.ink, fontSize: 14, marginRight: 8 },
+  guidedSend: { width: 50, height: 50, borderRadius: 15, backgroundColor: C.green, alignItems: "center", justifyContent: "center" },
+  guidedSkip: { alignItems: "center", padding: 14 },
   primaryButton: { backgroundColor: C.green, borderRadius: 15, alignItems: "center", paddingVertical: 15, marginTop: 7 },
   primaryText: { color: C.white, fontWeight: "800", fontSize: 15 },
   primaryButtonDisabled: { opacity: 0.45 },
