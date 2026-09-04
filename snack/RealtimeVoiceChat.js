@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Animated } from "react-native";
-import { Image, Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+
+import { Animated, Image, Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "../lib/supabase";
 
