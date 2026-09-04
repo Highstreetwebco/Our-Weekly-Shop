@@ -1,8 +1,8 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  Animated,
+  Image,
   KeyboardAvoidingView,
   Platform,
   SafeAreaView,
@@ -15,8 +15,6 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "../lib/supabase";
-import DeliverySplash from "./VanOpeningAnimation";
-import RealtimeVoiceChat from "./RealtimeVoiceChat";
 
 const C = {
   ink: "#1C2B24",
@@ -269,7 +267,6 @@ function calculateBasket(plan, recipes, inventory, extras) {
 }
 
 export default function ConversationalWeeklyShop() {
-  const [showSplash, setShowSplash] = useState(true);
   const [session, setSession] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -288,12 +285,6 @@ export default function ConversationalWeeklyShop() {
   const [proposal, setProposal] = useState(null);
   const [saveStatus, setSaveStatus] = useState("Not connected");
   const [voiceListening, setVoiceListening] = useState(false);
-  const recognitionRef = useRef(null);
-  const voiceActiveRef = useRef(false);
-  const voiceStopRef = useRef(false);
-  const voiceTextRef = useRef("");
-  const voiceInterimRef = useRef("");
-  const voiceCallbackRef = useRef(null);
 
   useEffect(() => {
     let active = true;
@@ -379,7 +370,7 @@ export default function ConversationalWeeklyShop() {
     await supabase.from("ai_actions").insert({ household_id: household.id, user_id: session.user.id, week_start: weekStart(), input_text: action.input, input_mode: action.inputMode || "text", intent: action.type, proposed_changes: payload || {}, status });
   }
 
-  async function saveStructuredPlan(nextPlan, recipeBook = recipes) {
+  async function saveStructuredPlan(nextPlan) {
     if (!household?.id) return;
     const planResult = await supabase.from("weekly_plans").upsert({ household_id: household.id, week_start: weekStart() }, { onConflict: "household_id,week_start" }).select().single();
     if (planResult.error || !planResult.data) return;
@@ -390,7 +381,7 @@ export default function ConversationalWeeklyShop() {
       for (const assignment of nextPlan[day] || []) {
         let mealResult = await supabase.from("meals").select("id").eq("household_id", household.id).eq("name", assignment.meal).maybeSingle();
         let mealId = mealResult.data?.id;
-        const recipe = recipeBook[assignment.meal];
+        const recipe = recipes[assignment.meal];
         if (!mealId) {
           const created = await supabase.from("meals").insert({ household_id: household.id, name: assignment.meal, emoji: recipe?.emoji || "🍽️", default_portions: recipe?.servings || assignment.portions || 2, prep_minutes: recipe?.prepMinutes || 30, source: "conversation" }).select().single();
           mealId = created.data?.id;
@@ -410,33 +401,6 @@ export default function ConversationalWeeklyShop() {
         }
       }
     }
-  }
-
-  function parseGuidedIngredients(text) {
-    return text.split(/,|;|\\band\\b/i).map((item) => item.trim()).filter(Boolean).map((name) => ({ name, quantity: 1, unit: "item" }));
-  }
-
-  function addGuidedMealToPlan(day, requestedMeal, ingredientText) {
-    const knownMeal = findRecipeName(requestedMeal, recipes);
-    const meal = knownMeal || requestedMeal.trim();
-    const recipe = recipes[meal] || {
-      emoji: "🍽️",
-      servings: Math.max(1, people.length || 2),
-      prepMinutes: 30,
-      ingredients: parseGuidedIngredients(ingredientText),
-    };
-    const nextRecipes = { ...recipes, [meal]: recipe };
-    const assignment = {
-      meal,
-      peopleIds: people.map((person) => person.id),
-      portions: people.length || 1,
-      leftovers: 0,
-    };
-    const nextPlan = { ...plan, [day]: [...(plan[day] || []), assignment] };
-    setRecipes(nextRecipes);
-    setPlan(nextPlan);
-    saveStructuredPlan(nextPlan, nextRecipes);
-    saveSnapshot(nextPlan, extras, inventory, brandRules, budget);
   }
 
   function sendMessage(value, inputMode) {
@@ -503,13 +467,7 @@ export default function ConversationalWeeklyShop() {
     setProposal(null);
   }
 
-  function startVoice(onTranscript, onInterim) {
-    if (typeof window !== "undefined" && window.speechSynthesis) window.speechSynthesis.cancel();
-    if (voiceActiveRef.current && recognitionRef.current) {
-      voiceStopRef.current = true;
-      recognitionRef.current.stop();
-      return;
-    }
+  function startVoice() {
     if (typeof window === "undefined") {
       Alert.alert("Voice input", "Voice input is available when you open the web preview in a compatible browser.");
       return;
@@ -521,44 +479,14 @@ export default function ConversationalWeeklyShop() {
     }
     const recognition = new Recognition();
     recognition.lang = "en-GB";
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    voiceTextRef.current = "";
-    voiceInterimRef.current = "";
-    voiceCallbackRef.current = onTranscript;
-    voiceStopRef.current = false;
-    voiceActiveRef.current = true;
-    recognitionRef.current = recognition;
+    recognition.interimResults = false;
     recognition.onstart = () => setVoiceListening(true);
+    recognition.onend = () => setVoiceListening(false);
+    recognition.onerror = () => setVoiceListening(false);
     recognition.onresult = (event) => {
-      let interim = "";
-      for (let index = event.resultIndex; index < event.results.length; index += 1) {
-        const transcript = event.results[index][0].transcript || "";
-        if (event.results[index].isFinal) voiceTextRef.current += " " + transcript;
-        else interim += " " + transcript;
-      }
-      voiceInterimRef.current = interim;
-      const spoken = [voiceTextRef.current, voiceInterimRef.current].join(" ").replace(/\s+/g, " ").trim();
-      if (onInterim) onInterim(spoken);
-      else setInput(spoken);
-    };
-    recognition.onerror = () => {
-      if (voiceStopRef.current) return;
-      setVoiceListening(false);
-      voiceActiveRef.current = false;
-      recognitionRef.current = null;
-    };
-    recognition.onend = () => {
-      if (!voiceStopRef.current && voiceActiveRef.current) {
-        voiceInterimRef.current = "";
-        try { recognition.start(); } catch {}
-        return;
-      }
-      const finalText = [voiceTextRef.current, voiceInterimRef.current].join(" ").replace(/\s+/g, " ").trim();
-      setVoiceListening(false);
-      voiceActiveRef.current = false;
-      recognitionRef.current = null;
-      if (finalText && voiceCallbackRef.current) voiceCallbackRef.current(finalText);
+      const transcript = event.results?.[0]?.[0]?.transcript || "";
+      setInput(transcript);
+      setTimeout(() => sendMessage(transcript, "voice"), 0);
     };
     recognition.start();
   }
@@ -586,7 +514,6 @@ export default function ConversationalWeeklyShop() {
   const basket = useMemo(() => calculateBasket(plan, recipes, inventory, extras), [plan, recipes, inventory, extras]);
   const plannedDays = DAYS.filter((day) => (plan[day] || []).length).length;
 
-  if (showSplash) return <DeliverySplash onFinish={() => setShowSplash(false)} />;
   if (authLoading || loading) return <LoadingScreen text={authLoading ? "Opening Our Weekly Shop…" : "Loading your household…"} />;
   if (!session) return <AuthScreen onSession={setSession} />;
   if (!setupComplete) return <SetupScreen household={household} onComplete={completeSetup} />;
@@ -600,8 +527,7 @@ export default function ConversationalWeeklyShop() {
             <TouchableOpacity style={styles.avatar} onPress={() => setTab("More")}><Text style={styles.avatarText}>{String(household?.name || "O").slice(0, 1).toUpperCase()}</Text></TouchableOpacity>
           </View>
           <Text style={styles.saveStatus}>{saveStatus}</Text>
-          {tab === "Home" && <RealtimeVoiceChat household={household} people={people} plan={plan} />}
-          {tab === "Home" && <View style={styles.gemmaHomeNote}><Ionicons name="sparkles-outline" size={18} color={C.gold} /><Text style={styles.gemmaHomeNoteText}>Gemma will take it from here. Talk naturally and she’ll organise the week for you.</Text></View>}
+          {tab === "Home" && <HomeView plan={plan} recipes={recipes} people={people} setTab={setTab} plannedDays={plannedDays} basketCount={basket.length} />}
           {tab === "Week" && <WeekView plan={plan} recipes={recipes} people={people} setInput={setInput} sendMessage={sendMessage} />}
           {tab === "Shop" && <ShopView basket={basket} budget={budget} setBudget={(value) => { setBudget(value); saveSnapshot(plan, extras, inventory, brandRules, value); }} extras={extras} addExtra={(value) => { const next = [...new Set([...extras, value])]; setExtras(next); saveSnapshot(plan, next, inventory, brandRules, budget); }} />}
           {tab === "More" && <MoreView people={people} inventory={inventory} brandRules={brandRules} setInput={setInput} sendMessage={sendMessage} signOut={() => supabase.auth.signOut()} />}
@@ -633,170 +559,24 @@ function AuthScreen({ onSession }) {
 
 function SetupScreen({ household, onComplete }) {
   const [name, setName] = useState(household?.name || "Our household");
-  const [people, setPeople] = useState([]);
+  const [people, setPeople] = useState([{ id: "local-me", name: "Me", role: "Adult", portion_multiplier: 1 }]);
   const [personName, setPersonName] = useState("");
   function addPerson(role) { if (!personName.trim()) return; setPeople((current) => [...current, { id: "local-" + Date.now(), name: personName.trim(), role, portion_multiplier: role === "Child" ? 0.75 : 1 }]); setPersonName(""); }
-  return <SafeAreaView style={styles.safe}><ScrollView contentContainerStyle={styles.setupPage}><Text style={styles.kicker}>FIRST, A LITTLE HOUSEKEEPING</Text><Text style={styles.authTitle}>Who is in your household?</Text><Text style={styles.authLead}>Add everyone who eats at home so the assistant can plan different meals, portions and days for each person.</Text><Text style={styles.label}>Household name</Text><TextInput style={styles.field} value={name} onChangeText={setName} placeholder="The Parker family" placeholderTextColor={C.muted} /><Text style={styles.label}>People</Text><View style={styles.peopleList}>{people.map((person) => <View style={styles.personPill} key={person.id}><Text style={styles.personPillText}>{person.name}</Text><Text style={styles.personRole}>{person.role}</Text></View>)}</View><View style={styles.addPersonRow}><TextInput style={[styles.field, styles.personInput]} value={personName} onChangeText={setPersonName} placeholder="Add a household member" placeholderTextColor={C.muted} /><TouchableOpacity style={styles.smallButton} onPress={() => addPerson("Adult")}><Text style={styles.smallButtonText}>Adult</Text></TouchableOpacity><TouchableOpacity style={styles.smallButtonLight} onPress={() => addPerson("Child")}><Text style={styles.smallButtonLightText}>Child</Text></TouchableOpacity></View><TouchableOpacity style={[styles.primaryButton, !people.length && styles.primaryButtonDisabled]} onPress={() => onComplete(name, people)} disabled={!people.length}><Text style={styles.primaryText}>Continue</Text></TouchableOpacity></ScrollView></SafeAreaView>;
+  return <SafeAreaView style={styles.safe}><ScrollView contentContainerStyle={styles.setupPage}><Text style={styles.kicker}>FIRST, A LITTLE HOUSEKEEPING</Text><Text style={styles.authTitle}>Who are we feeding?</Text><Text style={styles.authLead}>This lets the assistant understand different meals, portions and days at home.</Text><Text style={styles.label}>Household name</Text><TextInput style={styles.field} value={name} onChangeText={setName} placeholder="The Parker family" placeholderTextColor={C.muted} /><Text style={styles.label}>People</Text><View style={styles.peopleList}>{people.map((person) => <View style={styles.personPill} key={person.id}><Text style={styles.personPillText}>{person.name}</Text><Text style={styles.personRole}>{person.role}</Text></View>)}</View><View style={styles.addPersonRow}><TextInput style={[styles.field, styles.personInput]} value={personName} onChangeText={setPersonName} placeholder="Add a name" placeholderTextColor={C.muted} /><TouchableOpacity style={styles.smallButton} onPress={() => addPerson("Adult")}><Text style={styles.smallButtonText}>Adult</Text></TouchableOpacity><TouchableOpacity style={styles.smallButtonLight} onPress={() => addPerson("Child")}><Text style={styles.smallButtonLightText}>Child</Text></TouchableOpacity></View><TouchableOpacity style={styles.primaryButton} onPress={() => onComplete(name, people)}><Text style={styles.primaryText}>Continue</Text></TouchableOpacity></ScrollView></SafeAreaView>;
 }
 
-function HomeView({ proposal, approveProposal, rejectProposal, people, startVoice, voiceListening, setTab, plannedDays, basketCount, addGuidedMealToPlan }) {
-  const [phase, setPhase] = useState("fridge");
-  const [dayIndex, setDayIndex] = useState(0);
-  const [mealName, setMealName] = useState("");
-  const [answer, setAnswer] = useState("");
-  const [pendingAnswer, setPendingAnswer] = useState("");
-  const [answerStage, setAnswerStage] = useState("answer");
-  const [transitioning, setTransitioning] = useState(false);
-  const [capturedMeals, setCapturedMeals] = useState([]);
-  const micScale = useRef(new Animated.Value(1)).current;
-  const days = DAYS;
-
-  function speak(text) {
-    if (typeof window === "undefined" || !window.speechSynthesis || !text) return;
-    window.speechSynthesis.cancel();
-    const Utterance = window.SpeechSynthesisUtterance;
-    if (!Utterance) return;
-    const utterance = new Utterance(text);
-    utterance.lang = "en-GB";
-    utterance.rate = 0.96;
-    utterance.pitch = 1.02;
-    window.speechSynthesis.speak(utterance);
-  }
-
-  useEffect(() => {
-    if (!voiceListening) {
-      micScale.setValue(1);
-      return undefined;
-    }
-    const pulse = Animated.loop(Animated.sequence([
-      Animated.timing(micScale, { toValue: 1.08, duration: 720, useNativeDriver: true }),
-      Animated.timing(micScale, { toValue: 1, duration: 720, useNativeDriver: true }),
-    ]));
-    pulse.start();
-    return () => pulse.stop();
-  }, [voiceListening]);
-
-  function fridgeItems(text) {
-    return text.split(/,|;|\\band\\b/i).map((raw) => raw.trim()).filter(Boolean).map((raw) => {
-      const low = /\\b(a bit|bit of|running low|low on|not much|nearly out|almost out)\\b/i.test(raw);
-      const name = raw.replace(/\\b(a bit of|bit of|running low on|low on|not much|nearly out of|almost out of)\\b/gi, "").trim();
-      return { name: name || raw, status: low ? "Low" : "At home", quantity: low ? 0.25 : 1 };
-    });
-  }
-
-  const question = phase === "fridge"
-    ? "Tell me what’s in your fridge."
-    : phase === "home"
-      ? "Is everyone at home this week?"
-      : phase === "time"
-        ? "Are you all eating at the same time?"
-        : phase === "meal"
-          ? "What do you want for dinner on " + days[dayIndex] + "?"
-          : "What ingredients are included in " + mealName + "?";
-
-  const helper = phase === "fridge"
-    ? "Tell me what you already have. I’ll identify the products and flag anything you’re running low on."
-    : phase === "home"
-      ? "Tell me who is home this week, and who is away."
-      : phase === "time"
-        ? "Tell me whether everyone eats together or separately."
-        : phase === "meal"
-          ? "Tell me what each person wants. You can name different meals for different people."
-          : "Tell me what goes into this meal and I’ll remember it for next time.";
-
-  useEffect(() => {
-    if (answerStage === "answer" && !transitioning && phase !== "complete") speak(question);
-    return () => {
-      if (typeof window !== "undefined" && window.speechSynthesis) window.speechSynthesis.cancel();
-    };
-  }, [question, answerStage, transitioning]);
-
-  function submitAnswer(value) {
-    const clean = (value || answer).trim();
-    if (!clean || answerStage === "confirm") return;
-    setPendingAnswer(clean);
-    setAnswer("");
-    setAnswerStage("confirm");
-    const heard = phase === "fridge"
-      ? fridgeItems(clean).map((item) => item.name + " — " + item.status.toLowerCase()).join(", ")
-      : clean;
-    speak("I heard: " + heard + ". Is that correct?");
-  }
-
-  function confirmAnswer() {
-    if (!pendingAnswer) return;
-    const confirmed = pendingAnswer;
-    setPendingAnswer("");
-    setAnswerStage("answer");
-    setAnswer("");
-    setTransitioning(true);
-    setTimeout(() => {
-      if (phase === "fridge") {
-        setPhase("home");
-      } else if (phase === "home") {
-        setPhase("time");
-      } else if (phase === "time") {
-        setPhase("meal");
-      } else if (phase === "meal") {
-        setMealName(confirmed);
-        setPhase("ingredients");
-      } else {
-        const captured = { day: days[dayIndex], meal: mealName, ingredients: confirmed };
-        setCapturedMeals((current) => [...current, captured]);
-        if (addGuidedMealToPlan) addGuidedMealToPlan(days[dayIndex], mealName, confirmed);
-        if (dayIndex < days.length - 1) {
-          setDayIndex((current) => current + 1);
-          setMealName("");
-          setPhase("meal");
-        } else {
-          setPhase("complete");
-        }
-      }
-      setTransitioning(false);
-    }, 220);
-  }
-
-  if (transitioning) return <View style={styles.guidedPage} />;
-
-  if (phase === "complete") {
-    return <ScrollView contentContainerStyle={styles.guidedPage} showsVerticalScrollIndicator={false}>
-      <Text style={styles.guidedKicker}>WEEKLY PLAN</Text>
-      <Text style={styles.guidedTitle}>Your meals are in the week.</Text>
-      <Text style={styles.guidedLead}>I’ve added each confirmed meal to your weekly plan. You can review or change anything later.</Text>
-      <View style={styles.summaryCard}>{capturedMeals.map((item, index) => <View style={styles.summaryRow} key={item.day + item.meal + index}><Text style={styles.summaryName}>{item.day}</Text><Text style={styles.summaryStatus}>{item.meal}</Text></View>)}</View>
-      <TouchableOpacity style={styles.primaryButton} onPress={() => setTab("Week")}><Text style={styles.primaryText}>Review my meals</Text></TouchableOpacity>
-      <View style={styles.dashboardRow}><TouchableOpacity style={styles.dashboardCard} onPress={() => setTab("Week")}><Text style={styles.dashboardNumber}>{plannedDays}/7</Text><Text style={styles.dashboardLabel}>days planned</Text></TouchableOpacity><TouchableOpacity style={styles.dashboardCard} onPress={() => setTab("Shop")}><Text style={styles.dashboardNumber}>{basketCount}</Text><Text style={styles.dashboardLabel}>shop items</Text></TouchableOpacity></View>
-    </ScrollView>;
-  }
-
-  if (answerStage === "confirm") {
-    const items = phase === "fridge" ? fridgeItems(pendingAnswer) : [];
-    return <View style={styles.guidedPage}>
-      <Text style={styles.guidedKicker}>CHECK WHAT I HEARD</Text>
-      <Text style={styles.guidedTitle}>Does this look right?</Text>
-      <Text style={styles.guidedLead}>I’ll only move on once you confirm this answer.</Text>
-      <View style={styles.summaryCard}>
-        {items.length ? items.map((item, index) => <View style={styles.summaryRow} key={item.name + index}><View style={styles.summaryDot}><Ionicons name={item.status === "Low" ? "alert-circle-outline" : "checkmark-circle-outline"} size={20} color={item.status === "Low" ? C.gold : C.green} /></View><Text style={styles.summaryName}>{item.name}</Text><Text style={styles.summaryStatus}>{item.status}</Text></View>) : <Text style={styles.summaryAnswer}>{pendingAnswer}</Text>}
-      </View>
-      <TouchableOpacity style={styles.primaryButton} onPress={confirmAnswer}><Text style={styles.primaryText}>Confirm and continue</Text></TouchableOpacity>
-      <TouchableOpacity style={styles.guidedSkip} onPress={() => { setAnswer(pendingAnswer); setPendingAnswer(""); setAnswerStage("answer"); }}><Text style={styles.switchText}>Edit my answer</Text></TouchableOpacity>
-    </View>;
-  }
-
-  return <ScrollView contentContainerStyle={styles.guidedPage} showsVerticalScrollIndicator={false}>
-    <Text style={styles.guidedKicker}>ONE QUESTION AT A TIME</Text>
-    <Text style={styles.guidedProgress}>{phase === "meal" || phase === "ingredients" ? days[dayIndex] + " · dinner" : "Getting to know your week"}</Text>
-    <Text style={styles.guidedTitle}>{question}</Text>
-    <Text style={styles.guidedLead}>{helper}</Text>
-    <Animated.View style={{ transform: [{ scale: micScale }] }}><TouchableOpacity style={[styles.guidedMic, voiceListening && styles.guidedMicActive]} onPress={() => startVoice(submitAnswer, setAnswer)}>
-      <Ionicons name={voiceListening ? "radio" : "mic"} size={45} color={voiceListening ? C.white : C.green} />
-      <Text style={[styles.guidedMicLabel, voiceListening && { color: C.white }]}>{voiceListening ? "Listening — tap to stop" : "Tap to answer"}</Text>
-    </TouchableOpacity></Animated.View>
-    <View style={styles.guidedTextRow}><TextInput style={styles.guidedInput} value={answer} onChangeText={setAnswer} onSubmitEditing={() => submitAnswer()} placeholder="Or type your answer…" placeholderTextColor={C.muted} multiline /><TouchableOpacity style={styles.guidedSend} onPress={() => submitAnswer()}><Ionicons name="arrow-up" size={21} color={C.white} /></TouchableOpacity></View>
-    <Text style={styles.guidedHint}>I’ll read this back to you before moving on.</Text>
-    {proposal ? <ProposalCard proposal={proposal} approve={approveProposal} reject={rejectProposal} /> : null}
-  </ScrollView>;
+function HomeView({ plan, recipes, people, setTab, plannedDays, basketCount }) {
+  const upcoming = DAYS.map((day) => ({ day, meals: plan[day] || [] })).filter((item) => item.meals.length).slice(0, 3);
+  return <>
+    <View style={styles.welcome}><View style={styles.welcomeCopy}><Text style={styles.heroKicker}>GEMMA · YOUR WEEKLY ASSISTANT</Text><Text style={styles.heroTitle}>Let’s make the week easy.</Text><Text style={styles.heroText}>Choose your meals, check what you already have, and Gemma will work out the shop.</Text></View><View style={styles.gemmaBadge}><Image source={require("./assets/gemma.png")} style={styles.gemmaImage} /></View></View>
+    <TouchableOpacity style={styles.planCta} onPress={() => setTab("Week")}><View><Text style={styles.planCtaKicker}>{plannedDays === 7 ? "WEEK PLANNED" : "LET’S GET STARTED"}</Text><Text style={styles.planCtaTitle}>{plannedDays === 7 ? "Review your week" : "Plan your week"}</Text><Text style={styles.planCtaText}>{plannedDays === 7 ? "Make changes before you shop." : "Pick a meal for each day in a few taps."}</Text></View><View style={styles.ctaArrow}><Ionicons name="arrow-forward" size={22} color={C.green} /></View></TouchableOpacity>
+    <View style={styles.homeSectionHeader}><View><Text style={styles.sectionKicker}>YOUR WEEK</Text><Text style={styles.homeSectionTitle}>What’s happening?</Text></View><TouchableOpacity onPress={() => setTab("Week")}><Text style={styles.seeAll}>See all</Text></TouchableOpacity></View>
+    {upcoming.length ? <View style={styles.homeMealList}>{upcoming.map(({ day, meals }) => <View style={styles.homeDayRow} key={day}><View style={styles.dayBubble}><Text style={styles.dayBubbleTop}>{day.slice(0, 3).toUpperCase()}</Text><Text style={styles.dayBubbleDate}>{meals.length}</Text></View><View style={{ flex: 1 }}><Text style={styles.homeDayName}>{day}</Text>{meals.map((meal, index) => <Text style={styles.homeMealName} key={meal.meal + index}>{recipes[meal.meal]?.emoji || "🍽️"}  {meal.meal}</Text>)}</View><Ionicons name="chevron-forward" size={18} color={C.muted} /></View>)}</View> : <View style={styles.emptyHome}><Text style={styles.emptyHomeEmoji}>🥕</Text><Text style={styles.emptyStateTitle}>Your week is waiting.</Text><Text style={styles.emptyStateText}>Gemma will help you turn seven empty days into a shop that makes sense.</Text><TouchableOpacity style={styles.smallPrimary} onPress={() => setTab("Week")}><Text style={styles.smallPrimaryText}>Choose your first meal</Text></TouchableOpacity></View>}
+    <View style={styles.homeSectionHeader}><View><Text style={styles.sectionKicker}>READY TO SHOP</Text><Text style={styles.homeSectionTitle}>Your shop at a glance</Text></View><TouchableOpacity onPress={() => setTab("Shop")}><Text style={styles.seeAll}>Open shop</Text></TouchableOpacity></View>
+    <View style={styles.statsRow}><TouchableOpacity style={styles.statCard} onPress={() => setTab("Week")}><Text style={styles.statNumber}>{plannedDays}<Text style={styles.statSlash}>/7</Text></Text><Text style={styles.statLabel}>days planned</Text></TouchableOpacity><TouchableOpacity style={styles.statCardGold} onPress={() => setTab("Shop")}><Text style={styles.statNumber}>{basketCount}</Text><Text style={styles.statLabel}>items to buy</Text></TouchableOpacity></View>
+  </>;
 }
+
 function ProposalCard({ proposal, approve, reject }) {
   return <View style={styles.proposal}><View style={styles.proposalHeader}><View style={styles.proposalDot}><Ionicons name="sparkles-outline" size={17} color={C.gold} /></View><View style={{ flex: 1 }}><Text style={styles.proposalTitle}>I understood</Text><Text style={styles.proposalSummary}>{proposal.summary || "Save this change"}</Text></View></View>{proposal.type === "plan_meal" && <Text style={styles.proposalDetail}>{proposal.assignments?.map((assignment) => assignment.meal + " for " + (assignment.peopleIds?.length || 1) + " people").join(" + ")}</Text>}<View style={styles.proposalButtons}><TouchableOpacity style={styles.approveButton} onPress={approve}><Text style={styles.approveText}>Approve</Text></TouchableOpacity><TouchableOpacity style={styles.rejectButton} onPress={reject}><Text style={styles.rejectText}>Keep unchanged</Text></TouchableOpacity></View></View>;
 }
@@ -817,21 +597,24 @@ function MoreView({ people, inventory, brandRules, setInput, sendMessage, signOu
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: C.cream },
   flex: { flex: 1 },
-  page: { padding: 24, paddingBottom: 116 },
+  page: { padding: 20, paddingBottom: 110 },
   center: { alignItems: "center", justifyContent: "center" },
   kicker: { color: C.gold, fontSize: 11, fontWeight: "800", letterSpacing: 1.6 },
-  greeting: { color: C.greenDark, fontSize: 27, fontWeight: "900", marginTop: 6, letterSpacing: -0.4 },
-  topRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 12, marginBottom: 2 },
-  avatar: { width: 43, height: 43, borderRadius: 22, backgroundColor: C.green, alignItems: "center", justifyContent: "center", borderWidth: 3, borderColor: C.goldSoft },
+  greeting: { color: C.green, fontSize: 22, fontWeight: "800", marginTop: 5 },
+  topRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 10 },
+  avatar: { width: 38, height: 38, borderRadius: 19, backgroundColor: C.green, alignItems: "center", justifyContent: "center" },
   avatarText: { color: C.white, fontWeight: "800", fontSize: 16 },
-  saveStatus: { color: C.muted, fontSize: 11, marginTop: 6, marginBottom: 18, letterSpacing: 0.2 },
-  gemmaHomeNote: { flexDirection: "row", alignItems: "center", justifyContent: "center", paddingHorizontal: 18, paddingVertical: 10, marginBottom: 10 },
-  gemmaHomeNoteText: { color: C.muted, fontSize: 12, lineHeight: 17, marginLeft: 7, textAlign: "center", flex: 1 },
-  hero: { backgroundColor: C.green, borderRadius: 26, padding: 24, marginBottom: 18, shadowColor: C.greenDark, shadowOpacity: 0.16, shadowRadius: 18, shadowOffset: { width: 0, height: 8 }, elevation: 5 },
+  saveStatus: { color: C.muted, fontSize: 11, marginTop: 5, marginBottom: 16 },
+  hero: { backgroundColor: C.green, borderRadius: 24, padding: 22, marginBottom: 16 },
+  welcome: { backgroundColor: C.green, borderRadius: 26, padding: 22, marginBottom: 14, flexDirection: "row", alignItems: "center", minHeight: 178 },
+  welcomeCopy: { flex: 1, paddingRight: 12 },
+  gemmaBadge: { width: 90, height: 90, borderRadius: 45, backgroundColor: C.goldSoft, borderWidth: 4, borderColor: C.gold, alignItems: "center", justifyContent: "center" },
+  gemmaBadgeText: { color: C.green, fontSize: 40, fontWeight: "900" },
+  gemmaImage: { width: 82, height: 82, borderRadius: 41 },
   heroKicker: { color: "#D8E9DD", fontWeight: "800", fontSize: 10, letterSpacing: 1.3 },
   heroTitle: { color: C.white, fontSize: 25, fontWeight: "800", marginTop: 9 },
   heroText: { color: "#D8E9DD", fontSize: 14, lineHeight: 21, marginTop: 8 },
-  chatCard: { backgroundColor: C.white, borderRadius: 24, padding: 16, marginBottom: 14, borderWidth: 1, borderColor: "#EEE8DA", shadowColor: C.greenDark, shadowOpacity: 0.05, shadowRadius: 14, shadowOffset: { width: 0, height: 5 }, elevation: 2 },
+  chatCard: { backgroundColor: C.white, borderRadius: 22, padding: 14, marginBottom: 12 },
   message: { borderRadius: 16, padding: 11, marginBottom: 8, maxWidth: "92%" },
   assistantMessage: { backgroundColor: C.greenSoft, alignSelf: "flex-start" },
   userMessage: { backgroundColor: C.green, alignSelf: "flex-end" },
@@ -862,6 +645,31 @@ const styles = StyleSheet.create({
   dashboardCardLast: { marginRight: 0 },
   dashboardNumber: { color: C.green, fontSize: 22, fontWeight: "800" },
   dashboardLabel: { color: C.muted, fontSize: 12, marginTop: 2 },
+  planCta: { backgroundColor: C.gold, borderRadius: 20, padding: 18, flexDirection: "row", alignItems: "center", marginBottom: 25 },
+  planCtaKicker: { color: C.greenDark, fontSize: 10, fontWeight: "900", letterSpacing: 1.4 },
+  planCtaTitle: { color: C.greenDark, fontSize: 22, fontWeight: "900", marginTop: 3 },
+  planCtaText: { color: C.greenDark, fontSize: 13, marginTop: 3 },
+  ctaArrow: { width: 44, height: 44, borderRadius: 22, backgroundColor: C.goldSoft, alignItems: "center", justifyContent: "center", marginLeft: 10 },
+  homeSectionHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 10 },
+  homeSectionTitle: { color: C.green, fontSize: 20, fontWeight: "900", marginTop: 4 },
+  seeAll: { color: C.gold, fontWeight: "800", fontSize: 12, paddingBottom: 3 },
+  homeMealList: { backgroundColor: C.white, borderRadius: 20, paddingHorizontal: 15, marginBottom: 24 },
+  homeDayRow: { flexDirection: "row", alignItems: "center", paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: C.line },
+  dayBubble: { width: 48, height: 48, borderRadius: 16, backgroundColor: C.greenSoft, alignItems: "center", justifyContent: "center", marginRight: 12 },
+  dayBubbleTop: { color: C.green, fontSize: 9, fontWeight: "900" },
+  dayBubbleDate: { color: C.gold, fontSize: 17, fontWeight: "900", marginTop: 1 },
+  homeDayName: { color: C.muted, fontSize: 11, fontWeight: "800", textTransform: "uppercase", letterSpacing: 0.7, marginBottom: 3 },
+  homeMealName: { color: C.ink, fontSize: 14, fontWeight: "800", marginTop: 2 },
+  emptyHome: { backgroundColor: C.white, borderRadius: 20, padding: 22, alignItems: "center", marginBottom: 24 },
+  emptyHomeEmoji: { fontSize: 32, marginBottom: 5 },
+  smallPrimary: { backgroundColor: C.green, borderRadius: 12, paddingHorizontal: 15, paddingVertical: 11, marginTop: 13 },
+  smallPrimaryText: { color: C.white, fontSize: 12, fontWeight: "800" },
+  statsRow: { flexDirection: "row", marginBottom: 10 },
+  statCard: { flex: 1, backgroundColor: C.greenSoft, borderRadius: 18, padding: 17, marginRight: 8 },
+  statCardGold: { flex: 1, backgroundColor: C.goldSoft, borderRadius: 18, padding: 17 },
+  statNumber: { color: C.green, fontSize: 28, fontWeight: "900" },
+  statSlash: { color: C.muted, fontSize: 17 },
+  statLabel: { color: C.muted, fontSize: 12, fontWeight: "700", marginTop: 2 },
   sectionKicker: { color: C.gold, fontSize: 11, fontWeight: "800", letterSpacing: 1.5, marginTop: 8 },
   pageTitle: { color: C.green, fontSize: 29, fontWeight: "800", marginTop: 5, marginBottom: 8 },
   pageLead: { color: C.muted, fontSize: 14, lineHeight: 21, marginBottom: 17 },
@@ -902,7 +710,7 @@ const styles = StyleSheet.create({
   rule: { color: C.ink, fontSize: 13, paddingVertical: 4 },
   signOut: { alignItems: "center", padding: 14 },
   signOutText: { color: C.red, fontWeight: "800" },
-  nav: { position: "absolute", bottom: 0, left: 0, right: 0, backgroundColor: C.white, borderTopWidth: 1, borderTopColor: "#E9E4D8", flexDirection: "row", paddingTop: 11, paddingBottom: 12, shadowColor: C.greenDark, shadowOpacity: 0.08, shadowRadius: 12, shadowOffset: { width: 0, height: -4 }, elevation: 8 },
+  nav: { position: "absolute", bottom: 0, left: 0, right: 0, backgroundColor: C.white, borderTopWidth: 1, borderTopColor: C.line, flexDirection: "row", paddingVertical: 9 },
   navItem: { flex: 1, alignItems: "center" },
   navLabel: { color: C.muted, fontSize: 10, marginTop: 3, fontWeight: "700" },
   navLabelActive: { color: C.green },
@@ -911,33 +719,8 @@ const styles = StyleSheet.create({
   authPage: { padding: 24, flexGrow: 1, justifyContent: "center" },
   authTitle: { color: C.green, fontSize: 31, lineHeight: 37, fontWeight: "800", marginTop: 15, marginBottom: 9 },
   authLead: { color: C.muted, fontSize: 15, lineHeight: 22, marginBottom: 22 },
-  guidedPage: { padding: 24, paddingTop: 34, paddingBottom: 120, flexGrow: 1, justifyContent: "center" },
-  guidedKicker: { color: C.gold, fontSize: 12, fontWeight: "900", letterSpacing: 1.5, textAlign: "center" },
-  guidedProgress: { color: C.muted, fontSize: 12, textAlign: "center", marginTop: 12 },
-  guidedTitle: { color: C.green, fontSize: 34, lineHeight: 40, fontWeight: "900", textAlign: "center", marginTop: 16 },
-  guidedLead: { color: C.muted, fontSize: 16, lineHeight: 23, textAlign: "center", marginTop: 13, marginBottom: 20 },
-  guidedTranscript: { backgroundColor: C.goldSoft, borderRadius: 16, padding: 13, marginBottom: 16 },
-  guidedTranscriptLabel: { color: C.gold, fontSize: 11, fontWeight: "900", textTransform: "uppercase" },
-  guidedTranscriptText: { color: C.ink, fontSize: 14, lineHeight: 20, marginTop: 4 },
-  guidedMic: { width: 168, height: 168, borderRadius: 84, backgroundColor: C.greenSoft, alignSelf: "center", alignItems: "center", justifyContent: "center", marginVertical: 20, borderWidth: 2, borderColor: C.gold },
-  guidedMicActive: { backgroundColor: C.green, borderColor: C.gold, shadowColor: C.gold, shadowOpacity: 0.42, shadowRadius: 24, shadowOffset: { width: 0, height: 10 }, elevation: 12 },
-  guidedMicLabel: { color: C.green, fontWeight: "900", fontSize: 14, marginTop: 10 },
-  guidedTextRow: { flexDirection: "row", alignItems: "flex-end", marginTop: 5 },
-  guidedInput: { flex: 1, minHeight: 50, maxHeight: 100, backgroundColor: C.white, borderRadius: 15, paddingHorizontal: 14, paddingVertical: 13, color: C.ink, fontSize: 14, marginRight: 8 },
-  guidedSend: { width: 50, height: 50, borderRadius: 15, backgroundColor: C.green, alignItems: "center", justifyContent: "center" },
-  guidedSkip: { alignItems: "center", padding: 14 },
-  guidedHint: { color: C.muted, fontSize: 12, textAlign: "center", marginTop: 12 },
-  voiceNote: { color: C.gold, fontSize: 12, textAlign: "center", marginTop: 4 },
-  summaryCard: { backgroundColor: C.white, borderRadius: 20, padding: 16, marginTop: 8, marginBottom: 14, shadowColor: C.green, shadowOpacity: 0.08, shadowRadius: 16, shadowOffset: { width: 0, height: 6 }, elevation: 3 },
-  summaryRow: { flexDirection: "row", alignItems: "center", paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: C.line },
-  summaryDot: { width: 28 },
-  summaryName: { color: C.ink, fontSize: 15, fontWeight: "800", flex: 1 },
-  summaryStatus: { color: C.muted, fontSize: 13, fontWeight: "700" },
-  summaryAnswer: { color: C.ink, fontSize: 16, lineHeight: 24 },
-
   primaryButton: { backgroundColor: C.green, borderRadius: 15, alignItems: "center", paddingVertical: 15, marginTop: 7 },
   primaryText: { color: C.white, fontWeight: "800", fontSize: 15 },
-  primaryButtonDisabled: { opacity: 0.45 },
   error: { color: C.red, fontSize: 13, lineHeight: 18, marginTop: 12 },
   switchText: { color: C.gold, textAlign: "center", fontWeight: "800", marginTop: 18 },
   setupPage: { padding: 24, flexGrow: 1, justifyContent: "center" },
