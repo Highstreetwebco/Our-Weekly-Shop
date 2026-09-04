@@ -76,16 +76,16 @@ export default function RealtimeVoiceChat({ household, people, plan }) {
 }
 
 const styles = StyleSheet.create({
-  card: { backgroundColor: C.white, borderRadius: 22, padding: 17, marginBottom: 18, borderWidth: 1, borderColor: C.greenSoft },
+  card: { backgroundColor: C.greenDark, borderRadius: 26, padding: 20, marginBottom: 20, shadowColor: C.greenDark, shadowOpacity: 0.18, shadowRadius: 20, shadowOffset: { width: 0, height: 9 }, elevation: 6 },
   row: { flexDirection: "row", alignItems: "center" },
-  icon: { width: 49, height: 49, borderRadius: 17, backgroundColor: C.greenSoft, alignItems: "center", justifyContent: "center", marginRight: 12 },
-  kicker: { color: C.gold, fontSize: 10, fontWeight: "900", letterSpacing: 1.3 },
-  title: { color: C.greenDark, fontSize: 19, fontWeight: "900", marginTop: 2 },
-  copy: { color: C.muted, fontSize: 12, lineHeight: 17, marginTop: 4 },
-  transcript: { color: C.ink, backgroundColor: C.cream, borderRadius: 13, padding: 11, marginTop: 12, fontSize: 13, lineHeight: 18 },
+  icon: { width: 54, height: 54, borderRadius: 19, backgroundColor: C.goldSoft, alignItems: "center", justifyContent: "center", marginRight: 13 },
+  kicker: { color: "#E7C987", fontSize: 10, fontWeight: "900", letterSpacing: 1.5 },
+  title: { color: C.white, fontSize: 21, fontWeight: "900", marginTop: 3, letterSpacing: -0.2 },
+  copy: { color: "#D6E6DB", fontSize: 13, lineHeight: 18, marginTop: 5 },
+  transcript: { color: C.ink, backgroundColor: C.cream, borderRadius: 15, padding: 12, marginTop: 14, fontSize: 13, lineHeight: 19 },
   error: { color: C.red, fontSize: 12, marginTop: 10 },
-  start: { backgroundColor: C.green, borderRadius: 14, paddingVertical: 13, flexDirection: "row", alignItems: "center", justifyContent: "center", marginTop: 13, gap: 8 },
-  startText: { color: C.white, fontWeight: "900" },
-  stop: { backgroundColor: C.greenSoft, borderRadius: 14, paddingVertical: 13, alignItems: "center", marginTop: 13 },
+  start: { backgroundColor: C.gold, borderRadius: 15, paddingVertical: 14, flexDirection: "row", alignItems: "center", justifyContent: "center", marginTop: 15, gap: 8 },
+  startText: { color: C.greenDark, fontWeight: "900", fontSize: 14 },
+  stop: { backgroundColor: C.greenSoft, borderRadius: 15, paddingVertical: 14, alignItems: "center", marginTop: 15 },
   stopText: { color: C.green, fontWeight: "900" }
 });

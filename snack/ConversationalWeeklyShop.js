@@ -600,7 +600,7 @@ export default function ConversationalWeeklyShop() {
             <TouchableOpacity style={styles.avatar} onPress={() => setTab("More")}><Text style={styles.avatarText}>{String(household?.name || "O").slice(0, 1).toUpperCase()}</Text></TouchableOpacity>
           </View>
           <Text style={styles.saveStatus}>{saveStatus}</Text>
-          <RealtimeVoiceChat household={household} people={people} plan={plan} />
+          {tab === "Home" && <RealtimeVoiceChat household={household} people={people} plan={plan} />}
           {tab === "Home" && <HomeView proposal={proposal} approveProposal={approveProposal} rejectProposal={rejectProposal} people={people} startVoice={startVoice} voiceListening={voiceListening} setTab={setTab} plannedDays={plannedDays} basketCount={basket.length} addGuidedMealToPlan={addGuidedMealToPlan} />}
           {tab === "Week" && <WeekView plan={plan} recipes={recipes} people={people} setInput={setInput} sendMessage={sendMessage} />}
           {tab === "Shop" && <ShopView basket={basket} budget={budget} setBudget={(value) => { setBudget(value); saveSnapshot(plan, extras, inventory, brandRules, value); }} extras={extras} addExtra={(value) => { const next = [...new Set([...extras, value])]; setExtras(next); saveSnapshot(plan, next, inventory, brandRules, budget); }} />}
@@ -817,19 +817,19 @@ function MoreView({ people, inventory, brandRules, setInput, sendMessage, signOu
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: C.cream },
   flex: { flex: 1 },
-  page: { padding: 20, paddingBottom: 110 },
+  page: { padding: 24, paddingBottom: 116 },
   center: { alignItems: "center", justifyContent: "center" },
   kicker: { color: C.gold, fontSize: 11, fontWeight: "800", letterSpacing: 1.6 },
-  greeting: { color: C.green, fontSize: 22, fontWeight: "800", marginTop: 5 },
-  topRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 10 },
-  avatar: { width: 38, height: 38, borderRadius: 19, backgroundColor: C.green, alignItems: "center", justifyContent: "center" },
+  greeting: { color: C.greenDark, fontSize: 27, fontWeight: "900", marginTop: 6, letterSpacing: -0.4 },
+  topRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 12, marginBottom: 2 },
+  avatar: { width: 43, height: 43, borderRadius: 22, backgroundColor: C.green, alignItems: "center", justifyContent: "center", borderWidth: 3, borderColor: C.goldSoft },
   avatarText: { color: C.white, fontWeight: "800", fontSize: 16 },
-  saveStatus: { color: C.muted, fontSize: 11, marginTop: 5, marginBottom: 16 },
-  hero: { backgroundColor: C.green, borderRadius: 24, padding: 22, marginBottom: 16 },
+  saveStatus: { color: C.muted, fontSize: 11, marginTop: 6, marginBottom: 18, letterSpacing: 0.2 },
+  hero: { backgroundColor: C.green, borderRadius: 26, padding: 24, marginBottom: 18, shadowColor: C.greenDark, shadowOpacity: 0.16, shadowRadius: 18, shadowOffset: { width: 0, height: 8 }, elevation: 5 },
   heroKicker: { color: "#D8E9DD", fontWeight: "800", fontSize: 10, letterSpacing: 1.3 },
   heroTitle: { color: C.white, fontSize: 25, fontWeight: "800", marginTop: 9 },
   heroText: { color: "#D8E9DD", fontSize: 14, lineHeight: 21, marginTop: 8 },
-  chatCard: { backgroundColor: C.white, borderRadius: 22, padding: 14, marginBottom: 12 },
+  chatCard: { backgroundColor: C.white, borderRadius: 24, padding: 16, marginBottom: 14, borderWidth: 1, borderColor: "#EEE8DA", shadowColor: C.greenDark, shadowOpacity: 0.05, shadowRadius: 14, shadowOffset: { width: 0, height: 5 }, elevation: 2 },
   message: { borderRadius: 16, padding: 11, marginBottom: 8, maxWidth: "92%" },
   assistantMessage: { backgroundColor: C.greenSoft, alignSelf: "flex-start" },
   userMessage: { backgroundColor: C.green, alignSelf: "flex-end" },
@@ -900,7 +900,7 @@ const styles = StyleSheet.create({
   rule: { color: C.ink, fontSize: 13, paddingVertical: 4 },
   signOut: { alignItems: "center", padding: 14 },
   signOutText: { color: C.red, fontWeight: "800" },
-  nav: { position: "absolute", bottom: 0, left: 0, right: 0, backgroundColor: C.white, borderTopWidth: 1, borderTopColor: C.line, flexDirection: "row", paddingVertical: 9 },
+  nav: { position: "absolute", bottom: 0, left: 0, right: 0, backgroundColor: C.white, borderTopWidth: 1, borderTopColor: "#E9E4D8", flexDirection: "row", paddingTop: 11, paddingBottom: 12, shadowColor: C.greenDark, shadowOpacity: 0.08, shadowRadius: 12, shadowOffset: { width: 0, height: -4 }, elevation: 8 },
   navItem: { flex: 1, alignItems: "center" },
   navLabel: { color: C.muted, fontSize: 10, marginTop: 3, fontWeight: "700" },
   navLabelActive: { color: C.green },
