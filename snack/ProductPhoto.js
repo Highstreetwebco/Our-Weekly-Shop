@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "../lib/supabase";
 
@@ -16,98 +16,46 @@ function productKey(p){return String(p?.code||p?.barcode||`${p?.product_name||p?
 function bestProduct(products=[]){const withImages=products.filter(p=>imageOf(p));const uk=withImages.filter(isUK);return (uk.length?uk:withImages)[0]||products[0]||null}
 function cleanProduct(p,fallback){if(!p)return null;return {imageUrl:imageOf(p),barcode:p.code||p.barcode||null,productName:p.product_name||p.productName||fallback,brand:String(p.brands||p.brand||"").split(",")[0].trim()||null,quantity:p.quantity||null,source:"Open Food Facts"}}
 
-async function fetchProductPage(name,page){
-  const url=`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(name)}&search_simple=1&action=process&json=1&page=${page}&page_size=100&fields=code,product_name,brands,quantity,countries,countries_tags,image_front_small_url,image_front_url,image_url`;
-  const r=await fetch(url,{headers:{Accept:"application/json"}});if(!r.ok)throw new Error("lookup failed");
-  const data=await r.json();return data?.products||[];
-}
+async function fetchProductPage(name,page){const url=`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(name)}&search_simple=1&action=process&json=1&page=${page}&page_size=100&fields=code,product_name,brands,quantity,countries,countries_tags,image_front_small_url,image_front_url,image_url`;const r=await fetch(url,{headers:{Accept:"application/json"}});if(!r.ok)throw new Error("lookup failed");const data=await r.json();return data?.products||[]}
 
-export async function searchProducts(name){
-  if(!String(name||"").trim())return [];
-  try{
-    const pages=await Promise.all([1,2,3].map(page=>fetchProductPage(name,page).catch(()=>[])));
-    const seen=new Set(),merged=[];
-    pages.flat().forEach(p=>{if(!p?.product_name)return;const key=productKey(p);if(seen.has(key))return;seen.add(key);merged.push(p)});
-    return merged.sort((a,b)=>Number(isUK(b))-Number(isUK(a))||Number(!!imageOf(b))-Number(!!imageOf(a)));
-  }catch{return []}
-}
+export async function searchProducts(name){if(!String(name||"").trim())return [];try{const pages=await Promise.all([1,2,3].map(page=>fetchProductPage(name,page).catch(()=>[])));const seen=new Set(),merged=[];pages.flat().forEach(p=>{if(!p?.product_name)return;const key=productKey(p);if(seen.has(key))return;seen.add(key);merged.push(p)});return merged.sort((a,b)=>Number(isUK(b))-Number(isUK(a))||Number(!!imageOf(b))-Number(!!imageOf(a)))}catch{return []}}
 
-export async function resolveProductPhoto(name){
-  const key=normalise(name);if(!key)return null;
-  const cache=readJSON(CACHE_KEY);if(cache[key])return cache[key];
-  const products=await searchProducts(name);const result=cleanProduct(bestProduct(products),name);if(result){cache[key]=result;writeJSON(CACHE_KEY,cache)}return result;
-}
+export async function resolveProductPhoto(name){const key=normalise(name);if(!key)return null;const cache=readJSON(CACHE_KEY);if(cache[key])return cache[key];const products=await searchProducts(name);const result=cleanProduct(bestProduct(products),name);if(result){cache[key]=result;writeJSON(CACHE_KEY,cache)}return result}
 
-async function savePreferenceCloud(ingredient,product){
-  try{
-    const {data}=await supabase.auth.getSession();const uid=data?.session?.user?.id;if(!uid)return;
-    const row=await supabase.from("profiles").select("app_state").eq("id",uid).maybeSingle();
-    const state=row.data?.app_state||{};const prefs={...(state.productPreferences||{}),[normalise(ingredient)]:product};
-    await supabase.from("profiles").upsert({id:uid,app_state:{...state,productPreferences:prefs},updated_at:new Date().toISOString()},{onConflict:"id"});
-  }catch{}
-}
-async function loadPreferenceCloud(ingredient){
-  try{
-    const {data}=await supabase.auth.getSession();const uid=data?.session?.user?.id;if(!uid)return null;
-    const row=await supabase.from("profiles").select("app_state").eq("id",uid).maybeSingle();
-    return row.data?.app_state?.productPreferences?.[normalise(ingredient)]||null;
-  }catch{return null}
-}
+async function savePreferenceCloud(ingredient,product){try{const {data}=await supabase.auth.getSession();const uid=data?.session?.user?.id;if(!uid)return;const row=await supabase.from("profiles").select("app_state").eq("id",uid).maybeSingle();const state=row.data?.app_state||{};const prefs={...(state.productPreferences||{}),[normalise(ingredient)]:product};await supabase.from("profiles").upsert({id:uid,app_state:{...state,productPreferences:prefs},updated_at:new Date().toISOString()},{onConflict:"id"})}catch{}}
+async function loadPreferenceCloud(ingredient){try{const {data}=await supabase.auth.getSession();const uid=data?.session?.user?.id;if(!uid)return null;const row=await supabase.from("profiles").select("app_state").eq("id",uid).maybeSingle();return row.data?.app_state?.productPreferences?.[normalise(ingredient)]||null}catch{return null}}
 
-export default function ProductPhoto({name,size=58,showMeta=false}){
-  const preferred=readJSON(CHOICE_KEY)[normalise(name)]||null;
-  const [item,setItem]=useState(()=>preferred||readJSON(CACHE_KEY)[normalise(name)]||null);
-  const [loading,setLoading]=useState(!item);
-  useEffect(()=>{let alive=true;const local=readJSON(CHOICE_KEY)[normalise(name)]||readJSON(CACHE_KEY)[normalise(name)]||null;setItem(local);setLoading(!local);(async()=>{const cloud=await loadPreferenceCloud(name);if(!alive)return;if(cloud){const choices=readJSON(CHOICE_KEY);choices[normalise(name)]=cloud;writeJSON(CHOICE_KEY,choices);setItem(cloud);setLoading(false);return}if(!local){const x=await resolveProductPhoto(name);if(alive){setItem(x);setLoading(false)}}})();return()=>{alive=false}},[name]);
-  return <View style={{flexDirection:"row",alignItems:"center"}}><PhotoBox item={item} name={name} size={size} loading={loading}/>{showMeta&&item?<View style={s.meta}><Text style={s.name} numberOfLines={1}>{item.productName||name}</Text><Text style={s.detail} numberOfLines={1}>{[item.brand,item.quantity].filter(Boolean).join(" · ")||"Product photo"}</Text></View>:null}</View>
-}
+export default function ProductPhoto({name,size=58,showMeta=false}){const preferred=readJSON(CHOICE_KEY)[normalise(name)]||null;const [item,setItem]=useState(()=>preferred||readJSON(CACHE_KEY)[normalise(name)]||null);const [loading,setLoading]=useState(!item);useEffect(()=>{let alive=true;const local=readJSON(CHOICE_KEY)[normalise(name)]||readJSON(CACHE_KEY)[normalise(name)]||null;setItem(local);setLoading(!local);(async()=>{const cloud=await loadPreferenceCloud(name);if(!alive)return;if(cloud){const choices=readJSON(CHOICE_KEY);choices[normalise(name)]=cloud;writeJSON(CHOICE_KEY,choices);setItem(cloud);setLoading(false);return}if(!local){const x=await resolveProductPhoto(name);if(alive){setItem(x);setLoading(false)}}})();return()=>{alive=false}},[name]);return <View style={{flexDirection:"row",alignItems:"center"}}><PhotoBox item={item} name={name} size={size} loading={loading}/>{showMeta&&item?<View style={s.meta}><Text style={s.name} numberOfLines={1}>{item.productName||name}</Text><Text style={s.detail} numberOfLines={1}>{[item.brand,item.quantity].filter(Boolean).join(" · ")||"Product photo"}</Text></View>:null}</View>}
 
-function PhotoBox({item,name,size=70,loading=false}){
-  const initials=String(name||"P").trim().slice(0,1).toUpperCase();
-  return <View style={[s.box,{width:size,height:size,borderRadius:Math.max(12,Math.round(size*.2))}]}>{item?.imageUrl?<Image source={{uri:item.imageUrl}} style={{width:size-8,height:size-8,backgroundColor:C.white}} resizeMode="contain"/>:loading?<ActivityIndicator size="small" color={C.green}/>:<Text style={s.fallback}>{initials}</Text>}</View>
-}
+function PhotoBox({item,name,size=70,loading=false}){const initials=String(name||"P").trim().slice(0,1).toUpperCase();return <View style={[s.box,{width:size,height:size,borderRadius:Math.max(12,Math.round(size*.2))}]}>{item?.imageUrl?<Image source={{uri:item.imageUrl}} style={{width:size-8,height:size-8,backgroundColor:C.white}} resizeMode="contain"/>:loading?<ActivityIndicator size="small" color={C.green}/>:<Text style={s.fallback}>{initials}</Text>}</View>}
 
 export function ProductChoice({name,quantity,unit,source=[],recipeNeed,onRemove}){
-  const key=normalise(name);
-  const initial=readJSON(CHOICE_KEY)[key]||null;
-  const [confirmed,setConfirmed]=useState(initial);
-  const [products,setProducts]=useState([]);
-  const [loading,setLoading]=useState(false);
-  const [brand,setBrand]=useState(initial?.brand||"Any brand");
-  const [draft,setDraft]=useState(initial||null);
-  const [brandOpen,setBrandOpen]=useState(false);
-  const [productOpen,setProductOpen]=useState(false);
-  const [brandSearch,setBrandSearch]=useState("");
-
+  const key=normalise(name),initial=readJSON(CHOICE_KEY)[key]||null;
+  const [confirmed,setConfirmed]=useState(initial),[products,setProducts]=useState([]),[loading,setLoading]=useState(false),[brand,setBrand]=useState(initial?.brand||"Any brand"),[draft,setDraft]=useState(initial||null),[brandOpen,setBrandOpen]=useState(false),[productOpen,setProductOpen]=useState(false);
   useEffect(()=>{let alive=true;setLoading(true);(async()=>{const cloud=await loadPreferenceCloud(name);if(!alive)return;if(cloud){const cache=readJSON(CHOICE_KEY);cache[key]=cloud;writeJSON(CHOICE_KEY,cache);setConfirmed(cloud);setDraft(cloud);setBrand(cloud.brand||"Any brand")}const list=await searchProducts(name);if(!alive)return;setProducts(list);setLoading(false);if(!cloud&&!initial){const first=cleanProduct(bestProduct(list),name);if(first)setDraft(first)}})();return()=>{alive=false}},[name]);
-
   const ukProducts=useMemo(()=>{const uk=products.filter(isUK);return uk.length?uk:products},[products]);
   const brands=useMemo(()=>["Any brand",...Array.from(new Set(ukProducts.flatMap(p=>String(p.brands||"").split(",").map(x=>x.trim()).filter(Boolean)))).sort((a,b)=>a.localeCompare(b))],[ukProducts]);
-  const visibleBrands=useMemo(()=>{const q=normalise(brandSearch);return q?brands.filter(b=>normalise(b).includes(q)):brands},[brands,brandSearch]);
   const filtered=useMemo(()=>ukProducts.filter(p=>brand==="Any brand"||String(p.brands||"").toLowerCase().split(",").map(x=>x.trim()).includes(brand.toLowerCase())).slice(0,100),[ukProducts,brand]);
-
-  function chooseBrand(next){setBrand(next);setBrandOpen(false);setProductOpen(false);setBrandSearch("");const pool=next==="Any brand"?ukProducts:ukProducts.filter(p=>String(p.brands||"").toLowerCase().split(",").map(x=>x.trim()).includes(next.toLowerCase()));setDraft(cleanProduct(bestProduct(pool),name))}
+  function chooseBrand(next){setBrand(next);setBrandOpen(false);setProductOpen(false);const pool=next==="Any brand"?ukProducts:ukProducts.filter(p=>String(p.brands||"").toLowerCase().split(",").map(x=>x.trim()).includes(next.toLowerCase()));setDraft(cleanProduct(bestProduct(pool),name))}
   function chooseProduct(p){setDraft(cleanProduct(p,name));setProductOpen(false)}
   function confirm(){if(!draft)return;const next={...draft,brand:draft.brand||brand||null,ingredient:name,preferred:true,savedAt:Date.now()};setConfirmed(next);setBrand(next.brand||"Any brand");const cache=readJSON(CHOICE_KEY);cache[key]=next;writeJSON(CHOICE_KEY,cache);savePreferenceCloud(name,next)}
-  function change(){setConfirmed(null);setDraft(readJSON(CHOICE_KEY)[key]||draft);setBrand(readJSON(CHOICE_KEY)[key]?.brand||brand||"Any brand")}
-
+  function change(){const saved=readJSON(CHOICE_KEY)[key]||draft;setConfirmed(null);setDraft(saved);setBrand(saved?.brand||"Any brand")}
   const display=confirmed||draft;
   return <View style={s.choiceCard}>
     <View style={s.choiceTop}><PhotoBox item={display} name={name} size={78} loading={loading}/><View style={s.choiceInfo}><Text style={s.genericLabel}>{name.toUpperCase()}</Text><Text style={s.choiceName}>{confirmed?.productName||name}</Text><Text style={s.choiceQty}>{quantity} {unit}</Text>{confirmed?<><Text style={s.preferred}>PREFERRED PRODUCT</Text><Text style={s.choiceMeta}>{[confirmed.brand,confirmed.quantity].filter(Boolean).join(" · ")||"Product selected"}</Text></>:<Text style={s.choiceMeta}>Default: any brand</Text>}</View>{onRemove?<TouchableOpacity onPress={onRemove} style={s.remove}><Ionicons name="close-circle-outline" size={22} color={C.muted}/></TouchableOpacity>:null}</View>
-
     {!confirmed?<View style={s.selectArea}>
       <Text style={s.selectLabel}>BRAND</Text>
       <TouchableOpacity style={s.selectButton} onPress={()=>{setBrandOpen(!brandOpen);setProductOpen(false)}}><Text style={s.selectText}>{brand}</Text><Ionicons name={brandOpen?"chevron-up":"chevron-down"} size={18} color={C.green}/></TouchableOpacity>
-      {brandOpen?<View style={s.dropdown}><TextInput style={s.searchBox} value={brandSearch} onChangeText={setBrandSearch} placeholder="Search brands" placeholderTextColor={C.muted}/><ScrollView nestedScrollEnabled style={s.dropdownScroll}>{visibleBrands.map(b=><TouchableOpacity key={b} style={s.option} onPress={()=>chooseBrand(b)}><Text style={[s.optionText,b===brand&&s.optionActive]}>{b}</Text>{b===brand?<Ionicons name="checkmark" size={16} color={C.green}/>:null}</TouchableOpacity>)}{!visibleBrands.length?<Text style={s.noResults}>No matching brand found.</Text>:null}</ScrollView></View>:null}
-
+      {brandOpen?<View style={s.dropdown}><ScrollView nestedScrollEnabled style={s.dropdownScroll}>{loading?<View style={s.loadingRow}><ActivityIndicator size="small" color={C.green}/><Text style={s.loadingText}>Loading brands…</Text></View>:brands.map(b=><TouchableOpacity key={b} style={s.option} onPress={()=>chooseBrand(b)}><Text style={[s.optionText,b===brand&&s.optionActive]}>{b}</Text>{b===brand?<Ionicons name="checkmark" size={16} color={C.green}/>:null}</TouchableOpacity>)}</ScrollView></View>:null}
       <Text style={[s.selectLabel,{marginTop:10}]}>PRODUCT</Text>
       <TouchableOpacity style={s.selectButton} onPress={()=>{setProductOpen(!productOpen);setBrandOpen(false)}}><Text style={s.selectText} numberOfLines={1}>{draft?.productName||(loading?"Finding products…":"Select product")}</Text><Ionicons name={productOpen?"chevron-up":"chevron-down"} size={18} color={C.green}/></TouchableOpacity>
       {productOpen?<View style={s.dropdown}><ScrollView nestedScrollEnabled style={s.dropdownScroll}>{loading?<View style={s.loadingRow}><ActivityIndicator size="small" color={C.green}/><Text style={s.loadingText}>Finding matching UK products…</Text></View>:filtered.length?filtered.map((p,i)=>{const x=cleanProduct(p,name);return <TouchableOpacity key={`${p.code||i}`} style={s.productOption} onPress={()=>chooseProduct(p)}><PhotoBox item={x} name={name} size={48}/><View style={{flex:1,marginLeft:10}}><Text style={s.productName} numberOfLines={2}>{x?.productName||name}</Text><Text style={s.productMeta}>{[x?.brand,x?.quantity].filter(Boolean).join(" · ")}</Text></View></TouchableOpacity>}):<Text style={s.noResults}>No matching photographed products found yet.</Text>}</ScrollView></View>:null}
       <TouchableOpacity style={[s.confirmChoice,!draft&&s.disabled]} disabled={!draft} onPress={confirm}><Text style={s.confirmText}>Use as my preferred product</Text><Ionicons name="checkmark-circle-outline" size={19} color={C.white}/></TouchableOpacity>
     </View>:<TouchableOpacity style={s.changeButton} onPress={change}><Text style={s.changeText}>Change preferred brand or product</Text><Ionicons name="chevron-down" size={17} color={C.green}/></TouchableOpacity>}
-
     {recipeNeed?<Text style={s.recipeNeed}>{recipeNeed}</Text>:null}<Text style={s.sourceText}>{Array.isArray(source)?source.join(", "):source}</Text>
   </View>
 }
 
-const s=StyleSheet.create({box:{backgroundColor:C.white,borderWidth:1,borderColor:C.line,alignItems:"center",justifyContent:"center",overflow:"hidden"},fallback:{color:C.green,fontWeight:"900",fontSize:20},meta:{marginLeft:10,flex:1},name:{color:C.green,fontWeight:"900",fontSize:13},detail:{color:C.muted,fontSize:10,marginTop:2},choiceCard:{backgroundColor:C.white,borderRadius:18,padding:15,marginBottom:10},choiceTop:{flexDirection:"row",alignItems:"center"},choiceInfo:{flex:1,marginLeft:13},genericLabel:{color:C.gold,fontSize:9,fontWeight:"900",letterSpacing:1.1,marginBottom:3},choiceName:{color:C.ink,fontWeight:"900",fontSize:15,lineHeight:19},choiceQty:{color:C.green,fontSize:16,fontWeight:"900",marginTop:4},preferred:{color:C.gold,fontSize:8,fontWeight:"900",letterSpacing:1,marginTop:5},choiceMeta:{color:C.muted,fontSize:11,marginTop:3},remove:{paddingLeft:7},selectArea:{marginTop:14,paddingTop:13,borderTopWidth:1,borderTopColor:C.line},selectLabel:{color:C.gold,fontSize:9,fontWeight:"900",letterSpacing:1.2,marginBottom:5},selectButton:{height:47,borderWidth:1,borderColor:C.line,borderRadius:13,backgroundColor:C.cream,paddingHorizontal:13,flexDirection:"row",alignItems:"center",justifyContent:"space-between"},selectText:{color:C.greenDark,fontWeight:"800",fontSize:13,flex:1,marginRight:8},dropdown:{borderWidth:1,borderColor:C.line,borderRadius:13,backgroundColor:C.white,marginTop:5,overflow:"hidden"},dropdownScroll:{maxHeight:270},searchBox:{height:42,borderBottomWidth:1,borderBottomColor:C.line,paddingHorizontal:12,color:C.ink,backgroundColor:C.cream},option:{paddingHorizontal:13,paddingVertical:11,borderBottomWidth:1,borderBottomColor:C.line,flexDirection:"row",justifyContent:"space-between",alignItems:"center"},optionText:{color:C.ink,fontSize:13},optionActive:{color:C.green,fontWeight:"900"},productOption:{padding:9,borderBottomWidth:1,borderBottomColor:C.line,flexDirection:"row",alignItems:"center"},productName:{color:C.ink,fontSize:12,fontWeight:"900"},productMeta:{color:C.muted,fontSize:10,marginTop:3},confirmChoice:{backgroundColor:C.green,borderRadius:13,paddingHorizontal:14,paddingVertical:13,marginTop:12,flexDirection:"row",alignItems:"center",justifyContent:"space-between"},confirmText:{color:C.white,fontWeight:"900",fontSize:13},disabled:{opacity:.45},changeButton:{marginTop:12,backgroundColor:C.greenSoft,borderRadius:12,paddingHorizontal:12,paddingVertical:10,flexDirection:"row",alignItems:"center",justifyContent:"space-between"},changeText:{color:C.green,fontWeight:"900",fontSize:12},recipeNeed:{color:C.muted,fontSize:11,marginTop:10},sourceText:{color:C.muted,fontSize:11,marginTop:4},loadingRow:{padding:14,flexDirection:"row",alignItems:"center"},loadingText:{color:C.muted,fontSize:12,marginLeft:8},noResults:{color:C.muted,fontSize:12,padding:14}});
+const s=StyleSheet.create({
+  box:{backgroundColor:C.white,borderWidth:1,borderColor:C.line,alignItems:"center",justifyContent:"center",overflow:"hidden"},fallback:{color:C.green,fontWeight:"900",fontSize:20},meta:{marginLeft:10,flex:1},name:{color:C.green,fontWeight:"900",fontSize:13},detail:{color:C.muted,fontSize:10,marginTop:2},choiceCard:{backgroundColor:C.white,borderRadius:18,padding:15,marginBottom:10},choiceTop:{flexDirection:"row",alignItems:"center"},choiceInfo:{flex:1,marginLeft:13},genericLabel:{color:C.gold,fontSize:9,fontWeight:"900",letterSpacing:1.1,marginBottom:3},choiceName:{color:C.ink,fontWeight:"900",fontSize:15,lineHeight:19},choiceQty:{color:C.green,fontSize:16,fontWeight:"900",marginTop:4},preferred:{color:C.gold,fontSize:8,fontWeight:"900",letterSpacing:1,marginTop:5},choiceMeta:{color:C.muted,fontSize:11,marginTop:3},remove:{paddingLeft:7},selectArea:{marginTop:14,paddingTop:13,borderTopWidth:1,borderTopColor:C.line},selectLabel:{color:C.gold,fontSize:9,fontWeight:"900",letterSpacing:1.2,marginBottom:5},selectButton:{height:47,borderWidth:1,borderColor:C.line,borderRadius:13,backgroundColor:C.cream,paddingHorizontal:13,flexDirection:"row",alignItems:"center",justifyContent:"space-between"},selectText:{color:C.greenDark,fontWeight:"800",fontSize:13,flex:1,marginRight:8},dropdown:{borderWidth:1,borderColor:C.line,borderRadius:13,backgroundColor:C.white,marginTop:5,overflow:"hidden"},dropdownScroll:{maxHeight:300},option:{paddingHorizontal:13,paddingVertical:12,borderBottomWidth:1,borderBottomColor:C.line,flexDirection:"row",justifyContent:"space-between",alignItems:"center"},optionText:{color:C.ink,fontSize:13},optionActive:{color:C.green,fontWeight:"900"},productOption:{padding:9,borderBottomWidth:1,borderBottomColor:C.line,flexDirection:"row",alignItems:"center"},productName:{color:C.ink,fontSize:12,fontWeight:"900"},productMeta:{color:C.muted,fontSize:10,marginTop:3},confirmChoice:{backgroundColor:C.green,borderRadius:13,paddingHorizontal:14,paddingVertical:13,marginTop:12,flexDirection:"row",alignItems:"center",justifyContent:"space-between"},confirmText:{color:C.white,fontWeight:"900",fontSize:13},disabled:{opacity:.45},changeButton:{marginTop:12,backgroundColor:C.greenSoft,borderRadius:12,paddingHorizontal:12,paddingVertical:10,flexDirection:"row",alignItems:"center",justifyContent:"space-between"},changeText:{color:C.green,fontWeight:"900",fontSize:12},recipeNeed:{color:C.muted,fontSize:11,marginTop:10},sourceText:{color:C.muted,fontSize:11,marginTop:4},loadingRow:{padding:14,flexDirection:"row",alignItems:"center"},loadingText:{color:C.muted,fontSize:12,marginLeft:8},noResults:{color:C.muted,fontSize:12,padding:14}
+});
