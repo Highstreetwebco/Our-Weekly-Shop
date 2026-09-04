@@ -1,7 +1,8 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Animated,
   KeyboardAvoidingView,
   Platform,
   SafeAreaView,
@@ -286,6 +287,11 @@ export default function ConversationalWeeklyShop() {
   const [proposal, setProposal] = useState(null);
   const [saveStatus, setSaveStatus] = useState("Not connected");
   const [voiceListening, setVoiceListening] = useState(false);
+  const recognitionRef = useRef(null);
+  const voiceActiveRef = useRef(false);
+  const voiceStopRef = useRef(false);
+  const voiceTextRef = useRef("");
+  const voiceCallbackRef = useRef(null);
 
   useEffect(() => {
     let active = true;
@@ -468,7 +474,12 @@ export default function ConversationalWeeklyShop() {
     setProposal(null);
   }
 
-  function startVoice(onTranscript) {
+  function startVoice(onTranscript, onInterim) {
+    if (voiceActiveRef.current && recognitionRef.current) {
+      voiceStopRef.current = true;
+      recognitionRef.current.stop();
+      return;
+    }
     if (typeof window === "undefined") {
       Alert.alert("Voice input", "Voice input is available when you open the web preview in a compatible browser.");
       return;
@@ -480,18 +491,39 @@ export default function ConversationalWeeklyShop() {
     }
     const recognition = new Recognition();
     recognition.lang = "en-GB";
-    recognition.interimResults = false;
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    voiceTextRef.current = "";
+    voiceCallbackRef.current = onTranscript;
+    voiceStopRef.current = false;
+    voiceActiveRef.current = true;
+    recognitionRef.current = recognition;
     recognition.onstart = () => setVoiceListening(true);
-    recognition.onend = () => setVoiceListening(false);
-    recognition.onerror = () => setVoiceListening(false);
     recognition.onresult = (event) => {
-      const transcript = event.results?.[0]?.[0]?.transcript || "";
-      if (onTranscript) {
-        onTranscript(transcript);
-      } else {
-        setInput(transcript);
-        setTimeout(() => sendMessage(transcript, "voice"), 0);
+      let spoken = voiceTextRef.current;
+      for (let index = event.resultIndex; index < event.results.length; index += 1) {
+        spoken += event.results[index][0].transcript + " ";
       }
+      voiceTextRef.current = spoken.trim();
+      if (onInterim) onInterim(voiceTextRef.current);
+      else setInput(voiceTextRef.current);
+    };
+    recognition.onerror = () => {
+      if (voiceStopRef.current) return;
+      setVoiceListening(false);
+      voiceActiveRef.current = false;
+      recognitionRef.current = null;
+    };
+    recognition.onend = () => {
+      if (!voiceStopRef.current && voiceActiveRef.current) {
+        try { recognition.start(); } catch {}
+        return;
+      }
+      const finalText = voiceTextRef.current.trim();
+      setVoiceListening(false);
+      voiceActiveRef.current = false;
+      recognitionRef.current = null;
+      if (finalText && voiceCallbackRef.current) voiceCallbackRef.current(finalText);
     };
     recognition.start();
   }
@@ -577,6 +609,19 @@ function HomeView({ proposal, approveProposal, rejectProposal, setInput, sendMes
   const [mealName, setMealName] = useState("");
   const [answer, setAnswer] = useState("");
   const [lastAnswer, setLastAnswer] = useState("");
+  const micScale = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    if (!voiceListening) {
+      micScale.setValue(1);
+      return undefined;
+    }
+    const pulse = Animated.loop(Animated.sequence([
+      Animated.timing(micScale, { toValue: 1.08, duration: 720, useNativeDriver: true }),
+      Animated.timing(micScale, { toValue: 1, duration: 720, useNativeDriver: true }),
+    ]));
+    pulse.start();
+    return () => pulse.stop();
+  }, [voiceListening]);
   const days = DAYS;
 
   const question = phase === "fridge"
@@ -643,10 +688,10 @@ function HomeView({ proposal, approveProposal, rejectProposal, setInput, sendMes
     <Text style={styles.guidedTitle}>{question}</Text>
     <Text style={styles.guidedLead}>{helper}</Text>
     {lastAnswer ? <View style={styles.guidedTranscript}><Text style={styles.guidedTranscriptLabel}>Last answer</Text><Text style={styles.guidedTranscriptText}>{lastAnswer}</Text></View> : null}    {proposal ? <ProposalCard proposal={proposal} approve={approveProposal} reject={rejectProposal} /> : null}
-    <TouchableOpacity style={[styles.guidedMic, voiceListening && styles.guidedMicActive]} onPress={() => startVoice(moveForward)}>
+    <Animated.View style={{ transform: [{ scale: micScale }] }}><TouchableOpacity style={[styles.guidedMic, voiceListening && styles.guidedMicActive]} onPress={() => startVoice(moveForward, setAnswer)}>
       <Ionicons name={voiceListening ? "radio" : "mic"} size={45} color={voiceListening ? C.white : C.green} />
-      <Text style={[styles.guidedMicLabel, voiceListening && { color: C.white }]}>{voiceListening ? "Listening…" : "Tap to answer"}</Text>
-    </TouchableOpacity>
+      <Text style={[styles.guidedMicLabel, voiceListening && { color: C.white }]}>{voiceListening ? "Listening — tap to stop" : "Tap to answer"}</Text>
+    </TouchableOpacity></Animated.View>
     <View style={styles.guidedTextRow}><TextInput style={styles.guidedInput} value={answer} onChangeText={setAnswer} onSubmitEditing={() => moveForward()} placeholder="Or type your answer…" placeholderTextColor={C.muted} multiline /><TouchableOpacity style={styles.guidedSend} onPress={() => moveForward()}><Ionicons name="arrow-up" size={21} color={C.white} /></TouchableOpacity></View>
     <TouchableOpacity style={styles.guidedSkip} onPress={() => moveForward("I’m not sure yet")}><Text style={styles.switchText}>I’ll decide later</Text></TouchableOpacity>
   </ScrollView>;
@@ -772,7 +817,7 @@ const styles = StyleSheet.create({
   guidedTranscriptLabel: { color: C.gold, fontSize: 11, fontWeight: "900", textTransform: "uppercase" },
   guidedTranscriptText: { color: C.ink, fontSize: 14, lineHeight: 20, marginTop: 4 },
   guidedMic: { width: 168, height: 168, borderRadius: 84, backgroundColor: C.greenSoft, alignSelf: "center", alignItems: "center", justifyContent: "center", marginVertical: 20, borderWidth: 2, borderColor: C.gold },
-  guidedMicActive: { backgroundColor: C.green, borderColor: C.green },
+  guidedMicActive: { backgroundColor: C.green, borderColor: C.gold, shadowColor: C.gold, shadowOpacity: 0.42, shadowRadius: 24, shadowOffset: { width: 0, height: 10 }, elevation: 12 },
   guidedMicLabel: { color: C.green, fontWeight: "900", fontSize: 14, marginTop: 10 },
   guidedTextRow: { flexDirection: "row", alignItems: "flex-end", marginTop: 5 },
   guidedInput: { flex: 1, minHeight: 50, maxHeight: 100, backgroundColor: C.white, borderRadius: 15, paddingHorizontal: 14, paddingVertical: 13, color: C.ink, fontSize: 14, marginRight: 8 },
