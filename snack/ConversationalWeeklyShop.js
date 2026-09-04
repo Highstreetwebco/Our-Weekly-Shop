@@ -402,13 +402,13 @@ export default function ConversationalWeeklyShop() {
     }
   }
 
-  function sendMessage(value) {
+  function sendMessage(value, inputMode) {
     const text = (value || input).trim();
     if (!text) return;
     setInput("");
     setMessages((current) => [...current, { role: "user", text }]);
     const parsed = parseMessage(text, people, recipes);
-    const action = { ...parsed, input: text, inputMode: "text" };
+    const action = { ...parsed, input: text, inputMode: inputMode || "text" };
     if (parsed.type === "question") {
       setMessages((current) => [...current, { role: "assistant", text: parsed.message }]);
       return;
@@ -485,7 +485,7 @@ export default function ConversationalWeeklyShop() {
     recognition.onresult = (event) => {
       const transcript = event.results?.[0]?.[0]?.transcript || "";
       setInput(transcript);
-      setTimeout(() => sendMessage(transcript), 0);
+      setTimeout(() => sendMessage(transcript, "voice"), 0);
     };
     recognition.start();
   }
@@ -496,7 +496,16 @@ export default function ConversationalWeeklyShop() {
     setPeople(nextPeople);
     setSetupComplete(true);
     await supabase.from("households").update({ name, adults: nextPeople.filter((person) => person.role !== "Child").length, children: nextPeople.filter((person) => person.role === "Child").length }).eq("id", household.id);
-    if (nextPeople.length) await supabase.from("household_people").upsert(nextPeople.map((person) => ({ ...person, household_id: household.id })), { onConflict: "id" });
+    if (nextPeople.length) {
+      const peopleResult = await supabase.from("household_people").insert(nextPeople.map((person) => {
+        const { id, ...personWithoutLocalId } = person;
+        return { ...personWithoutLocalId, household_id: household.id };
+      })).select();
+      if (peopleResult.data?.length) {
+        setPeople(peopleResult.data);
+        nextPeople = peopleResult.data;
+      }
+    }
     await supabase.from("profiles").upsert({ id: session.user.id, display_name: name, setup_complete: true, app_state: { plan, extras, inventory, brandRules, budget }, updated_at: new Date().toISOString() }, { onConflict: "id" });
     setSaveStatus("Saved securely");
   }
@@ -687,4 +696,3 @@ const styles = StyleSheet.create({
   smallButtonLight: { backgroundColor: C.greenSoft, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 10, marginLeft: 4 },
   smallButtonLightText: { color: C.green, fontSize: 12, fontWeight: "800" },
 });
-
