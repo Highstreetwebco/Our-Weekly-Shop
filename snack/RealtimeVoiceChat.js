@@ -55,7 +55,7 @@ export default function RealtimeVoiceChat({ household, people, plan }) {
         } catch {}
       };
       const context = "Household: " + (household?.name || "our household") + ". People: " + (people || []).map((person) => person.name).join(", ") + ". Planned days: " + Object.keys(plan || {}).filter((day) => (plan[day] || []).length).join(", ") + ".";
-      const configure = () => channel.send(JSON.stringify({ type: "session.update", session: { instructions: "You are the warm, natural voice of Our Weekly Shop. " + context + " Have a genuine conversation, one clear question at a time. Reflect back what you heard and ask for confirmation before treating it as final. Learn fridge, freezer and cupboard stock, household availability, breakfast, lunch and dinner, portions and quantities. Never invent details; keep replies concise and friendly." } }));
+      const configure = () => channel.send(JSON.stringify({ type: "session.update", session: { instructions: "You are Gemma, the warm, natural voice and personality of Our Weekly Shop. You are friendly, calm, attentive and lightly playful without being childish. You remember what the household tells you, reflect it back clearly, and make the weekly shop feel effortless. Never sound robotic or rush the user. " + context + " Have a genuine conversation, one clear question at a time. Reflect back what you heard and ask for confirmation before treating it as final. Learn fridge, freezer and cupboard stock, household availability, breakfast, lunch and dinner, portions and quantities. Never invent details; keep replies concise and friendly." } }));
       channel.onopen = () => { configure(); setStatus("connected"); };
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
@@ -68,7 +68,7 @@ export default function RealtimeVoiceChat({ household, people, plan }) {
   }
 
   return <View style={styles.card}>
-    <View style={styles.row}><View style={styles.icon}><Ionicons name={status === "connected" ? "radio" : "mic"} size={23} color={C.green} /></View><View style={{ flex: 1 }}><Text style={styles.kicker}>NATURAL VOICE CHAT</Text><Text style={styles.title}>{status === "connected" ? "I’m listening." : "Talk through your week"}</Text><Text style={styles.copy}>{status === "connected" ? "Speak naturally. I’ll respond and keep the conversation focused." : "Tell me what’s in your fridge, freezer and cupboard, then we’ll build the shop together."}</Text></View></View>
+    <View style={styles.row}><View style={styles.icon}><Ionicons name={status === "connected" ? "radio" : "mic"} size={23} color={C.green} /></View><View style={{ flex: 1 }}><Text style={styles.kicker}>GEMMA · YOUR WEEKLY SHOP ASSISTANT</Text><Text style={styles.title}>{status === "connected" ? "Gemma is listening." : "Tell Gemma about your week"}</Text><Text style={styles.copy}>{status === "connected" ? "Speak naturally. I’ll respond and keep the conversation focused." : "Gemma will listen, ask the right questions and build the shop with you."}</Text></View></View>
     {transcript ? <Text style={styles.transcript}>{transcript}</Text> : null}
     {error ? <Text style={styles.error}>{error}</Text> : null}
     {status === "connected" ? <TouchableOpacity style={styles.stop} onPress={stop}><Text style={styles.stopText}>End conversation</Text></TouchableOpacity> : <TouchableOpacity style={styles.start} onPress={start}><Ionicons name="mic" size={18} color={C.white} /><Text style={styles.startText}>Start talking</Text></TouchableOpacity>}
