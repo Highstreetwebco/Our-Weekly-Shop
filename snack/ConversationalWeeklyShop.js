@@ -291,6 +291,7 @@ export default function ConversationalWeeklyShop() {
   const voiceActiveRef = useRef(false);
   const voiceStopRef = useRef(false);
   const voiceTextRef = useRef("");
+  const voiceInterimRef = useRef("");
   const voiceCallbackRef = useRef(null);
 
   useEffect(() => {
@@ -494,19 +495,23 @@ export default function ConversationalWeeklyShop() {
     recognition.continuous = true;
     recognition.interimResults = true;
     voiceTextRef.current = "";
+    voiceInterimRef.current = "";
     voiceCallbackRef.current = onTranscript;
     voiceStopRef.current = false;
     voiceActiveRef.current = true;
     recognitionRef.current = recognition;
     recognition.onstart = () => setVoiceListening(true);
     recognition.onresult = (event) => {
-      let spoken = voiceTextRef.current;
+      let interim = "";
       for (let index = event.resultIndex; index < event.results.length; index += 1) {
-        spoken += event.results[index][0].transcript + " ";
+        const transcript = event.results[index][0].transcript || "";
+        if (event.results[index].isFinal) voiceTextRef.current += " " + transcript;
+        else interim += " " + transcript;
       }
-      voiceTextRef.current = spoken.trim();
-      if (onInterim) onInterim(voiceTextRef.current);
-      else setInput(voiceTextRef.current);
+      voiceInterimRef.current = interim;
+      const spoken = [voiceTextRef.current, voiceInterimRef.current].join(" ").replace(/\s+/g, " ").trim();
+      if (onInterim) onInterim(spoken);
+      else setInput(spoken);
     };
     recognition.onerror = () => {
       if (voiceStopRef.current) return;
@@ -516,10 +521,11 @@ export default function ConversationalWeeklyShop() {
     };
     recognition.onend = () => {
       if (!voiceStopRef.current && voiceActiveRef.current) {
+        voiceInterimRef.current = "";
         try { recognition.start(); } catch {}
         return;
       }
-      const finalText = voiceTextRef.current.trim();
+      const finalText = [voiceTextRef.current, voiceInterimRef.current].join(" ").replace(/\s+/g, " ").trim();
       setVoiceListening(false);
       voiceActiveRef.current = false;
       recognitionRef.current = null;
@@ -565,7 +571,7 @@ export default function ConversationalWeeklyShop() {
             <TouchableOpacity style={styles.avatar} onPress={() => setTab("More")}><Text style={styles.avatarText}>{String(household?.name || "O").slice(0, 1).toUpperCase()}</Text></TouchableOpacity>
           </View>
           <Text style={styles.saveStatus}>{saveStatus}</Text>
-          {tab === "Home" && <HomeView proposal={proposal} approveProposal={approveProposal} rejectProposal={rejectProposal} setInput={setInput} sendMessage={sendMessage} startVoice={startVoice} voiceListening={voiceListening} setTab={setTab} plannedDays={plannedDays} basketCount={basket.length} recordFridge={(value) => { const names = value.split(/,|\\band\\b/i).map((item) => item.trim()).filter(Boolean); const next = names.map((name) => ({ name, quantity: 1 })); setInventory(next); saveSnapshot(plan, extras, next, brandRules, budget); }} />}
+          {tab === "Home" && <HomeView proposal={proposal} approveProposal={approveProposal} rejectProposal={rejectProposal} sendMessage={sendMessage} startVoice={startVoice} voiceListening={voiceListening} setTab={setTab} plannedDays={plannedDays} basketCount={basket.length} recordFridge={(items) => { const next = items.map((item) => ({ name: item.name, quantity: item.quantity || 1 })); setInventory(next); saveSnapshot(plan, extras, next, brandRules, budget); }} />}
           {tab === "Week" && <WeekView plan={plan} recipes={recipes} people={people} setInput={setInput} sendMessage={sendMessage} />}
           {tab === "Shop" && <ShopView basket={basket} budget={budget} setBudget={(value) => { setBudget(value); saveSnapshot(plan, extras, inventory, brandRules, value); }} extras={extras} addExtra={(value) => { const next = [...new Set([...extras, value])]; setExtras(next); saveSnapshot(plan, next, inventory, brandRules, budget); }} />}
           {tab === "More" && <MoreView people={people} inventory={inventory} brandRules={brandRules} setInput={setInput} sendMessage={sendMessage} signOut={() => supabase.auth.signOut()} />}
@@ -603,13 +609,17 @@ function SetupScreen({ household, onComplete }) {
   return <SafeAreaView style={styles.safe}><ScrollView contentContainerStyle={styles.setupPage}><Text style={styles.kicker}>FIRST, A LITTLE HOUSEKEEPING</Text><Text style={styles.authTitle}>Who is in your household?</Text><Text style={styles.authLead}>Add everyone who eats at home so the assistant can plan different meals, portions and days for each person.</Text><Text style={styles.label}>Household name</Text><TextInput style={styles.field} value={name} onChangeText={setName} placeholder="The Parker family" placeholderTextColor={C.muted} /><Text style={styles.label}>People</Text><View style={styles.peopleList}>{people.map((person) => <View style={styles.personPill} key={person.id}><Text style={styles.personPillText}>{person.name}</Text><Text style={styles.personRole}>{person.role}</Text></View>)}</View><View style={styles.addPersonRow}><TextInput style={[styles.field, styles.personInput]} value={personName} onChangeText={setPersonName} placeholder="Add a household member" placeholderTextColor={C.muted} /><TouchableOpacity style={styles.smallButton} onPress={() => addPerson("Adult")}><Text style={styles.smallButtonText}>Adult</Text></TouchableOpacity><TouchableOpacity style={styles.smallButtonLight} onPress={() => addPerson("Child")}><Text style={styles.smallButtonLightText}>Child</Text></TouchableOpacity></View><TouchableOpacity style={[styles.primaryButton, !people.length && styles.primaryButtonDisabled]} onPress={() => onComplete(name, people)} disabled={!people.length}><Text style={styles.primaryText}>Continue</Text></TouchableOpacity></ScrollView></SafeAreaView>;
 }
 
-function HomeView({ proposal, approveProposal, rejectProposal, setInput, sendMessage, startVoice, voiceListening, setTab, plannedDays, basketCount, recordFridge }) {
+function HomeView({ proposal, approveProposal, rejectProposal, sendMessage, startVoice, voiceListening, setTab, plannedDays, basketCount, recordFridge }) {
   const [phase, setPhase] = useState("fridge");
   const [dayIndex, setDayIndex] = useState(0);
   const [mealName, setMealName] = useState("");
   const [answer, setAnswer] = useState("");
-  const [lastAnswer, setLastAnswer] = useState("");
+  const [pendingAnswer, setPendingAnswer] = useState("");
+  const [answerStage, setAnswerStage] = useState("answer");
+  const [transitioning, setTransitioning] = useState(false);
   const micScale = useRef(new Animated.Value(1)).current;
+  const days = DAYS;
+
   useEffect(() => {
     if (!voiceListening) {
       micScale.setValue(1);
@@ -622,7 +632,14 @@ function HomeView({ proposal, approveProposal, rejectProposal, setInput, sendMes
     pulse.start();
     return () => pulse.stop();
   }, [voiceListening]);
-  const days = DAYS;
+
+  function fridgeItems(text) {
+    return text.split(/,|;|\\band\\b/i).map((raw) => raw.trim()).filter(Boolean).map((raw) => {
+      const low = /\\b(a bit|bit of|running low|low on|not much|nearly out|almost out)\\b/i.test(raw);
+      const name = raw.replace(/\\b(a bit of|bit of|running low on|low on|not much|nearly out of|almost out of)\\b/gi, "").trim();
+      return { name: name || raw, status: low ? "Low" : "At home", quantity: low ? 0.25 : 1 };
+    });
+  }
 
   const question = phase === "fridge"
     ? "Tell me what’s in your fridge."
@@ -635,50 +652,78 @@ function HomeView({ proposal, approveProposal, rejectProposal, setInput, sendMes
           : "What ingredients are included in " + mealName + "?";
 
   const helper = phase === "fridge"
-    ? "Tell me everything you already have. I’ll leave it out of the shop."
+    ? "Tell me what you already have. I’ll identify the products and flag anything you’re running low on."
     : phase === "home"
       ? "Tell me who is home this week, and who is away."
       : phase === "time"
-        ? "Tell me whether everyone eats together or if people eat separately."
+        ? "Tell me whether everyone eats together or separately."
         : phase === "meal"
           ? "Tell me what each person wants. You can name different meals for different people."
-          : "Take your time — tell me what goes into this meal and I’ll remember it for next time.";
+          : "Tell me what goes into this meal and I’ll remember it for next time.";
 
-  function moveForward(value) {
+  function submitAnswer(value) {
     const clean = (value || answer).trim();
-    if (!clean) return;
+    if (!clean || answerStage === "confirm") return;
+    setPendingAnswer(clean);
     setAnswer("");
-    setLastAnswer(clean);
-    if (phase === "fridge") {
-      if (recordFridge) recordFridge(clean);
-      setPhase("home");
-    } else if (phase === "home") {
-      setPhase("time");
-    } else if (phase === "time") {
-      setPhase("meal");
-    } else if (phase === "meal") {
-      setMealName(clean);
-      setPhase("ingredients");
-    } else {
-      sendMessage("Put " + mealName + " on " + days[dayIndex] + ". Ingredients: " + clean, "voice");
-      if (dayIndex < days.length - 1) {
-        setDayIndex((current) => current + 1);
-        setMealName("");
-        setPhase("meal");
-      } else {
-        setPhase("complete");
-      }
-    }
+    setAnswerStage("confirm");
   }
+
+  function confirmAnswer() {
+    if (!pendingAnswer) return;
+    const confirmed = pendingAnswer;
+    setPendingAnswer("");
+    setAnswerStage("answer");
+    setAnswer("");
+    setTransitioning(true);
+    setTimeout(() => {
+      if (phase === "fridge") {
+        if (recordFridge) recordFridge(fridgeItems(confirmed));
+        setPhase("home");
+      } else if (phase === "home") {
+        setPhase("time");
+      } else if (phase === "time") {
+        setPhase("meal");
+      } else if (phase === "meal") {
+        setMealName(confirmed);
+        setPhase("ingredients");
+      } else {
+        sendMessage("Put " + mealName + " on " + days[dayIndex] + ". Ingredients: " + confirmed, "voice");
+        if (dayIndex < days.length - 1) {
+          setDayIndex((current) => current + 1);
+          setMealName("");
+          setPhase("meal");
+        } else {
+          setPhase("complete");
+        }
+      }
+      setTransitioning(false);
+    }, 220);
+  }
+
+  if (transitioning) return <View style={styles.guidedPage} />;
 
   if (phase === "complete") {
     return <View style={styles.guidedPage}>
       <Text style={styles.guidedKicker}>WEEKLY PLAN</Text>
       <Text style={styles.guidedTitle}>That’s the week started.</Text>
-      <Text style={styles.guidedLead}>I’ve captured your answers. You can keep talking, review the Week, or check the shop.</Text>
+      <Text style={styles.guidedLead}>I’ve captured your answers. You can review the Week or check the shop.</Text>
       <TouchableOpacity style={styles.primaryButton} onPress={() => setTab("Week")}><Text style={styles.primaryText}>Review my week</Text></TouchableOpacity>
-      <TouchableOpacity style={styles.guidedSkip} onPress={() => { setPhase("meal"); setDayIndex(0); }}><Text style={styles.switchText}>Start again</Text></TouchableOpacity>
       <View style={styles.dashboardRow}><TouchableOpacity style={styles.dashboardCard} onPress={() => setTab("Week")}><Text style={styles.dashboardNumber}>{plannedDays}/7</Text><Text style={styles.dashboardLabel}>days planned</Text></TouchableOpacity><TouchableOpacity style={styles.dashboardCard} onPress={() => setTab("Shop")}><Text style={styles.dashboardNumber}>{basketCount}</Text><Text style={styles.dashboardLabel}>shop items</Text></TouchableOpacity></View>
+    </View>;
+  }
+
+  if (answerStage === "confirm") {
+    const items = phase === "fridge" ? fridgeItems(pendingAnswer) : [];
+    return <View style={styles.guidedPage}>
+      <Text style={styles.guidedKicker}>CHECK WHAT I HEARD</Text>
+      <Text style={styles.guidedTitle}>Does this look right?</Text>
+      <Text style={styles.guidedLead}>I’ll only move on once you confirm this answer.</Text>
+      <View style={styles.summaryCard}>
+        {items.length ? items.map((item, index) => <View style={styles.summaryRow} key={item.name + index}><View style={styles.summaryDot}><Ionicons name={item.status === "Low" ? "alert-circle-outline" : "checkmark-circle-outline"} size={20} color={item.status === "Low" ? C.gold : C.green} /></View><Text style={styles.summaryName}>{item.name}</Text><Text style={styles.summaryStatus}>{item.status}</Text></View>) : <Text style={styles.summaryAnswer}>{pendingAnswer}</Text>}
+      </View>
+      <TouchableOpacity style={styles.primaryButton} onPress={confirmAnswer}><Text style={styles.primaryText}>Confirm and continue</Text></TouchableOpacity>
+      <TouchableOpacity style={styles.guidedSkip} onPress={() => { setAnswer(pendingAnswer); setPendingAnswer(""); setAnswerStage("answer"); }}><Text style={styles.switchText}>Edit my answer</Text></TouchableOpacity>
     </View>;
   }
 
@@ -687,13 +732,13 @@ function HomeView({ proposal, approveProposal, rejectProposal, setInput, sendMes
     <Text style={styles.guidedProgress}>{phase === "meal" || phase === "ingredients" ? days[dayIndex] + " · dinner" : "Getting to know your week"}</Text>
     <Text style={styles.guidedTitle}>{question}</Text>
     <Text style={styles.guidedLead}>{helper}</Text>
-    {lastAnswer ? <View style={styles.guidedTranscript}><Text style={styles.guidedTranscriptLabel}>Last answer</Text><Text style={styles.guidedTranscriptText}>{lastAnswer}</Text></View> : null}    {proposal ? <ProposalCard proposal={proposal} approve={approveProposal} reject={rejectProposal} /> : null}
-    <Animated.View style={{ transform: [{ scale: micScale }] }}><TouchableOpacity style={[styles.guidedMic, voiceListening && styles.guidedMicActive]} onPress={() => startVoice(moveForward, setAnswer)}>
+    <Animated.View style={{ transform: [{ scale: micScale }] }}><TouchableOpacity style={[styles.guidedMic, voiceListening && styles.guidedMicActive]} onPress={() => startVoice(submitAnswer, setAnswer)}>
       <Ionicons name={voiceListening ? "radio" : "mic"} size={45} color={voiceListening ? C.white : C.green} />
       <Text style={[styles.guidedMicLabel, voiceListening && { color: C.white }]}>{voiceListening ? "Listening — tap to stop" : "Tap to answer"}</Text>
     </TouchableOpacity></Animated.View>
-    <View style={styles.guidedTextRow}><TextInput style={styles.guidedInput} value={answer} onChangeText={setAnswer} onSubmitEditing={() => moveForward()} placeholder="Or type your answer…" placeholderTextColor={C.muted} multiline /><TouchableOpacity style={styles.guidedSend} onPress={() => moveForward()}><Ionicons name="arrow-up" size={21} color={C.white} /></TouchableOpacity></View>
-    <TouchableOpacity style={styles.guidedSkip} onPress={() => moveForward("I’m not sure yet")}><Text style={styles.switchText}>I’ll decide later</Text></TouchableOpacity>
+    <View style={styles.guidedTextRow}><TextInput style={styles.guidedInput} value={answer} onChangeText={setAnswer} onSubmitEditing={() => submitAnswer()} placeholder="Or type your answer…" placeholderTextColor={C.muted} multiline /><TouchableOpacity style={styles.guidedSend} onPress={() => submitAnswer()}><Ionicons name="arrow-up" size={21} color={C.white} /></TouchableOpacity></View>
+    <Text style={styles.guidedHint}>I’ll summarise your answer before moving on.</Text>
+    {proposal ? <ProposalCard proposal={proposal} approve={approveProposal} reject={rejectProposal} /> : null}
   </ScrollView>;
 }
 function ProposalCard({ proposal, approve, reject }) {
@@ -823,6 +868,14 @@ const styles = StyleSheet.create({
   guidedInput: { flex: 1, minHeight: 50, maxHeight: 100, backgroundColor: C.white, borderRadius: 15, paddingHorizontal: 14, paddingVertical: 13, color: C.ink, fontSize: 14, marginRight: 8 },
   guidedSend: { width: 50, height: 50, borderRadius: 15, backgroundColor: C.green, alignItems: "center", justifyContent: "center" },
   guidedSkip: { alignItems: "center", padding: 14 },
+  guidedHint: { color: C.muted, fontSize: 12, textAlign: "center", marginTop: 12 },
+  summaryCard: { backgroundColor: C.white, borderRadius: 20, padding: 16, marginTop: 8, marginBottom: 14, shadowColor: C.green, shadowOpacity: 0.08, shadowRadius: 16, shadowOffset: { width: 0, height: 6 }, elevation: 3 },
+  summaryRow: { flexDirection: "row", alignItems: "center", paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: C.line },
+  summaryDot: { width: 28 },
+  summaryName: { color: C.ink, fontSize: 15, fontWeight: "800", flex: 1 },
+  summaryStatus: { color: C.muted, fontSize: 13, fontWeight: "700" },
+  summaryAnswer: { color: C.ink, fontSize: 16, lineHeight: 24 },
+
   primaryButton: { backgroundColor: C.green, borderRadius: 15, alignItems: "center", paddingVertical: 15, marginTop: 7 },
   primaryText: { color: C.white, fontWeight: "800", fontSize: 15 },
   primaryButtonDisabled: { opacity: 0.45 },
