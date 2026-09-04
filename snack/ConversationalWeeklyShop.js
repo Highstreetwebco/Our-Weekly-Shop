@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "../lib/supabase";
+import DeliverySplash from "./VanOpeningAnimation";
 
 const C = {
   ink: "#1C2B24",
@@ -266,6 +267,7 @@ function calculateBasket(plan, recipes, inventory, extras) {
 }
 
 export default function ConversationalWeeklyShop() {
+  const [showSplash, setShowSplash] = useState(true);
   const [session, setSession] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -513,6 +515,7 @@ export default function ConversationalWeeklyShop() {
   const basket = useMemo(() => calculateBasket(plan, recipes, inventory, extras), [plan, recipes, inventory, extras]);
   const plannedDays = DAYS.filter((day) => (plan[day] || []).length).length;
 
+  if (showSplash) return <DeliverySplash onFinish={() => setShowSplash(false)} />;
   if (authLoading || loading) return <LoadingScreen text={authLoading ? "Opening Our Weekly Shop…" : "Loading your household…"} />;
   if (!session) return <AuthScreen onSession={setSession} />;
   if (!setupComplete) return <SetupScreen household={household} onComplete={completeSetup} />;
