@@ -36,7 +36,12 @@ export default function RealtimeVoiceChat({ household, people, plan }) {
     setError(""); setTranscript(""); setStatus("connecting");
     try {
       const { data, error: sessionError } = await supabase.functions.invoke("realtime-session", { body: {} });
-      if (sessionError || !data?.value) throw new Error(sessionError?.message || "Could not open the voice session.");
+      if (sessionError) {
+        let detail = sessionError.message || "Could not open the voice session.";
+        try { const payload = await sessionError.context?.json(); detail = payload?.error?.message || payload?.error || detail; } catch {}
+        throw new Error(detail);
+      }
+      if (!data?.value) throw new Error(data?.error?.message || data?.error || "Could not open the voice session.");
       const pc = new window.RTCPeerConnection();
       peerRef.current = pc;
       pc.ontrack = (event) => {
