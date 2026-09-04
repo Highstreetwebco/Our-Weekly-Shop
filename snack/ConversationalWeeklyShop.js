@@ -503,6 +503,7 @@ export default function ConversationalWeeklyShop() {
   }
 
   function startVoice(onTranscript, onInterim) {
+    if (typeof window !== "undefined" && window.speechSynthesis) window.speechSynthesis.cancel();
     if (voiceActiveRef.current && recognitionRef.current) {
       voiceStopRef.current = true;
       recognitionRef.current.stop();
@@ -648,6 +649,18 @@ function HomeView({ proposal, approveProposal, rejectProposal, people, startVoic
   const micScale = useRef(new Animated.Value(1)).current;
   const days = DAYS;
 
+  function speak(text) {
+    if (typeof window === "undefined" || !window.speechSynthesis || !text) return;
+    window.speechSynthesis.cancel();
+    const Utterance = window.SpeechSynthesisUtterance;
+    if (!Utterance) return;
+    const utterance = new Utterance(text);
+    utterance.lang = "en-GB";
+    utterance.rate = 0.96;
+    utterance.pitch = 1.02;
+    window.speechSynthesis.speak(utterance);
+  }
+
   useEffect(() => {
     if (!voiceListening) {
       micScale.setValue(1);
@@ -689,12 +702,23 @@ function HomeView({ proposal, approveProposal, rejectProposal, people, startVoic
           ? "Tell me what each person wants. You can name different meals for different people."
           : "Tell me what goes into this meal and I’ll remember it for next time.";
 
+  useEffect(() => {
+    if (answerStage === "answer" && !transitioning && phase !== "complete") speak(question);
+    return () => {
+      if (typeof window !== "undefined" && window.speechSynthesis) window.speechSynthesis.cancel();
+    };
+  }, [question, answerStage, transitioning]);
+
   function submitAnswer(value) {
     const clean = (value || answer).trim();
     if (!clean || answerStage === "confirm") return;
     setPendingAnswer(clean);
     setAnswer("");
     setAnswerStage("confirm");
+    const heard = phase === "fridge"
+      ? fridgeItems(clean).map((item) => item.name + " — " + item.status.toLowerCase()).join(", ")
+      : clean;
+    speak("I heard: " + heard + ". Is that correct?");
   }
 
   function confirmAnswer() {
@@ -767,7 +791,7 @@ function HomeView({ proposal, approveProposal, rejectProposal, people, startVoic
       <Text style={[styles.guidedMicLabel, voiceListening && { color: C.white }]}>{voiceListening ? "Listening — tap to stop" : "Tap to answer"}</Text>
     </TouchableOpacity></Animated.View>
     <View style={styles.guidedTextRow}><TextInput style={styles.guidedInput} value={answer} onChangeText={setAnswer} onSubmitEditing={() => submitAnswer()} placeholder="Or type your answer…" placeholderTextColor={C.muted} multiline /><TouchableOpacity style={styles.guidedSend} onPress={() => submitAnswer()}><Ionicons name="arrow-up" size={21} color={C.white} /></TouchableOpacity></View>
-    <Text style={styles.guidedHint}>I’ll summarise your answer before moving on.</Text>
+    <Text style={styles.guidedHint}>I’ll read this back to you before moving on.</Text>
     {proposal ? <ProposalCard proposal={proposal} approve={approveProposal} reject={rejectProposal} /> : null}
   </ScrollView>;
 }
@@ -899,6 +923,7 @@ const styles = StyleSheet.create({
   guidedSend: { width: 50, height: 50, borderRadius: 15, backgroundColor: C.green, alignItems: "center", justifyContent: "center" },
   guidedSkip: { alignItems: "center", padding: 14 },
   guidedHint: { color: C.muted, fontSize: 12, textAlign: "center", marginTop: 12 },
+  voiceNote: { color: C.gold, fontSize: 12, textAlign: "center", marginTop: 4 },
   summaryCard: { backgroundColor: C.white, borderRadius: 20, padding: 16, marginTop: 8, marginBottom: 14, shadowColor: C.green, shadowOpacity: 0.08, shadowRadius: 16, shadowOffset: { width: 0, height: 6 }, elevation: 3 },
   summaryRow: { flexDirection: "row", alignItems: "center", paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: C.line },
   summaryDot: { width: 28 },
