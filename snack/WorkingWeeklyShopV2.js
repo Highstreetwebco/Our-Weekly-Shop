@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Image, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "../lib/supabase";
@@ -58,6 +58,8 @@ export default function WorkingWeeklyShopV2(){
   const [session,setSession]=useState(null),[loading,setLoading]=useState(true),[tab,setTab]=useState("Home"),[plan,setPlan]=useState(blank()),[recipes,setRecipes]=useState(SEEDS),[people,setPeople]=useState([]),[household,setHousehold]=useState(null),[status,setStatus]=useState("Loading saved data…");
   const [extras,setExtras]=useState([]),[extraInput,setExtraInput]=useState(""),[shopStage,setShopStage]=useState("basket"),[selectedRetailer,setSelectedRetailer]=useState(null);
   const [picker,setPicker]=useState(null),[chosenMeal,setChosenMeal]=useState(null),[selectedPeople,setSelectedPeople]=useState([]),[customMeal,setCustomMeal]=useState("");
+  const [resumeLoaded,setResumeLoaded]=useState(false);
+  const scrollRef=useRef(null),resumeScrollY=useRef(0),scrollRestored=useRef(false),lastScrollSave=useRef(0);
 
   useEffect(()=>{let alive=true;supabase.auth.getSession().then(({data})=>{if(!alive)return;setSession(data.session);setLoading(false)});const l=supabase.auth.onAuthStateChange((_e,s)=>{setSession(s);setLoading(false)});return()=>{alive=false;l.data.subscription.unsubscribe()}},[]);
   useEffect(()=>{if(session?.user?.id)load()},[session?.user?.id]);
@@ -70,13 +72,85 @@ export default function WorkingWeeklyShopV2(){
     return synthetic;
   },[people,household?.adults,household?.children]);
 
-  async function load(){setLoading(true);try{
-    const uid=session.user.id;const m=await supabase.from("household_members").select("household_id").eq("user_id",uid).limit(1).maybeSingle();const hid=m.data?.household_id;
-    if(hid){const [h,p,meals,profile]=await Promise.all([supabase.from("households").select("*").eq("id",hid).single(),supabase.from("household_people").select("*").eq("household_id",hid),supabase.from("meals").select("*, meal_ingredients(*, ingredients(name))").eq("household_id",hid),supabase.from("profiles").select("app_state").eq("id",uid).maybeSingle()]);setHousehold(h.data);setPeople(p.data||[]);const saved=profile.data?.app_state||{};const custom={...SEEDS,...(saved.recipes||{})};(meals.data||[]).forEach(x=>{custom[x.name]={emoji:x.emoji||"🍽️",category:x.meal_type||"dinner",servings:Number(x.servings||x.default_portions||2),ingredients:(x.meal_ingredients||[]).map(i=>({name:i.ingredients?.name||"Ingredient",quantity:Number(i.quantity||1),unit:i.unit||"item"}))}});setRecipes(custom);if(saved.plan)setPlan(normalisePlan(saved.plan));if(saved.extras)setExtras(saved.extras)}
-    setStatus("Saved securely");
-  }catch(e){setStatus("Saved on this device");try{const raw=window.localStorage.getItem("ows-working-state");if(raw){const x=JSON.parse(raw);if(x.plan)setPlan(normalisePlan(x.plan));if(x.recipes)setRecipes({...SEEDS,...x.recipes});if(x.extras)setExtras(x.extras)}}catch{} }finally{setLoading(false)}}
+  function readLocal(){
+    try{if(typeof window==="undefined")return null;const raw=window.localStorage.getItem("ows-working-state");return raw?JSON.parse(raw):null}catch{return null}
+  }
+  function resumeSnapshot(scrollY=resumeScrollY.current){
+    return {tab,shopStage,selectedRetailer:selectedRetailer?.name||null,picker,chosenMeal,selectedPeople,customMeal,extraInput,scrollY:Number(scrollY||0),savedAt:Date.now()};
+  }
+  function saveResumeLocal(scrollY=resumeScrollY.current){
+    if(!resumeLoaded||typeof window==="undefined")return;
+    try{const current=readLocal()||{};window.localStorage.setItem("ows-working-state",JSON.stringify({...current,resume:resumeSnapshot(scrollY)}))}catch{}
+  }
+  function restoreResume(r){
+    if(!r)return;
+    if(["Home","Week","Shop","More"].includes(r.tab))setTab(r.tab);
+    if(["basket","results","loading"].includes(r.shopStage))setShopStage(r.shopStage==="loading"?"results":r.shopStage);
+    setSelectedRetailer(r.selectedRetailer?RETAILERS.find(x=>x.name===r.selectedRetailer)||null:null);
+    if(r.picker?.day&&r.picker?.mealType)setPicker(r.picker);
+    if(typeof r.chosenMeal==="string")setChosenMeal(r.chosenMeal||null);
+    if(Array.isArray(r.selectedPeople))setSelectedPeople(r.selectedPeople);
+    if(typeof r.customMeal==="string")setCustomMeal(r.customMeal);
+    if(typeof r.extraInput==="string")setExtraInput(r.extraInput);
+    resumeScrollY.current=Math.max(0,Number(r.scrollY||0));
+    scrollRestored.current=false;
+  }
+  function rememberScroll(e){
+    const y=Math.max(0,Number(e?.nativeEvent?.contentOffset?.y||0));
+    resumeScrollY.current=y;
+    const now=Date.now();
+    if(now-lastScrollSave.current>450){lastScrollSave.current=now;saveResumeLocal(y)}
+  }
+  function restoreScrollWhenReady(){
+    if(!resumeLoaded||scrollRestored.current)return;
+    scrollRestored.current=true;
+    const y=resumeScrollY.current;
+    if(y>0)setTimeout(()=>scrollRef.current?.scrollTo?.({y,animated:false}),80);
+  }
 
-  async function persist(nextPlan=plan,nextRecipes=recipes,nextExtras=extras){setPlan(nextPlan);setRecipes(nextRecipes);setExtras(nextExtras);try{if(typeof window!=="undefined")window.localStorage.setItem("ows-working-state",JSON.stringify({plan:nextPlan,recipes:nextRecipes,extras:nextExtras}));if(session?.user?.id){const existing=(await supabase.from("profiles").select("app_state").eq("id",session.user.id).maybeSingle()).data?.app_state||{};const r=await supabase.from("profiles").upsert({id:session.user.id,app_state:{...existing,plan:nextPlan,recipes:nextRecipes,extras:nextExtras},setup_complete:true,updated_at:new Date().toISOString()},{onConflict:"id"});setStatus(r.error?"Saved on this device":"Saved securely")}}catch{setStatus("Saved on this device")}}
+  useEffect(()=>{
+    if(!resumeLoaded)return;
+    saveResumeLocal();
+  },[resumeLoaded,tab,shopStage,selectedRetailer?.name,picker?.day,picker?.mealType,chosenMeal,selectedPeople.join("|"),customMeal,extraInput]);
+
+  async function load(){setLoading(true);try{
+    const local=readLocal();
+    const uid=session.user.id;const m=await supabase.from("household_members").select("household_id").eq("user_id",uid).limit(1).maybeSingle();const hid=m.data?.household_id;
+    if(hid){
+      const [h,p,meals,profile]=await Promise.all([supabase.from("households").select("*").eq("id",hid).single(),supabase.from("household_people").select("*").eq("household_id",hid),supabase.from("meals").select("*, meal_ingredients(*, ingredients(name))").eq("household_id",hid),supabase.from("profiles").select("app_state").eq("id",uid).maybeSingle()]);
+      setHousehold(h.data);setPeople(p.data||[]);
+      const server=profile.data?.app_state||{};
+      const useLocal=local&&Number(local.savedAt||0)>Number(server.savedAt||0);
+      const saved=useLocal?{...server,...local}:server;
+      const custom={...SEEDS,...(saved.recipes||{})};
+      (meals.data||[]).forEach(x=>{custom[x.name]={emoji:x.emoji||"🍽️",category:x.meal_type||"dinner",servings:Number(x.servings||x.default_portions||2),ingredients:(x.meal_ingredients||[]).map(i=>({name:i.ingredients?.name||"Ingredient",quantity:Number(i.quantity||1),unit:i.unit||"item"}))}});
+      setRecipes(custom);if(saved.plan)setPlan(normalisePlan(saved.plan));if(saved.extras)setExtras(saved.extras);
+      restoreResume(local?.resume||server?.resume);
+    }else if(local){
+      if(local.plan)setPlan(normalisePlan(local.plan));if(local.recipes)setRecipes({...SEEDS,...local.recipes});if(local.extras)setExtras(local.extras);restoreResume(local.resume);
+    }
+    setStatus("Saved securely");
+  }catch(e){
+    setStatus("Saved on this device");
+    const local=readLocal();
+    if(local){if(local.plan)setPlan(normalisePlan(local.plan));if(local.recipes)setRecipes({...SEEDS,...local.recipes});if(local.extras)setExtras(local.extras);restoreResume(local.resume)}
+  }finally{setResumeLoaded(true);setLoading(false)}}
+
+  async function persist(nextPlan=plan,nextRecipes=recipes,nextExtras=extras){
+    setPlan(nextPlan);setRecipes(nextRecipes);setExtras(nextExtras);
+    const savedAt=Date.now();
+    try{
+      if(typeof window!=="undefined"){
+        const current=readLocal()||{};
+        window.localStorage.setItem("ows-working-state",JSON.stringify({...current,plan:nextPlan,recipes:nextRecipes,extras:nextExtras,resume:resumeSnapshot(),savedAt}));
+      }
+      if(session?.user?.id){
+        const existing=(await supabase.from("profiles").select("app_state").eq("id",session.user.id).maybeSingle()).data?.app_state||{};
+        const r=await supabase.from("profiles").upsert({id:session.user.id,app_state:{...existing,plan:nextPlan,recipes:nextRecipes,extras:nextExtras,savedAt},setup_complete:true,updated_at:new Date().toISOString()},{onConflict:"id"});
+        setStatus(r.error?"Saved on this device":"Saved securely");
+      }
+    }catch{setStatus("Saved on this device")}
+  }
 
   function openPicker(day,mealType){setPicker({day,mealType});setChosenMeal(null);setSelectedPeople([]);setCustomMeal("")}
   function chooseMeal(name){setChosenMeal(name);setSelectedPeople(effectivePeople.map(p=>p.id))}
@@ -129,7 +203,7 @@ export default function WorkingWeeklyShopV2(){
   if(loading)return <SafeAreaView style={[s.safe,s.center]}><ActivityIndicator color={C.green}/><Text style={s.muted}>Opening your shop…</Text></SafeAreaView>;
   if(!session)return <Auth/>;
 
-  return <SafeAreaView style={s.safe}><ScrollView contentContainerStyle={s.page} showsVerticalScrollIndicator={false}>
+  return <SafeAreaView style={s.safe}><ScrollView ref={scrollRef} contentContainerStyle={s.page} showsVerticalScrollIndicator={false} onScroll={rememberScroll} scrollEventThrottle={250} onContentSizeChange={restoreScrollWhenReady}>
     <View style={s.top}><View><Text style={s.kicker}>OUR WEEKLY SHOP</Text><Text style={s.greeting}>Let’s sort the week.</Text></View><View style={s.avatar}><Text style={s.avatarText}>{String(household?.name||"O").slice(0,1).toUpperCase()}</Text></View></View><Text style={s.status}>{status}</Text>
     <GemmaGuide message={gemmaPrompt}/>
 
