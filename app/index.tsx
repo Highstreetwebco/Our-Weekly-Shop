@@ -4,6 +4,6 @@ import type React from "react";
 
 declare const require: (path: string) => { default: React.ComponentType };
 
-const WeeklyShopApp = require("../snack/RetailerAccountBridge").default;
+const WeeklyShopApp = require("../snack/RetailerSignupOnboarding").default;
 
 export default WeeklyShopApp;
