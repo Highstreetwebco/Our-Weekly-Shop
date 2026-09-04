@@ -63,7 +63,7 @@ export default function RealtimeVoiceChat({ household, people, plan }) {
       const { data, error: sessionError } = await supabase.functions.invoke("realtime-session", { body: { sdp: offer.sdp } });
       if (sessionError) {
         let detail = sessionError.message || "Could not connect the voice session.";
-        try { const payload = await sessionError.context?.json(); detail = payload?.error?.message || payload?.error || detail; } catch {}
+        try { const payload = await sessionError.context?.json(); let value = payload?.error?.message || payload?.error || detail; if (typeof value === "string") { try { value = JSON.parse(value)?.error?.message || value; } catch {} } if (String(value).includes("credit_balance_exhausted") || String(value).includes("no credits remaining")) value = "Gemma needs API credit before she can talk. Add credit in your OpenAI API billing settings, then try again."; detail = value; } catch {}
         throw new Error(detail);
       }
       if (!data?.sdp) throw new Error(data?.error || "Could not connect the voice session.");
