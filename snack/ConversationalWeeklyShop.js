@@ -349,6 +349,7 @@ export default function ConversationalWeeklyShop() {
     setInventory((inventoryResult.data || []).map((item) => ({ name: item.name, quantity: Number(item.estimated_quantity || 0), useBy: item.use_by_date })));
     const saved = profileResult.data?.app_state || {};
     if (saved.plan) setPlan(saved.plan);
+    if (saved.recipes) setRecipes({ ...SEED_RECIPES, ...saved.recipes });
     if (saved.extras) setExtras(saved.extras);
     if (saved.brandRules) setBrandRules(saved.brandRules);
     if (saved.budget) setBudget(String(saved.budget));
@@ -360,7 +361,7 @@ export default function ConversationalWeeklyShop() {
   async function saveSnapshot(nextPlan, nextExtras, nextInventory, nextBrandRules, nextBudget) {
     if (!session?.user?.id || !household?.id) return;
     setSaveStatus("Saving…");
-    const state = { plan: nextPlan, extras: nextExtras, inventory: nextInventory, brandRules: nextBrandRules, budget: nextBudget };
+    const state = { plan: nextPlan, recipes, extras: nextExtras, inventory: nextInventory, brandRules: nextBrandRules, budget: nextBudget };
     const result = await supabase.from("profiles").upsert({ id: session.user.id, display_name: household.name, app_state: state, setup_complete: setupComplete, updated_at: new Date().toISOString() }, { onConflict: "id" });
     setSaveStatus(result.error ? "Saved on this device" : "Saved securely");
   }
@@ -491,10 +492,11 @@ export default function ConversationalWeeklyShop() {
     recognition.start();
   }
 
-  async function completeSetup(name, nextPeople) {
+  async function completeSetup(name, nextPeople, nextRecipes) {
     const nextHousehold = { ...household, name };
     setHousehold(nextHousehold);
     setPeople(nextPeople);
+    setRecipes({ ...SEED_RECIPES, ...nextRecipes });
     setSetupComplete(true);
     await supabase.from("households").update({ name, adults: nextPeople.filter((person) => person.role !== "Child").length, children: nextPeople.filter((person) => person.role === "Child").length }).eq("id", household.id);
     if (nextPeople.length) {
@@ -507,7 +509,7 @@ export default function ConversationalWeeklyShop() {
         nextPeople = peopleResult.data;
       }
     }
-    await supabase.from("profiles").upsert({ id: session.user.id, display_name: name, setup_complete: true, app_state: { plan, extras, inventory, brandRules, budget }, updated_at: new Date().toISOString() }, { onConflict: "id" });
+    await supabase.from("profiles").upsert({ id: session.user.id, display_name: name, setup_complete: true, app_state: { plan, recipes: { ...SEED_RECIPES, ...nextRecipes }, extras, inventory, brandRules, budget }, updated_at: new Date().toISOString() }, { onConflict: "id" });
     setSaveStatus("Saved securely");
   }
 
@@ -561,8 +563,16 @@ function SetupScreen({ household, onComplete }) {
   const [name, setName] = useState(household?.name || "Our household");
   const [people, setPeople] = useState([{ id: "local-me", name: "Me", role: "Adult", portion_multiplier: 1 }]);
   const [personName, setPersonName] = useState("");
+  const [mealName, setMealName] = useState("");
+  const [ingredient, setIngredient] = useState("");
+  const [meals, setMeals] = useState({});
+  const quickIngredients = ["Wraps", "Chicken breast", "Mexican rice", "Fajita seasoning", "Doritos Cool Original", "Salsa", "Sour cream and chive", "Pasta", "Rice", "Cheddar", "Tomatoes", "Garlic bread", "Milk", "Bread", "Eggs", "Baked beans"];
   function addPerson(role) { if (!personName.trim()) return; setPeople((current) => [...current, { id: "local-" + Date.now(), name: personName.trim(), role, portion_multiplier: role === "Child" ? 0.75 : 1 }]); setPersonName(""); }
-  return <SafeAreaView style={styles.safe}><ScrollView contentContainerStyle={styles.setupPage}><Text style={styles.kicker}>FIRST, A LITTLE HOUSEKEEPING</Text><Text style={styles.authTitle}>Who are we feeding?</Text><Text style={styles.authLead}>This lets the assistant understand different meals, portions and days at home.</Text><Text style={styles.label}>Household name</Text><TextInput style={styles.field} value={name} onChangeText={setName} placeholder="The Parker family" placeholderTextColor={C.muted} /><Text style={styles.label}>People</Text><View style={styles.peopleList}>{people.map((person) => <View style={styles.personPill} key={person.id}><Text style={styles.personPillText}>{person.name}</Text><Text style={styles.personRole}>{person.role}</Text></View>)}</View><View style={styles.addPersonRow}><TextInput style={[styles.field, styles.personInput]} value={personName} onChangeText={setPersonName} placeholder="Add a name" placeholderTextColor={C.muted} /><TouchableOpacity style={styles.smallButton} onPress={() => addPerson("Adult")}><Text style={styles.smallButtonText}>Adult</Text></TouchableOpacity><TouchableOpacity style={styles.smallButtonLight} onPress={() => addPerson("Child")}><Text style={styles.smallButtonLightText}>Child</Text></TouchableOpacity></View><TouchableOpacity style={styles.primaryButton} onPress={() => onComplete(name, people)}><Text style={styles.primaryText}>Continue</Text></TouchableOpacity></ScrollView></SafeAreaView>;
+  function addIngredient(value = ingredient) { const clean = value.trim(); if (!clean || !mealName.trim()) return; setMeals((current) => ({ ...current, [mealName.trim()]: [...new Set([...(current[mealName.trim()] || []), clean])] })); setIngredient(""); }
+  function saveMeal() { if (!mealName.trim() || !(meals[mealName.trim()] || []).length) return; setMealName(""); setIngredient(""); }
+  const suggestions = ingredient.trim() ? quickIngredients.filter((item) => item.toLowerCase().includes(ingredient.toLowerCase())).slice(0, 5) : [];
+  const recipeBook = Object.fromEntries(Object.entries(meals).map(([key, items]) => [key, { emoji: "🍽️", servings: Math.max(1, people.length || 2), prepMinutes: 30, ingredients: items.map((item) => ({ name: item, quantity: 1, unit: "item" })) }]));
+  return <SafeAreaView style={styles.safe}><ScrollView contentContainerStyle={styles.setupPage}><Text style={styles.kicker}>LET’S SET UP YOUR SHOP</Text><Text style={styles.authTitle}>Who are we feeding?</Text><Text style={styles.authLead}>Add your household first, then save a few meals you make regularly.</Text><Text style={styles.label}>Household name</Text><TextInput style={styles.field} value={name} onChangeText={setName} placeholder="The Parker family" placeholderTextColor={C.muted} /><Text style={styles.label}>People</Text><View style={styles.peopleList}>{people.map((person) => <View style={styles.personPill} key={person.id}><Text style={styles.personPillText}>{person.name}</Text><Text style={styles.personRole}>{person.role}</Text></View>)}</View><View style={styles.addPersonRow}><TextInput style={[styles.field, styles.personInput]} value={personName} onChangeText={setPersonName} placeholder="Add a name" placeholderTextColor={C.muted} /><TouchableOpacity style={styles.smallButton} onPress={() => addPerson("Adult")}><Text style={styles.smallButtonText}>Adult</Text></TouchableOpacity><TouchableOpacity style={styles.smallButtonLight} onPress={() => addPerson("Child")}><Text style={styles.smallButtonLightText}>Child</Text></TouchableOpacity></View><View style={styles.recipeIntro}><Text style={styles.recipeIntroTitle}>Build your quick picks</Text><Text style={styles.recipeIntroText}>When you save the ingredients for a meal, you can choose it in seconds every week. The more you tell us now, the quicker Gemma can put your basket together. Add more meals later under <Text style={{ fontWeight: "900" }}>Add meal to my quick picks</Text>.</Text></View><Text style={styles.label}>Meal name</Text><TextInput style={styles.field} value={mealName} onChangeText={setMealName} placeholder="e.g. Burrito night" placeholderTextColor={C.muted} /><Text style={styles.label}>Ingredients for this meal</Text><View style={styles.ingredientRow}><TextInput style={[styles.field, styles.ingredientInput]} value={ingredient} onChangeText={setIngredient} onSubmitEditing={() => addIngredient()} placeholder="Start typing an ingredient" placeholderTextColor={C.muted} /><TouchableOpacity style={styles.smallButton} onPress={() => addIngredient()}><Text style={styles.smallButtonText}>Add</Text></TouchableOpacity></View>{suggestions.length ? <View style={styles.suggestions}>{suggestions.map((item) => <TouchableOpacity key={item} style={styles.suggestion} onPress={() => addIngredient(item)}><Text style={styles.suggestionText}>{item}</Text><Ionicons name="add" size={17} color={C.gold} /></TouchableOpacity>)}</View> : null}<View style={styles.ingredientChips}>{(meals[mealName.trim()] || []).map((item) => <View style={styles.ingredientChip} key={item}><Text style={styles.ingredientChipText}>{item}</Text></View>)}</View><TouchableOpacity style={styles.secondaryButton} onPress={saveMeal}><Text style={styles.secondaryText}>Save this meal to quick picks</Text></TouchableOpacity>{Object.keys(meals).length ? <View style={styles.savedMeals}>{Object.keys(meals).map((item) => <View style={styles.savedMealRow} key={item}><Text style={styles.savedMealName}>🍽️ {item}</Text><Text style={styles.savedMealCount}>{meals[item].length} ingredients</Text></View>)}</View> : null}<TouchableOpacity style={styles.primaryButton} onPress={() => onComplete(name, people, recipeBook)}><Text style={styles.primaryText}>Continue to Our Weekly Shop</Text></TouchableOpacity></ScrollView></SafeAreaView>;
 }
 
 function HomeView({ plan, recipes, people, setTab, plannedDays, basketCount }) {
@@ -729,6 +739,21 @@ const styles = StyleSheet.create({
   personPillText: { color: C.ink, fontWeight: "800", flex: 1 },
   personRole: { color: C.muted, fontSize: 12 },
   addPersonRow: { flexDirection: "row", alignItems: "center", marginBottom: 14 },
+  recipeIntro: { backgroundColor: C.goldSoft, borderRadius: 18, padding: 16, marginTop: 7, marginBottom: 16 },
+  recipeIntroTitle: { color: C.green, fontSize: 16, fontWeight: "900", marginBottom: 5 },
+  recipeIntroText: { color: C.ink, fontSize: 13, lineHeight: 19 },
+  ingredientRow: { flexDirection: "row", alignItems: "center" },
+  ingredientInput: { flex: 1, marginBottom: 0, marginRight: 8 },
+  suggestions: { backgroundColor: C.white, borderRadius: 14, marginTop: 6, overflow: "hidden", borderWidth: 1, borderColor: C.line },
+  suggestion: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 14, paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: C.line },
+  suggestionText: { color: C.ink, fontSize: 13, fontWeight: "700" },
+  ingredientChips: { flexDirection: "row", flexWrap: "wrap", marginTop: 10 },
+  ingredientChip: { backgroundColor: C.greenSoft, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 7, marginRight: 6, marginBottom: 6 },
+  ingredientChipText: { color: C.green, fontSize: 12, fontWeight: "700" },
+  savedMeals: { backgroundColor: C.white, borderRadius: 16, paddingHorizontal: 14, marginBottom: 14 },
+  savedMealRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: C.line },
+  savedMealName: { color: C.ink, fontWeight: "800", flex: 1 },
+  savedMealCount: { color: C.muted, fontSize: 12 },
   personInput: { flex: 1, marginBottom: 0, marginRight: 6 },
   smallButton: { backgroundColor: C.green, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 10, marginLeft: 2 },
   smallButtonText: { color: C.white, fontSize: 12, fontWeight: "800" },
