@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Animated } from "react-native";
+import { Image, Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "../lib/supabase";
 
@@ -9,12 +10,14 @@ export default function RealtimeVoiceChat({ household, people, plan }) {
   const [status, setStatus] = useState("idle");
   const [transcript, setTranscript] = useState("");
   const [error, setError] = useState("");
+  const pulse = useRef(new Animated.Value(1)).current;
   const peerRef = useRef(null);
   const streamRef = useRef(null);
   const channelRef = useRef(null);
   const audioRef = useRef(null);
 
   useEffect(() => () => stop(), []);
+  useEffect(() => { const loop = Animated.loop(Animated.sequence([Animated.timing(pulse, { toValue: status === "connected" ? 1.06 : 1, duration: 900, useNativeDriver: true }), Animated.timing(pulse, { toValue: 1, duration: 900, useNativeDriver: true })])); if (status === "connected") loop.start(); return () => loop.stop(); }, [status]);
 
   function stop() {
     channelRef.current?.close();
@@ -68,7 +71,7 @@ export default function RealtimeVoiceChat({ household, people, plan }) {
   }
 
   return <View style={styles.card}>
-    <View style={styles.row}><View style={styles.icon}><Ionicons name={status === "connected" ? "radio" : "mic"} size={23} color={C.green} /></View><View style={{ flex: 1 }}><Text style={styles.kicker}>GEMMA · YOUR WEEKLY SHOP ASSISTANT</Text><Text style={styles.title}>{status === "connected" ? "Gemma is listening." : "Tell Gemma about your week"}</Text><Text style={styles.copy}>{status === "connected" ? "Speak naturally. I’ll respond and keep the conversation focused." : "Gemma will listen, ask the right questions and build the shop with you."}</Text></View></View>
+    <View style={styles.row}><Animated.View style={[styles.avatarWrap, { transform: [{ scale: pulse }] }]}><Image source={require("./assets/gemma.png")} style={styles.avatarImage} /></Animated.View><View style={{ flex: 1 }}><Text style={styles.kicker}>GEMMA · YOUR WEEKLY SHOP ASSISTANT</Text><Text style={styles.title}>{status === "connected" ? "Gemma is listening." : "Tell Gemma about your week"}</Text><Text style={styles.copy}>{status === "connected" ? "Speak naturally. I’ll respond and keep the conversation focused." : "Gemma will listen, ask the right questions and build the shop with you."}</Text></View></View>
     {transcript ? <Text style={styles.transcript}>{transcript}</Text> : null}
     {error ? <Text style={styles.error}>{error}</Text> : null}
     {status === "connected" ? <TouchableOpacity style={styles.stop} onPress={stop}><Text style={styles.stopText}>End conversation</Text></TouchableOpacity> : <TouchableOpacity style={styles.start} onPress={start}><Ionicons name="mic" size={18} color={C.white} /><Text style={styles.startText}>Start talking</Text></TouchableOpacity>}
@@ -78,7 +81,8 @@ export default function RealtimeVoiceChat({ household, people, plan }) {
 const styles = StyleSheet.create({
   card: { backgroundColor: C.greenDark, borderRadius: 26, padding: 20, marginBottom: 20, shadowColor: C.greenDark, shadowOpacity: 0.18, shadowRadius: 20, shadowOffset: { width: 0, height: 9 }, elevation: 6 },
   row: { flexDirection: "row", alignItems: "center" },
-  icon: { width: 54, height: 54, borderRadius: 19, backgroundColor: C.goldSoft, alignItems: "center", justifyContent: "center", marginRight: 13 },
+  avatarWrap: { width: 82, height: 82, borderRadius: 41, overflow: "hidden", backgroundColor: C.goldSoft, borderWidth: 3, borderColor: C.gold, marginRight: 14 },
+  avatarImage: { width: "100%", height: "100%" },
   kicker: { color: "#E7C987", fontSize: 10, fontWeight: "900", letterSpacing: 1.5 },
   title: { color: C.white, fontSize: 21, fontWeight: "900", marginTop: 3, letterSpacing: -0.2 },
   copy: { color: "#D6E6DB", fontSize: 13, lineHeight: 18, marginTop: 5 },
