@@ -35,13 +35,6 @@ export default function RealtimeVoiceChat({ household, people, plan }) {
     if (status === "connected" || status === "connecting") return;
     setError(""); setTranscript(""); setStatus("connecting");
     try {
-      const { data, error: sessionError } = await supabase.functions.invoke("realtime-session", { body: {} });
-      if (sessionError) {
-        let detail = sessionError.message || "Could not open the voice session.";
-        try { const payload = await sessionError.context?.json(); detail = payload?.error?.message || payload?.error || detail; } catch {}
-        throw new Error(detail);
-      }
-      if (!data?.value) throw new Error(data?.error?.message || data?.error || "Could not open the voice session.");
       const pc = new window.RTCPeerConnection();
       peerRef.current = pc;
       pc.ontrack = (event) => {
@@ -67,9 +60,14 @@ export default function RealtimeVoiceChat({ household, people, plan }) {
       channel.onopen = () => { configure(); setStatus("connected"); };
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
-      const answer = await fetch("https://api.openai.com/v1/realtime/calls", { method: "POST", body: offer.sdp, headers: { Authorization: "Bearer " + data.value, "Content-Type": "application/sdp" } });
-      if (!answer.ok) throw new Error("Could not connect the voice session.");
-      await pc.setRemoteDescription({ type: "answer", sdp: await answer.text() });
+      const { data, error: sessionError } = await supabase.functions.invoke("realtime-session", { body: { sdp: offer.sdp } });
+      if (sessionError) {
+        let detail = sessionError.message || "Could not connect the voice session.";
+        try { const payload = await sessionError.context?.json(); detail = payload?.error?.message || payload?.error || detail; } catch {}
+        throw new Error(detail);
+      }
+      if (!data?.sdp) throw new Error(data?.error || "Could not connect the voice session.");
+      await pc.setRemoteDescription({ type: "answer", sdp: data.sdp });
     } catch (caught) {
       stop(); setError(caught.message || "Could not start voice chat.");
     }
