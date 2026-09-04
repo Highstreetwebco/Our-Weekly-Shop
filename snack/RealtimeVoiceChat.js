@@ -76,7 +76,7 @@ export default function RealtimeVoiceChat({ household, people, plan }) {
   }
 
   return <View style={styles.card}>
-    <View style={styles.row}><Animated.View style={[styles.avatarWrap, { transform: [{ scale: pulse }] }]}><Image source={require("./assets/gemma-avatar.png")} style={styles.avatarImage} /></Animated.View><View style={{ flex: 1 }}><Text style={styles.kicker}>GEMMA · YOUR WEEKLY SHOP ASSISTANT</Text><Text style={styles.title}>{status === "connected" ? "Gemma is listening." : "Tell Gemma about your week"}</Text><Text style={styles.copy}>{status === "connected" ? "Speak naturally. I’ll respond and keep the conversation focused." : "Gemma will listen, ask the right questions and build the shop with you."}</Text></View></View>
+    <View style={styles.heroContent}><Animated.View style={[styles.avatarWrap, { transform: [{ scale: pulse }] }]}><Image source={require("./assets/gemma-avatar.png")} style={styles.avatarImage} /></Animated.View><Text style={styles.kicker}>GEMMA · YOUR WEEKLY SHOP ASSISTANT</Text><Text style={styles.title}>{status === "connected" ? "Gemma is listening." : "Tell Gemma about your week"}</Text><Text style={styles.copy}>{status === "connected" ? "Speak naturally. I’ll respond and keep the conversation focused." : "Gemma will listen, ask the right questions and build the shop with you."}</Text></View>
     {transcript ? <Text style={styles.transcript}>{transcript}</Text> : null}
     {error ? <Text style={styles.error}>{error}</Text> : null}
     {status === "connected" ? <TouchableOpacity style={styles.stop} onPress={stop}><Text style={styles.stopText}>End conversation</Text></TouchableOpacity> : <TouchableOpacity style={styles.start} onPress={start}><Ionicons name="mic" size={18} color={C.white} /><Text style={styles.startText}>Start talking</Text></TouchableOpacity>}
@@ -86,11 +86,12 @@ export default function RealtimeVoiceChat({ household, people, plan }) {
 const styles = StyleSheet.create({
   card: { backgroundColor: C.greenDark, borderRadius: 26, padding: 20, marginBottom: 20, shadowColor: C.greenDark, shadowOpacity: 0.18, shadowRadius: 20, shadowOffset: { width: 0, height: 9 }, elevation: 6 },
   row: { flexDirection: "row", alignItems: "center" },
+  heroContent: { alignItems: "center" },
   avatarWrap: { width: 82, height: 82, borderRadius: 41, overflow: "hidden", backgroundColor: C.goldSoft, borderWidth: 3, borderColor: C.gold, marginRight: 14 },
   avatarImage: { width: "100%", height: "100%" },
-  kicker: { color: "#E7C987", fontSize: 10, fontWeight: "900", letterSpacing: 1.5 },
-  title: { color: C.white, fontSize: 21, fontWeight: "900", marginTop: 3, letterSpacing: -0.2 },
-  copy: { color: "#D6E6DB", fontSize: 13, lineHeight: 18, marginTop: 5 },
+  kicker: { color: "#E7C987", fontSize: 10, fontWeight: "900", letterSpacing: 1.5, textAlign: "center" },
+  title: { color: C.white, fontSize: 25, fontWeight: "900", marginTop: 5, letterSpacing: -0.3, textAlign: "center" },
+  copy: { color: "#D6E6DB", fontSize: 13, lineHeight: 19, marginTop: 6, textAlign: "center", maxWidth: 320 },
   transcript: { color: C.ink, backgroundColor: C.cream, borderRadius: 15, padding: 12, marginTop: 14, fontSize: 13, lineHeight: 19 },
   error: { color: C.red, fontSize: 12, marginTop: 10 },
   start: { backgroundColor: C.gold, borderRadius: 15, paddingVertical: 14, flexDirection: "row", alignItems: "center", justifyContent: "center", marginTop: 15, gap: 8 },
