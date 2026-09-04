@@ -15,6 +15,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "../lib/supabase";
+import DeliverySplash from "./VanOpeningAnimation";
 
 const C = {
   ink: "#1C2B24",
@@ -277,6 +278,7 @@ function calculateBasket(plan, recipes, inventory, extras) {
 }
 
 export default function ConversationalWeeklyShop() {
+  const [showSplash, setShowSplash] = useState(true);
   const [session, setSession] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -526,6 +528,7 @@ export default function ConversationalWeeklyShop() {
   const basket = useMemo(() => calculateBasket(plan, recipes, inventory, extras), [plan, recipes, inventory, extras]);
   const plannedDays = DAYS.filter((day) => (plan[day] || []).length).length;
 
+  if (showSplash) return <DeliverySplash onFinish={() => setShowSplash(false)} />;
   if (authLoading || loading) return <LoadingScreen text={authLoading ? "Opening Our Weekly Shop…" : "Loading your household…"} />;
   if (!session) return <AuthScreen onSession={setSession} />;
   if (!setupComplete) return <SetupScreen household={household} onComplete={completeSetup} />;
@@ -570,6 +573,52 @@ function AuthScreen({ onSession }) {
 }
 
 function SetupScreen({ household, onComplete }) {
+  const [step, setStep] = useState("people");
+  const [people, setPeople] = useState([]);
+  const [personName, setPersonName] = useState("");
+  const [personRole, setPersonRole] = useState("Adult");
+  const [mealName, setMealName] = useState("");
+  const [ingredient, setIngredient] = useState("");
+  const [draftIngredients, setDraftIngredients] = useState([]);
+  const [meals, setMeals] = useState({});
+  const catalogue = [...new Set([...INGREDIENT_CATALOG, ...EXTENDED_INGREDIENT_CATALOG])];
+  const searchTerm = ingredient.trim().toLowerCase();
+  const suggestions = searchTerm ? catalogue.filter((item) => item.toLowerCase().includes(searchTerm)).sort((a, b) => {
+    const aName = a.toLowerCase(); const bName = b.toLowerCase();
+    const aScore = aName === searchTerm ? 0 : aName.startsWith(searchTerm) ? 1 : 2;
+    const bScore = bName === searchTerm ? 0 : bName.startsWith(searchTerm) ? 1 : 2;
+    return aScore - bScore || a.localeCompare(b);
+  }).slice(0, 10) : [];
+
+  function addPerson() {
+    const clean = personName.trim();
+    if (!clean) return;
+    setPeople((current) => [...current, { id: "local-" + Date.now(), name: clean, role: personRole, portion_multiplier: personRole === "Child" ? 0.75 : 1 }]);
+    setPersonName("");
+  }
+  function addIngredient(value = ingredient) {
+    const clean = value.trim();
+    if (!clean) return;
+    setDraftIngredients((current) => [...new Set([...current, clean])]);
+    setIngredient("");
+  }
+  function saveMeal() {
+    const clean = mealName.trim();
+    if (!clean || !draftIngredients.length) return;
+    setMeals((current) => ({ ...current, [clean]: draftIngredients }));
+    setMealName(""); setIngredient(""); setDraftIngredients([]);
+  }
+  function finish() {
+    const recipeBook = Object.fromEntries(Object.entries(meals).map(([meal, items]) => [meal, { emoji: "🍽️", servings: Math.max(1, people.length), prepMinutes: 30, ingredients: items.map((item) => ({ name: item, quantity: 1, unit: "item" })) }]));
+    onComplete(household?.name || "Our household", people, recipeBook);
+  }
+
+  if (step === "people") return <SafeAreaView style={styles.safe}><ScrollView contentContainerStyle={styles.simpleSetupPage} keyboardShouldPersistTaps="handled"><Text style={styles.setupStep}>STEP 1 OF 2</Text><Text style={styles.authTitle}>Who are we feeding?</Text><Text style={styles.authLead}>Add everyone who might eat at home. This helps Gemma work out the right portions.</Text><View style={styles.personComposer}><TextInput style={styles.personNameField} value={personName} onChangeText={setPersonName} onSubmitEditing={addPerson} placeholder="Name" placeholderTextColor={C.muted} returnKeyType="done"/><View style={styles.roleSwitch}><TouchableOpacity style={[styles.roleChoice, personRole === "Adult" && styles.roleChoiceActive]} onPress={() => setPersonRole("Adult")}><Text style={[styles.roleChoiceText, personRole === "Adult" && styles.roleChoiceTextActive]}>Adult</Text></TouchableOpacity><TouchableOpacity style={[styles.roleChoice, personRole === "Child" && styles.roleChoiceActive]} onPress={() => setPersonRole("Child")}><Text style={[styles.roleChoiceText, personRole === "Child" && styles.roleChoiceTextActive]}>Child</Text></TouchableOpacity></View><TouchableOpacity style={styles.addPersonButton} onPress={addPerson}><Ionicons name="add" size={24} color={C.white}/><Text style={styles.addPersonButtonText}>Add</Text></TouchableOpacity></View>{people.length ? <View style={styles.simplePeopleList}>{people.map((person) => <View style={styles.simplePersonRow} key={person.id}><View style={styles.personInitial}><Text style={styles.personInitialText}>{person.name.slice(0,1).toUpperCase()}</Text></View><View style={{ flex: 1 }}><Text style={styles.personPillText}>{person.name}</Text><Text style={styles.personRole}>{person.role}</Text></View><TouchableOpacity onPress={() => setPeople((current) => current.filter((item) => item.id !== person.id))}><Ionicons name="close-circle" size={23} color={C.muted}/></TouchableOpacity></View>)}</View> : <View style={styles.setupEmpty}><Ionicons name="people-outline" size={30} color={C.gold}/><Text style={styles.setupEmptyText}>Add yourself, your partner and any children.</Text></View>}<TouchableOpacity style={[styles.primaryButton, !people.length && styles.primaryButtonDisabled]} disabled={!people.length} onPress={() => setStep("recipes")}><Text style={styles.primaryText}>Continue</Text></TouchableOpacity></ScrollView></SafeAreaView>;
+
+  return <SafeAreaView style={styles.safe}><ScrollView contentContainerStyle={styles.simpleSetupPage} keyboardShouldPersistTaps="handled"><Text style={styles.setupStep}>STEP 2 OF 2</Text><Text style={styles.authTitle}>Save your regular meals.</Text><Text style={styles.authLead}>Add a few now and planning next week becomes a quick tap. You can add more later in your account.</Text><View style={styles.recipeIntro}><Text style={styles.recipeIntroTitle}>Gemma’s quick picks</Text><Text style={styles.recipeIntroText}>The more meal ingredients you add now, the quicker Gemma can build the right basket each week.</Text></View><Text style={styles.label}>Meal name</Text><TextInput style={styles.field} value={mealName} onChangeText={setMealName} placeholder="e.g. Burrito night" placeholderTextColor={C.muted}/><Text style={styles.label}>Ingredients</Text><View style={styles.ingredientRow}><TextInput style={[styles.field, styles.ingredientInput]} value={ingredient} onChangeText={setIngredient} onSubmitEditing={() => addIngredient()} placeholder="Start typing" placeholderTextColor={C.muted}/><TouchableOpacity style={styles.smallButton} onPress={() => addIngredient()}><Text style={styles.smallButtonText}>Add</Text></TouchableOpacity></View>{suggestions.length ? <View style={styles.suggestions}>{suggestions.map((item) => <TouchableOpacity key={item} style={styles.suggestion} onPress={() => addIngredient(item)}><Text style={styles.suggestionText}>{item}</Text><Ionicons name="add" size={17} color={C.gold}/></TouchableOpacity>)}</View> : null}<View style={styles.ingredientChips}>{draftIngredients.map((item) => <TouchableOpacity style={styles.ingredientChip} key={item} onPress={() => setDraftIngredients((current) => current.filter((value) => value !== item))}><Text style={styles.ingredientChipText}>{item} ×</Text></TouchableOpacity>)}</View><TouchableOpacity style={[styles.secondaryButton, (!mealName.trim() || !draftIngredients.length) && styles.primaryButtonDisabled]} onPress={saveMeal}><Text style={styles.secondaryText}>Save meal to quick picks</Text></TouchableOpacity>{Object.keys(meals).length ? <View style={styles.savedMeals}>{Object.keys(meals).map((item) => <View style={styles.savedMealRow} key={item}><Text style={styles.savedMealName}>🍽️ {item}</Text><Text style={styles.savedMealCount}>{meals[item].length} ingredients</Text></View>)}</View> : null}<TouchableOpacity style={styles.primaryButton} onPress={finish}><Text style={styles.primaryText}>{Object.keys(meals).length ? "Finish setup" : "Skip for now"}</Text></TouchableOpacity><TouchableOpacity style={styles.backLink} onPress={() => setStep("people")}><Text style={styles.backLinkText}>Back to household</Text></TouchableOpacity></ScrollView></SafeAreaView>;
+}
+
+function LegacySetupScreen({ household, onComplete }) {
   const [name, setName] = useState(household?.name || "Our household");
   const [people, setPeople] = useState([{ id: "local-me", name: "Me", role: "Adult", portion_multiplier: 1 }]);
   const [personName, setPersonName] = useState("");
@@ -752,6 +801,25 @@ const styles = StyleSheet.create({
   error: { color: C.red, fontSize: 13, lineHeight: 18, marginTop: 12 },
   switchText: { color: C.gold, textAlign: "center", fontWeight: "800", marginTop: 18 },
   setupPage: { padding: 24, flexGrow: 1, justifyContent: "center" },
+  simpleSetupPage: { padding: 24, paddingTop: 46, paddingBottom: 70, flexGrow: 1 },
+  setupStep: { color: C.gold, fontSize: 11, fontWeight: "900", letterSpacing: 1.5 },
+  personComposer: { backgroundColor: C.white, borderRadius: 20, padding: 12, marginBottom: 16 },
+  personNameField: { height: 54, borderRadius: 14, backgroundColor: C.cream, paddingHorizontal: 15, color: C.ink, fontSize: 17, fontWeight: "700" },
+  roleSwitch: { flexDirection: "row", backgroundColor: C.greenSoft, borderRadius: 14, padding: 4, marginTop: 10 },
+  roleChoice: { flex: 1, borderRadius: 11, paddingVertical: 11, alignItems: "center" },
+  roleChoiceActive: { backgroundColor: C.green },
+  roleChoiceText: { color: C.green, fontWeight: "800", fontSize: 14 },
+  roleChoiceTextActive: { color: C.white },
+  addPersonButton: { height: 52, backgroundColor: C.gold, borderRadius: 14, marginTop: 10, flexDirection: "row", alignItems: "center", justifyContent: "center" },
+  addPersonButtonText: { color: C.white, fontWeight: "900", fontSize: 15, marginLeft: 4 },
+  simplePeopleList: { backgroundColor: C.white, borderRadius: 18, paddingHorizontal: 13, marginBottom: 14 },
+  simplePersonRow: { flexDirection: "row", alignItems: "center", paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: C.line },
+  personInitial: { width: 40, height: 40, borderRadius: 20, backgroundColor: C.greenSoft, alignItems: "center", justifyContent: "center", marginRight: 11 },
+  personInitialText: { color: C.green, fontSize: 16, fontWeight: "900" },
+  setupEmpty: { alignItems: "center", backgroundColor: C.goldSoft, borderRadius: 18, padding: 20, marginBottom: 14 },
+  setupEmptyText: { color: C.muted, fontSize: 13, marginTop: 7, textAlign: "center" },
+  backLink: { alignItems: "center", padding: 16 },
+  backLinkText: { color: C.muted, fontSize: 13, fontWeight: "700" },
   peopleList: { marginBottom: 10 },
   personPill: { flexDirection: "row", backgroundColor: C.white, borderRadius: 13, padding: 12, marginBottom: 7, alignItems: "center" },
   personPillText: { color: C.ink, fontWeight: "800", flex: 1 },
