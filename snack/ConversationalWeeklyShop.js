@@ -601,7 +601,7 @@ export default function ConversationalWeeklyShop() {
           </View>
           <Text style={styles.saveStatus}>{saveStatus}</Text>
           {tab === "Home" && <RealtimeVoiceChat household={household} people={people} plan={plan} />}
-          {tab === "Home" && <HomeView proposal={proposal} approveProposal={approveProposal} rejectProposal={rejectProposal} people={people} startVoice={startVoice} voiceListening={voiceListening} setTab={setTab} plannedDays={plannedDays} basketCount={basket.length} addGuidedMealToPlan={addGuidedMealToPlan} />}
+          {tab === "Home" && <View style={styles.gemmaHomeNote}><Ionicons name="sparkles-outline" size={18} color={C.gold} /><Text style={styles.gemmaHomeNoteText}>Gemma will take it from here. Talk naturally and she’ll organise the week for you.</Text></View>}
           {tab === "Week" && <WeekView plan={plan} recipes={recipes} people={people} setInput={setInput} sendMessage={sendMessage} />}
           {tab === "Shop" && <ShopView basket={basket} budget={budget} setBudget={(value) => { setBudget(value); saveSnapshot(plan, extras, inventory, brandRules, value); }} extras={extras} addExtra={(value) => { const next = [...new Set([...extras, value])]; setExtras(next); saveSnapshot(plan, next, inventory, brandRules, budget); }} />}
           {tab === "More" && <MoreView people={people} inventory={inventory} brandRules={brandRules} setInput={setInput} sendMessage={sendMessage} signOut={() => supabase.auth.signOut()} />}
@@ -825,6 +825,8 @@ const styles = StyleSheet.create({
   avatar: { width: 43, height: 43, borderRadius: 22, backgroundColor: C.green, alignItems: "center", justifyContent: "center", borderWidth: 3, borderColor: C.goldSoft },
   avatarText: { color: C.white, fontWeight: "800", fontSize: 16 },
   saveStatus: { color: C.muted, fontSize: 11, marginTop: 6, marginBottom: 18, letterSpacing: 0.2 },
+  gemmaHomeNote: { flexDirection: "row", alignItems: "center", justifyContent: "center", paddingHorizontal: 18, paddingVertical: 10, marginBottom: 10 },
+  gemmaHomeNoteText: { color: C.muted, fontSize: 12, lineHeight: 17, marginLeft: 7, textAlign: "center", flex: 1 },
   hero: { backgroundColor: C.green, borderRadius: 26, padding: 24, marginBottom: 18, shadowColor: C.greenDark, shadowOpacity: 0.16, shadowRadius: 18, shadowOffset: { width: 0, height: 8 }, elevation: 5 },
   heroKicker: { color: "#D8E9DD", fontWeight: "800", fontSize: 10, letterSpacing: 1.3 },
   heroTitle: { color: C.white, fontSize: 25, fontWeight: "800", marginTop: 9 },
