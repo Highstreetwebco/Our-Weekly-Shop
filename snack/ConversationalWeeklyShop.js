@@ -378,7 +378,7 @@ export default function ConversationalWeeklyShop() {
     await supabase.from("ai_actions").insert({ household_id: household.id, user_id: session.user.id, week_start: weekStart(), input_text: action.input, input_mode: action.inputMode || "text", intent: action.type, proposed_changes: payload || {}, status });
   }
 
-  async function saveStructuredPlan(nextPlan) {
+  async function saveStructuredPlan(nextPlan, recipeBook = recipes) {
     if (!household?.id) return;
     const planResult = await supabase.from("weekly_plans").upsert({ household_id: household.id, week_start: weekStart() }, { onConflict: "household_id,week_start" }).select().single();
     if (planResult.error || !planResult.data) return;
@@ -389,7 +389,7 @@ export default function ConversationalWeeklyShop() {
       for (const assignment of nextPlan[day] || []) {
         let mealResult = await supabase.from("meals").select("id").eq("household_id", household.id).eq("name", assignment.meal).maybeSingle();
         let mealId = mealResult.data?.id;
-        const recipe = recipes[assignment.meal];
+        const recipe = recipeBook[assignment.meal];
         if (!mealId) {
           const created = await supabase.from("meals").insert({ household_id: household.id, name: assignment.meal, emoji: recipe?.emoji || "🍽️", default_portions: recipe?.servings || assignment.portions || 2, prep_minutes: recipe?.prepMinutes || 30, source: "conversation" }).select().single();
           mealId = created.data?.id;
@@ -409,6 +409,33 @@ export default function ConversationalWeeklyShop() {
         }
       }
     }
+  }
+
+  function parseGuidedIngredients(text) {
+    return text.split(/,|;|\\band\\b/i).map((item) => item.trim()).filter(Boolean).map((name) => ({ name, quantity: 1, unit: "item" }));
+  }
+
+  function addGuidedMealToPlan(day, requestedMeal, ingredientText) {
+    const knownMeal = findRecipeName(requestedMeal, recipes);
+    const meal = knownMeal || requestedMeal.trim();
+    const recipe = recipes[meal] || {
+      emoji: "🍽️",
+      servings: Math.max(1, people.length || 2),
+      prepMinutes: 30,
+      ingredients: parseGuidedIngredients(ingredientText),
+    };
+    const nextRecipes = { ...recipes, [meal]: recipe };
+    const assignment = {
+      meal,
+      peopleIds: people.map((person) => person.id),
+      portions: people.length || 1,
+      leftovers: 0,
+    };
+    const nextPlan = { ...plan, [day]: [...(plan[day] || []), assignment] };
+    setRecipes(nextRecipes);
+    setPlan(nextPlan);
+    saveStructuredPlan(nextPlan, nextRecipes);
+    saveSnapshot(nextPlan, extras, inventory, brandRules, budget);
   }
 
   function sendMessage(value, inputMode) {
@@ -571,7 +598,7 @@ export default function ConversationalWeeklyShop() {
             <TouchableOpacity style={styles.avatar} onPress={() => setTab("More")}><Text style={styles.avatarText}>{String(household?.name || "O").slice(0, 1).toUpperCase()}</Text></TouchableOpacity>
           </View>
           <Text style={styles.saveStatus}>{saveStatus}</Text>
-          {tab === "Home" && <HomeView proposal={proposal} approveProposal={approveProposal} rejectProposal={rejectProposal} sendMessage={sendMessage} startVoice={startVoice} voiceListening={voiceListening} setTab={setTab} plannedDays={plannedDays} basketCount={basket.length} recordFridge={(items) => { const next = items.map((item) => ({ name: item.name, quantity: item.quantity || 1 })); setInventory(next); saveSnapshot(plan, extras, next, brandRules, budget); }} />}
+          {tab === "Home" && <HomeView proposal={proposal} approveProposal={approveProposal} rejectProposal={rejectProposal} people={people} startVoice={startVoice} voiceListening={voiceListening} setTab={setTab} plannedDays={plannedDays} basketCount={basket.length} addGuidedMealToPlan={addGuidedMealToPlan}}
           {tab === "Week" && <WeekView plan={plan} recipes={recipes} people={people} setInput={setInput} sendMessage={sendMessage} />}
           {tab === "Shop" && <ShopView basket={basket} budget={budget} setBudget={(value) => { setBudget(value); saveSnapshot(plan, extras, inventory, brandRules, value); }} extras={extras} addExtra={(value) => { const next = [...new Set([...extras, value])]; setExtras(next); saveSnapshot(plan, next, inventory, brandRules, budget); }} />}
           {tab === "More" && <MoreView people={people} inventory={inventory} brandRules={brandRules} setInput={setInput} sendMessage={sendMessage} signOut={() => supabase.auth.signOut()} />}
@@ -609,7 +636,7 @@ function SetupScreen({ household, onComplete }) {
   return <SafeAreaView style={styles.safe}><ScrollView contentContainerStyle={styles.setupPage}><Text style={styles.kicker}>FIRST, A LITTLE HOUSEKEEPING</Text><Text style={styles.authTitle}>Who is in your household?</Text><Text style={styles.authLead}>Add everyone who eats at home so the assistant can plan different meals, portions and days for each person.</Text><Text style={styles.label}>Household name</Text><TextInput style={styles.field} value={name} onChangeText={setName} placeholder="The Parker family" placeholderTextColor={C.muted} /><Text style={styles.label}>People</Text><View style={styles.peopleList}>{people.map((person) => <View style={styles.personPill} key={person.id}><Text style={styles.personPillText}>{person.name}</Text><Text style={styles.personRole}>{person.role}</Text></View>)}</View><View style={styles.addPersonRow}><TextInput style={[styles.field, styles.personInput]} value={personName} onChangeText={setPersonName} placeholder="Add a household member" placeholderTextColor={C.muted} /><TouchableOpacity style={styles.smallButton} onPress={() => addPerson("Adult")}><Text style={styles.smallButtonText}>Adult</Text></TouchableOpacity><TouchableOpacity style={styles.smallButtonLight} onPress={() => addPerson("Child")}><Text style={styles.smallButtonLightText}>Child</Text></TouchableOpacity></View><TouchableOpacity style={[styles.primaryButton, !people.length && styles.primaryButtonDisabled]} onPress={() => onComplete(name, people)} disabled={!people.length}><Text style={styles.primaryText}>Continue</Text></TouchableOpacity></ScrollView></SafeAreaView>;
 }
 
-function HomeView({ proposal, approveProposal, rejectProposal, sendMessage, startVoice, voiceListening, setTab, plannedDays, basketCount, recordFridge }) {
+function HomeView({ proposal, approveProposal, rejectProposal, people, startVoice, voiceListening, setTab, plannedDays, basketCount, addGuidedMealToPlan }) {
   const [phase, setPhase] = useState("fridge");
   const [dayIndex, setDayIndex] = useState(0);
   const [mealName, setMealName] = useState("");
@@ -617,6 +644,7 @@ function HomeView({ proposal, approveProposal, rejectProposal, sendMessage, star
   const [pendingAnswer, setPendingAnswer] = useState("");
   const [answerStage, setAnswerStage] = useState("answer");
   const [transitioning, setTransitioning] = useState(false);
+  const [capturedMeals, setCapturedMeals] = useState([]);
   const micScale = useRef(new Animated.Value(1)).current;
   const days = DAYS;
 
@@ -678,7 +706,6 @@ function HomeView({ proposal, approveProposal, rejectProposal, sendMessage, star
     setTransitioning(true);
     setTimeout(() => {
       if (phase === "fridge") {
-        if (recordFridge) recordFridge(fridgeItems(confirmed));
         setPhase("home");
       } else if (phase === "home") {
         setPhase("time");
@@ -688,7 +715,9 @@ function HomeView({ proposal, approveProposal, rejectProposal, sendMessage, star
         setMealName(confirmed);
         setPhase("ingredients");
       } else {
-        sendMessage("Put " + mealName + " on " + days[dayIndex] + ". Ingredients: " + confirmed, "voice");
+        const captured = { day: days[dayIndex], meal: mealName, ingredients: confirmed };
+        setCapturedMeals((current) => [...current, captured]);
+        if (addGuidedMealToPlan) addGuidedMealToPlan(days[dayIndex], mealName, confirmed);
         if (dayIndex < days.length - 1) {
           setDayIndex((current) => current + 1);
           setMealName("");
@@ -704,13 +733,14 @@ function HomeView({ proposal, approveProposal, rejectProposal, sendMessage, star
   if (transitioning) return <View style={styles.guidedPage} />;
 
   if (phase === "complete") {
-    return <View style={styles.guidedPage}>
+    return <ScrollView contentContainerStyle={styles.guidedPage} showsVerticalScrollIndicator={false}>
       <Text style={styles.guidedKicker}>WEEKLY PLAN</Text>
-      <Text style={styles.guidedTitle}>That’s the week started.</Text>
-      <Text style={styles.guidedLead}>I’ve captured your answers. You can review the Week or check the shop.</Text>
-      <TouchableOpacity style={styles.primaryButton} onPress={() => setTab("Week")}><Text style={styles.primaryText}>Review my week</Text></TouchableOpacity>
+      <Text style={styles.guidedTitle}>Your meals are in the week.</Text>
+      <Text style={styles.guidedLead}>I’ve added each confirmed meal to your weekly plan. You can review or change anything later.</Text>
+      <View style={styles.summaryCard}>{capturedMeals.map((item, index) => <View style={styles.summaryRow} key={item.day + item.meal + index}><Text style={styles.summaryName}>{item.day}</Text><Text style={styles.summaryStatus}>{item.meal}</Text></View>)}</View>
+      <TouchableOpacity style={styles.primaryButton} onPress={() => setTab("Week")}><Text style={styles.primaryText}>Review my meals</Text></TouchableOpacity>
       <View style={styles.dashboardRow}><TouchableOpacity style={styles.dashboardCard} onPress={() => setTab("Week")}><Text style={styles.dashboardNumber}>{plannedDays}/7</Text><Text style={styles.dashboardLabel}>days planned</Text></TouchableOpacity><TouchableOpacity style={styles.dashboardCard} onPress={() => setTab("Shop")}><Text style={styles.dashboardNumber}>{basketCount}</Text><Text style={styles.dashboardLabel}>shop items</Text></TouchableOpacity></View>
-    </View>;
+    </ScrollView>;
   }
 
   if (answerStage === "confirm") {
