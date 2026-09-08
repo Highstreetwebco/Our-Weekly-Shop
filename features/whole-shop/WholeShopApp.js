@@ -411,7 +411,14 @@ export default function WholeShopApp() {
     [notice, setNotice] = useState(''),
     [group, setGroup] = useState('snacks'),
     [search, setSearch] = useState(''),
-    [recipeFilter, setRecipeFilter] = useState('all'),
+    [recipeCategory, setRecipeCategory] = useState(null),
+    [showAllMeals, setShowAllMeals] = useState(false),
+    [recipeMealType, setRecipeMealType] = useState('all'),
+    [recipeTime, setRecipeTime] = useState('all'),
+    [recipeDifficulty, setRecipeDifficulty] = useState('all'),
+    [recipeIngredientCount, setRecipeIngredientCount] = useState('all'),
+    [recipeSort, setRecipeSort] = useState('recommended'),
+    [recipeLimit, setRecipeLimit] = useState(12),
     [showRegulars, setShowRegulars] = useState(false);
   const setupActive = shop.onboarding?.phase === 'setup';
   const touring = shop.onboarding?.phase === 'tour';
@@ -734,32 +741,62 @@ export default function WholeShopApp() {
           copyList,
           goStep
         }} />}
-  {tab === 'Recipes' && <><Heading eyebrow="YOUR RECIPE BOOK" title="Keep your favourites close." /><Gemma text="Save a few favourites with their ingredients. Next time, just pick the meal and I’ll work out the shop." /><Field label="Search your meals" value={search} onChangeText={setSearch} placeholder="Meal or ingredient" /><View style={s.wrap}>{['all', ...SLOTS, 'favourites'].map(x => <Chip key={x} label={titleCase(x)} active={recipeFilter === x} onPress={() => setRecipeFilter(x)} />)}</View><Button label="+ Add my own meal" onPress={() => setModal({
-            type: 'recipe'
-          })} />
-  <View style={s.recipeGrid}>{Object.entries(shop.recipes).sort((a,b) => Number(!!b[1].favourite)-Number(!!a[1].favourite)).filter(([n, r]) => (recipeFilter === 'all' || recipeFilter === 'favourites' && r.favourite || r.category === recipeFilter) && normal(n + ' ' + r.ingredients.map(i => i.name).join(' ')).includes(normal(search))).map(([name, r]) => <View key={name} style={[s.recipeTile,wide && {flexBasis:'30%'}]}><Pressable accessibilityRole="button" accessibilityLabel={`View ${name}`} onPress={() => setModal({
-                type: 'recipe-detail',
-                name,
-                recipe: r
-              })}><MealPhoto name={name} recipe={r} style={{
-                  height: 145,
-                  borderRadius: 16
-                }} /><Text style={[s.h3, {
-                  marginTop: 11
-                }]}>{name}</Text><Text style={s.caption}>{titleCase(r.category || 'dinner')}{r.custom ? ' · your saved meal' : ` · serves ${r.servings || 1}`} </Text></Pressable><Pressable accessibilityRole="button" accessibilityLabel={`${r.favourite ? 'Unfavourite' : 'Favourite'} ${name}`} accessibilityState={{
-                selected: !!r.favourite
-              }} onPress={() => update(old => ({
-                ...old,
-                recipes: {
-                  ...old.recipes,
-                  [name]: {
-                    ...old.recipes[name],
-                    favourite: !r.favourite
-                  }
-                }
-              }))} style={s.favouriteButton} {...webState("pressed", !!r.favourite)}>{icon(r.favourite ? 'heart' : 'heart-outline', C.primary, 18)}<Text style={s.caption}>{r.favourite ? 'Favourite' : 'Save favourite'}</Text></Pressable></View>)}</View>
-  {!Object.entries(shop.recipes).some(([n, r]) => (recipeFilter === 'all' || recipeFilter === 'favourites' && r.favourite || r.category === recipeFilter) && normal(n + ' ' + r.ingredients.map(i => i.name).join(' ')).includes(normal(search))) && <Empty text="No meals here yet. Add a recipe or try another filter." />}</>}
-  {tab === 'Account' && <><View style={s.card}><Text style={s.h2}>Make the most of your shop</Text><Text style={s.body}>Save your own meals with their ingredients, ready to quick-select each week. Your existing plans stay in place.</Text><Button label={shop.onboarding?.phase === 'paused' ? 'Continue my setup' : 'Set up my shop'} onPress={startSetup} /><Button label="Take the app tour" secondary onPress={startTour} /></View><Heading eyebrow="YOUR ACCOUNT" title="A shop that feels like yours." /><Gemma text="Who lives here, what they like and your budget. A little detail makes the next shop easier." /><View style={s.card}><Text style={s.h2}>{session ? 'Your account' : 'Using this device'}</Text><Text style={s.body}>{session?.user?.email || 'Your plan is saved in this browser. Sign in to keep a copy with your account.'}</Text><Text accessibilityLiveRegion="polite" style={s.caption}>{status}</Text>{session ? <View style={s.wrap}><Button label="Save to account" onPress={sync} /><Button label="Sign out" secondary onPress={async () => {
+  {tab === 'Recipes' && (() => {
+    const allRecipes=Object.entries(shop.recipes);
+    const activeFilters=[recipeMealType!=='all',recipeTime!=='all',recipeDifficulty!=='all',recipeIngredientCount!=='all',recipeSort!=='recommended'].filter(Boolean).length;
+    const isLanding=!recipeCategory&&!showAllMeals&&!search.trim();
+    const categoryMeta=[
+      {id:'Quick & Easy',label:'Quick & Easy',icon:'flash-outline',text:'Simple meals with fewer ingredients and less effort.'},
+      {id:'Fakeaway',label:'Fakeaway',icon:'restaurant-outline',text:'Takeaway favourites made at home.'},
+      {id:'Kid Friendly',label:'Kid Friendly',icon:'happy-outline',text:'Easy family classics children are likely to know.'},
+      {id:'Other',label:'More Ideas',icon:'sparkles-outline',text:'Something different when you want inspiration.'}
+    ];
+    const resetFilters=()=>{setRecipeMealType('all');setRecipeTime('all');setRecipeDifficulty('all');setRecipeIngredientCount('all');setRecipeSort('recommended');setRecipeLimit(12);};
+    let visible=allRecipes.filter(([name,r])=>{
+      const saved=!!r.custom||!!r.favourite&&!r.discovery;
+      if(recipeCategory==='saved'&&!saved) return false;
+      if(recipeCategory&&recipeCategory!=='saved'&&r.collection!==recipeCategory) return false;
+      if(!recipeCategory&&!showAllMeals&&!search.trim()) return false;
+      if(recipeMealType!=='all'&&(r.category||'dinner')!==recipeMealType) return false;
+      if(recipeTime==='20'&&Number(r.minutes||999)>20) return false;
+      if(recipeTime==='30'&&Number(r.minutes||999)>30) return false;
+      if(recipeDifficulty!=='all'&&r.difficulty!==recipeDifficulty) return false;
+      if(recipeIngredientCount==='5'&&(r.ingredients||[]).length>5) return false;
+      return normal(name+' '+(r.ingredients||[]).map(i=>i.name).join(' ')).includes(normal(search));
+    });
+    visible.sort((a,b)=>{
+      if(recipeSort==='rating') return Number(b[1].rating||0)-Number(a[1].rating||0);
+      if(recipeSort==='quickest') return Number(a[1].minutes||999)-Number(b[1].minutes||999);
+      if(recipeSort==='ingredients') return (a[1].ingredients||[]).length-(b[1].ingredients||[]).length;
+      if(recipeCategory==='saved') return Number(!!b[1].favourite)-Number(!!a[1].favourite);
+      return Number(!!b[1].favourite)-Number(!!a[1].favourite)||Number(b[1].rating||0)-Number(a[1].rating||0);
+    });
+    const openCategory=id=>{setRecipeCategory(id);setShowAllMeals(false);setSearch('');setRecipeLimit(12);};
+    const openAll=()=>{setRecipeCategory(null);setShowAllMeals(true);setSearch('');setRecipeLimit(12);};
+    const backToBrowse=()=>{setRecipeCategory(null);setShowAllMeals(false);setSearch('');resetFilters();};
+    const heading=recipeCategory==='saved'?'My Meals':recipeCategory?categoryMeta.find(c=>c.id===recipeCategory)?.label||recipeCategory:showAllMeals?'All Meals':'Find a meal';
+    return <><Heading eyebrow="MEALS" title={isLanding?'What do you fancy?':heading} body={isLanding?'Choose a category first, or search everything when you already have something in mind.':undefined} />
+      <Gemma text={isLanding?'I’ve organised the recipe book so you don’t have hundreds of meals in one long list. Pick the kind of meal you want and we’ll narrow it down.':'Use search and filters to get to a short list quickly. Open a meal to see its ingredients and recipe.'} />
+      {isLanding ? <>
+        <Field label="Search all meals" value={search} onChangeText={v=>{setSearch(v);setShowAllMeals(!!v.trim());setRecipeCategory(null);setRecipeLimit(12);}} placeholder="Chicken, pasta, curry…" />
+        <View style={s.rowBetween}><Text style={[s.h2,s.flex]}>Browse by category</Text><Button label="+ Add my own meal" secondary small onPress={()=>setModal({type:'recipe'})} /></View>
+        <View style={s.categoryGrid}>
+          <Pressable accessibilityRole="button" accessibilityLabel="My Meals" onPress={()=>openCategory('saved')} style={s.categoryTile}>{icon('heart-outline',C.primary,24)}<Text style={s.categoryLabel}>My Meals</Text><Text style={s.caption}>Your saved and favourite recipes</Text></Pressable>
+          {categoryMeta.map(c=><Pressable key={c.id} accessibilityRole="button" accessibilityLabel={c.label} onPress={()=>openCategory(c.id)} style={s.categoryTile}>{icon(c.icon,C.primary,24)}<Text style={s.categoryLabel}>{c.label}</Text><Text style={s.caption}>{c.text}</Text></Pressable>)}
+          <Pressable accessibilityRole="button" accessibilityLabel="All Meals" onPress={openAll} style={s.categoryTile}>{icon('grid-outline',C.primary,24)}<Text style={s.categoryLabel}>All Meals</Text><Text style={s.caption}>See everything, then filter it down</Text></Pressable>
+        </View>
+      </> : <>
+        <View style={s.rowBetween}><Button label="‹ Categories" secondary small onPress={backToBrowse} /><Button label={activeFilters?`Filters (${activeFilters})`:'Filter'} secondary small onPress={()=>setModal({type:'meal-filters'})} /></View>
+        <Field label="Search these meals" value={search} onChangeText={v=>{setSearch(v);setRecipeLimit(12);}} placeholder="Meal or ingredient" />
+        {activeFilters>0&&<View style={s.softNote}>{icon('options-outline')}<Text style={[s.caption,s.flex]}>{activeFilters} filter{activeFilters===1?'':'s'} applied · {visible.length} meal{visible.length===1?'':'s'} found</Text><Button label="Clear" secondary small onPress={resetFilters} /></View>}
+        <View style={s.rowBetween}><Text style={[s.caption,s.flex]}>{visible.length} meal{visible.length===1?'':'s'}{showAllMeals?' across all categories':''}</Text><Button label="+ Add my own" secondary small onPress={()=>setModal({type:'recipe'})} /></View>
+        <View style={s.recipeGrid}>{visible.slice(0,recipeLimit).map(([name,r])=><View key={name} style={[s.recipeTile,wide&&{flexBasis:'30%'}]}><Pressable accessibilityRole="button" accessibilityLabel={`View ${name}`} onPress={()=>setModal({type:'recipe-detail',name,recipe:r})}><MealPhoto name={name} recipe={r} style={{height:145,borderRadius:16}} /><Text style={[s.h3,{marginTop:11}]}>{name}</Text><Text style={s.caption}>{r.collection||titleCase(r.category||'dinner')}{r.minutes?` · ${r.minutes} mins`:''}{r.difficulty?` · ${r.difficulty}`:''}</Text>{r.rating&&<Text style={s.caption}>★ {r.rating} · {r.reviewCount||0} reviews</Text>}</Pressable><Pressable accessibilityRole="button" accessibilityLabel={`${r.favourite?'Unfavourite':'Favourite'} ${name}`} accessibilityState={{selected:!!r.favourite}} onPress={()=>update(old=>({...old,recipes:{...old.recipes,[name]:{...old.recipes[name],favourite:!r.favourite}}}))} style={s.favouriteButton} {...webState('pressed',!!r.favourite)}>{icon(r.favourite?'heart':'heart-outline',C.primary,18)}<Text style={s.caption}>{r.favourite?'Quick Pick':'Save to Quick Picks'}</Text></Pressable></View>)}</View>
+        {!visible.length&&<Empty text="No meals match those choices. Clear a filter or try another search." />}
+        {visible.length>recipeLimit&&<Button label={`Show more meals (${visible.length-recipeLimit})`} secondary onPress={()=>setRecipeLimit(n=>n+12)} />}
+      </>}
+    </>;
+  })()}
+  {tab === 'Account'  {tab === 'Account' && <><View style={s.card}><Text style={s.h2}>Make the most of your shop</Text><Text style={s.body}>Save your own meals with their ingredients, ready to quick-select each week. Your existing plans stay in place.</Text><Button label={shop.onboarding?.phase === 'paused' ? 'Continue my setup' : 'Set up my shop'} onPress={startSetup} /><Button label="Take the app tour" secondary onPress={startTour} /></View><Heading eyebrow="YOUR ACCOUNT" title="A shop that feels like yours." /><Gemma text="Who lives here, what they like and your budget. A little detail makes the next shop easier." /><View style={s.card}><Text style={s.h2}>{session ? 'Your account' : 'Using this device'}</Text><Text style={s.body}>{session?.user?.email || 'Your plan is saved in this browser. Sign in to keep a copy with your account.'}</Text><Text accessibilityLiveRegion="polite" style={s.caption}>{status}</Text>{session ? <View style={s.wrap}><Button label="Save to account" onPress={sync} /><Button label="Sign out" secondary onPress={async () => {
                 const {
                   error
                 } = await supabase.auth.signOut({scope:'local'});
@@ -897,6 +934,14 @@ export default function WholeShopApp() {
       }));
       close();
     }} />}
+  {modal?.type === 'meal-filters' && <Sheet title="Filter meals" onClose={close} guidance="Choose what matters for this meal. You can combine filters, then change them whenever you like.">
+    <Text style={s.h3}>Cooking time</Text><View style={s.wrap}>{[['all','Any time'],['20','20 mins or less'],['30','30 mins or less']].map(([value,label])=><Chip key={value} label={label} active={recipeTime===value} onPress={()=>{setRecipeTime(value);setRecipeLimit(12);}} />)}</View>
+    <Text style={s.h3}>Difficulty</Text><View style={s.wrap}>{[['all','Any difficulty'],['Very easy','Very easy'],['Easy','Easy']].map(([value,label])=><Chip key={value} label={label} active={recipeDifficulty===value} onPress={()=>{setRecipeDifficulty(value);setRecipeLimit(12);}} />)}</View>
+    <Text style={s.h3}>Ingredients</Text><View style={s.wrap}><Chip label="Any number" active={recipeIngredientCount==='all'} onPress={()=>{setRecipeIngredientCount('all');setRecipeLimit(12);}} /><Chip label="5 or fewer" active={recipeIngredientCount==='5'} onPress={()=>{setRecipeIngredientCount('5');setRecipeLimit(12);}} /></View>
+    <Text style={s.h3}>Meal type</Text><View style={s.wrap}>{['all',...SLOTS].map(value=><Chip key={value} label={titleCase(value)} active={recipeMealType===value} onPress={()=>{setRecipeMealType(value);setRecipeLimit(12);}} />)}</View>
+    <Text style={s.h3}>Sort by</Text><View style={s.wrap}>{[['recommended','Recommended'],['rating','Highest rated'],['quickest','Quickest'],['ingredients','Fewest ingredients']].map(([value,label])=><Chip key={value} label={label} active={recipeSort===value} onPress={()=>setRecipeSort(value)} />)}</View>
+    <Button label="Show meals" onPress={close} /><Button label="Clear all filters" secondary onPress={()=>{setRecipeMealType('all');setRecipeTime('all');setRecipeDifficulty('all');setRecipeIngredientCount('all');setRecipeSort('recommended');setRecipeLimit(12);}} />
+  </Sheet>}
   {modal?.type === 'auth' && <AuthForm initialMode={modal.initialMode} onClose={close} />}
   {modal?.type === 'confirm' && <Confirm {...modal} onClose={close} onConfirm={modal.action} />}
   {modal?.type === 'list' && <Sheet title="Your prepared basket" onClose={close}><TextInput accessibilityLabel="Basket requirements to copy" multiline editable={false} value={preparedBasketText(shop, basket)} style={[s.input, {
