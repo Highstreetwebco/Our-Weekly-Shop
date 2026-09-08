@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
   pages: write
   id-token: write
 
@@ -37,6 +38,12 @@ jobs:
 
       - name: Export Expo web app
         run: npx expo export --platform web
+
+      - name: Wait for branch-based Pages publishing
+        timeout-minutes: 12
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node .github/scripts/wait-for-legacy-pages.cjs
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
