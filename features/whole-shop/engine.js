@@ -231,8 +231,34 @@ export function copyPreviousWeek(state) {
     decisions: {},
     stock: {},
     checked: {},
-    stage: 0
+    stage: 0,
+    planner: { day: 'Monday', view: 'week' },
+    online: {},
+    daysReviewed: []
   });
+}
+// Copy into a new week only. An existing target, even a cupboard-only check,
+// is opened intact so an easy repeat action cannot erase another saved plan.
+export function startFollowingWeek(state) {
+  const target = shiftWeek(state.week, 1);
+  if (state.weeks[target]) return { ...state, week: target };
+  const source = currentWeek(state);
+  const plan = structuredCopy(source.plan);
+  DAYS.forEach(day => { plan[day] = (plan[day] || []).map(entry => ({
+    ...entry, id: id(),
+    peopleIds: (entry.peopleIds || []).filter(pid => state.people.some(person => person.id === pid))
+  })); });
+  return changeWeek({ ...state, week: target }, {
+    plan, extras: (source.extras || []).map(item => ({...structuredCopy(item), id: id()})),
+    decisions: {}, stock: {}, checked: {}, stage: 0,
+    planner: { day: 'Monday', view: 'week' }, online: {}, daysReviewed: []
+  });
+}
+export function plannerPosition(week) {
+  return {
+    day: DAYS.includes(week.planner?.day) ? week.planner.day : 'Monday',
+    view: week.planner?.view === 'day' ? 'day' : 'week'
+  };
 }
 export function listText(state) {
   const b = makeBasket(state);

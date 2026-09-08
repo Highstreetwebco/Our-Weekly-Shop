@@ -1,12 +1,37 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {freshState,blankPlan,changeWeek,currentWeek,makeBasket,draftPlan,copyPreviousWeek,basketKey,isDue,recordPurchased,migrateLegacy,listText} from '../features/whole-shop/engine.js';
+import {freshState,blankPlan,changeWeek,currentWeek,makeBasket,draftPlan,copyPreviousWeek,startFollowingWeek,plannerPosition,basketKey,isDue,recordPurchased,migrateLegacy,listText} from '../features/whole-shop/engine.js';
 import {AISLES,aisleFor,aisleOrder,itemChoices,recentItems,addExtras,shoppingProgress,mealMatches} from '../features/whole-shop/grocery.js';
 import {testCandidates,compareTestBasket,reviewedTestQuote,preparedBasketText,retailersFor} from '../features/whole-shop/comparison.js';
 import {loadTestCatalogue} from '../features/whole-shop/retailerData.js';
 import {saveCloud} from '../features/whole-shop/storage.js';
 const household=()=>({...freshState(),week:'2026-09-07',people:[{id:'a',name:'Adult',portion_multiplier:1},{id:'c',name:'Child',portion_multiplier:.5}]});
 const milk=()=>({id:'milk',name:'Milk',quantity:1,unit:'l',repeatWeeks:1,group:'drinks'});
+
+test('next-week reuse preserves the source, resets week-specific checks and keeps household preferences',()=>{
+ let s=household(),plan=blankPlan();
+ plan.Tuesday=[{id:'original',meal:'Pizza night',mealType:'dinner',peopleIds:['a','removed'],guests:1}];
+ s=changeWeek({...s,products:{'milk|ml':{brand:'Chosen brand',keepBrand:true}},budget:'80'}, {plan,extras:[{id:'extra',name:'Soap',quantity:2,unit:'item'}],stock:{'soap|item':2},decisions:{soap:'skip'},checked:{soap:true},online:{approved:true},planner:{day:'Tuesday',view:'day'},stage:3});
+ const before=JSON.stringify(s), next=startFollowingWeek(s), w=currentWeek(next);
+ assert.equal(next.week,'2026-09-14');assert.equal(JSON.stringify(s),before);
+ assert.deepEqual(next.weeks[s.week],s.weeks[s.week]);assert.deepEqual(w.plan.Tuesday[0].peopleIds,['a']);
+ assert.notEqual(w.plan.Tuesday[0].id,'original');assert.notEqual(w.extras[0].id,'extra');
+ assert.deepEqual(w.stock,{});assert.deepEqual(w.checked,{});assert.deepEqual(w.decisions,{});assert.deepEqual(w.online,{});
+ assert.equal(w.stage,0);assert.deepEqual(plannerPosition(w),{day:'Monday',view:'week'});
+ assert.deepEqual(next.products,s.products);assert.equal(next.budget,'80');assert.equal(w.extras[0].quantity,2);
+});
+test('next-week shortcut never overwrites an existing target, including cupboard-only edits',()=>{
+ let s=household();s.weeks['2026-09-14']={...currentWeek(s),stock:{'milk|ml':200},stage:2};
+ const before=JSON.stringify(s), next=startFollowingWeek(s);
+ assert.equal(next.week,'2026-09-14');assert.deepEqual(next.weeks,s.weeks);assert.equal(JSON.stringify(s),before);
+});
+test('planner position survives saving and week changes, with safe defaults for earlier plans',()=>{
+ let s=changeWeek(household(),{planner:{day:'Friday',view:'day'}});
+ const restored=JSON.parse(JSON.stringify(s));
+ assert.deepEqual(plannerPosition(currentWeek(restored)),{day:'Friday',view:'day'});
+ assert.deepEqual(plannerPosition(currentWeek({...restored,week:'2026-09-14'})),{day:'Monday',view:'week'});
+ assert.deepEqual(plannerPosition({planner:{day:'Invalid',view:'unknown'}}),{day:'Monday',view:'week'});
+});
 
 test('meal quantities scale by eater, guest and extra portions, aggregate compatible units, subtract stock and round packs',()=>{
  let s=household(),plan=blankPlan();

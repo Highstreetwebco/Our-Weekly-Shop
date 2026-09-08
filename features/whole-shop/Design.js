@@ -3,15 +3,10 @@ import { AccessibilityInfo, Animated, Image, Modal, Platform, Pressable, StyleSh
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Ionicons from '@expo/vector-icons/Ionicons';
 export const C = {
-  bg: '#FAF8F2',
-  ink: '#173F34',
-  muted: '#52655A',
-  green: '#25674F',
-  pale: '#E7EFCB',
-  gold: '#FFD3B3',
-  line: '#DCE3D9',
-  white: '#FFFFFF',
-  danger: '#9A3D2D'
+  bg: '#F4F7FC', ink: '#202D4A', muted: '#53617C', primary: '#3155D9',
+  pale: '#E9EEFF', gold: '#FFF0BF', line: '#DCE3F0', white: '#FFFFFF',
+  danger: '#A52D42', navy: '#19377B', sky: '#DDEBFF', coral: '#FF8264',
+  coralLight: '#FFE7DF', butter: '#FFF0BF'
 };
 const native = Platform.OS !== 'web';
 export function useReducedMotion() {
@@ -95,7 +90,7 @@ export function MealPhoto({
   const source = uri && /^https:\/\//i.test(uri) ? {
     uri
   } : photos[name];
-  return source && !failed ? <Image source={source} accessibilityLabel={`${name} — ${uri ? 'meal photo' : 'serving idea'}`} onError={() => setFailed(true)} resizeMode="cover" style={[small ? d.thumbnail : d.photo, style]} /> : <View style={[small ? d.thumbnail : d.photo, d.photoFallback, style]}><Ionicons name={recipe?.category === 'breakfast' ? 'sunny-outline' : recipe?.category === 'lunch' ? 'cafe-outline' : 'restaurant-outline'} size={small ? 23 : 34} color={C.green} />{!small && <Text style={d.photoLabel}>Your household favourite</Text>}</View>;
+  return source && !failed ? <Image source={source} accessibilityLabel={`${name} — ${uri ? 'meal photo' : 'serving idea'}`} onError={() => setFailed(true)} resizeMode="cover" style={[small ? d.thumbnail : d.photo, style]} /> : <View style={[small ? d.thumbnail : d.photo, d.photoFallback, style]}><Ionicons name={recipe?.category === 'breakfast' ? 'sunny-outline' : recipe?.category === 'lunch' ? 'cafe-outline' : 'restaurant-outline'} size={small ? 23 : 34} color={C.primary} />{!small && <Text style={d.photoLabel}>A meal to make your own</Text>}</View>;
 }
 export function PageMotion({
   change,
@@ -230,8 +225,8 @@ const d = StyleSheet.create({
     gap: 12
   },
   gemma: {
-    width: 54,
-    height: 54,
+    width: 46,
+    height: 46,
     borderRadius: 27
   },
   speech: {
@@ -239,14 +234,14 @@ const d = StyleSheet.create({
     minWidth: 0,
     backgroundColor: C.white,
     borderRadius: 18,
-    borderBottomLeftRadius: 4,
+    borderBottomLeftRadius: 18,
     padding: 14,
-    minHeight: 79
+    minHeight: 68
   },
   speaker: {
     fontSize: 13,
     fontWeight: '700',
-    color: C.green,
+    color: C.primary,
     marginBottom: 4
   },
   words: {
@@ -258,7 +253,7 @@ const d = StyleSheet.create({
     width: '100%',
     height: 180,
     borderRadius: 18,
-    backgroundColor: '#EFE9DD'
+    backgroundColor: C.sky
   },
   thumbnail: {
     width: 58,
@@ -270,7 +265,7 @@ const d = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
-    backgroundColor: '#EAF0DC'
+    backgroundColor: C.pale
   },
   photoLabel: {
     fontSize: 13,
@@ -278,7 +273,7 @@ const d = StyleSheet.create({
   },
   welcomeShade: {
     flex: 1,
-    backgroundColor: 'rgba(23,63,52,.3)',
+    backgroundColor: 'rgba(25,55,123,.25)',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 20
@@ -296,7 +291,7 @@ const d = StyleSheet.create({
     fontSize: 13,
     letterSpacing: 1.6,
     fontWeight: '700',
-    color: C.green
+    color: C.primary
   },
   welcomeTitle: {
     fontSize: 29,
@@ -327,7 +322,7 @@ const d = StyleSheet.create({
   },
   welcomeButton: {
     minHeight: 48,
-    backgroundColor: C.green,
+    backgroundColor: C.primary,
     borderRadius: 14,
     padding: 14,
     alignItems: 'center'
