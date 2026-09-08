@@ -1,8 +1,9 @@
 name: Deploy web app to GitHub Pages
 
 on:
-  push:
-    branches: [main]
+  workflow_run:
+    workflows: ["pages build and deployment"]
+    types: [completed]
   workflow_dispatch:
 
 permissions:
@@ -17,10 +18,13 @@ concurrency:
 
 jobs:
   build:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          ref: main
 
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -38,12 +42,6 @@ jobs:
 
       - name: Export Expo web app
         run: npx expo export --platform web
-
-      - name: Wait for branch-based Pages publishing
-        timeout-minutes: 12
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: node .github/scripts/wait-for-legacy-pages.cjs
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
