@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../../lib/supabase';
 import { freshState, migrateLegacy } from './engine';
 import { saveCloud } from './storage';
+import { shouldStartSetup, beginSetup, validateAccountSession } from './onboarding';
 export function cacheKey(uid) {
   return `ows-whole-shop:${uid || 'guest'}`;
 }
@@ -50,6 +51,15 @@ export default function useShop() {
         }
         next = local || next;
         if (uid) {
+          // A deleted account can leave an unexpired JWT in this browser.
+          // Validate with Auth before loading or allowing writes for that identity.
+          const validIdentity = await validateAccountSession(supabase,uid);
+          if (!validIdentity) {
+            await AsyncStorage.multiRemove([cacheKey(uid),`${cacheKey(uid)}:recovery`]);
+            if (live && run === epoch.current) await load(null);
+            return;
+          }
+          if (!live || run !== epoch.current) return;
           const profile = await supabase.from('profiles').select('app_state').eq('id', uid).maybeSingle();
           if (!live || run !== epoch.current) return;
           if (profile.error) throw profile.error;
@@ -99,6 +109,9 @@ export default function useShop() {
       }
       if (!live || run !== epoch.current) return;
       loadedAt.current = Number(next.updatedAt || 0);
+      if (uid && allowCloud.current && shouldStartSetup(next)) {
+        next = {...beginSetup(next),updatedAt:Math.max(Date.now(),loadedAt.current+1)};
+      }
       setShop(next);
       setStatus(message);
       setReady(true);
@@ -169,6 +182,7 @@ export default function useShop() {
     ready,
     status,
     recovery,
+    accountConnected: allowCloud.current,
     sync: () => update(s => s)
   };
 }

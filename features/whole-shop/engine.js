@@ -1,3 +1,4 @@
+import {recipeAvoidances} from './onboarding.js';
 import { SEEDS } from './data.js';
 export const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 export const SLOTS = ['breakfast', 'lunch', 'dinner'];
@@ -186,7 +187,7 @@ export function draftPlan(state) {
   if (!state.people.length) return plan;
   if (state.usualPlan) DAYS.forEach(day => {
     SLOTS.forEach(slot => {
-      if (!(plan[day] || []).some(x => x.mealType === slot)) plan[day].push(...(state.usualPlan[day] || []).filter(x => x.mealType === slot).map(x => ({
+      if (!(plan[day] || []).some(x => x.mealType === slot)) plan[day].push(...(state.usualPlan[day] || []).filter(x => x.mealType === slot && (x.kind === 'out' || !recipeAvoidances(state.recipes[x.meal],state.preferences).length)).map(x => ({
         ...x,
         id: id(),
         peopleIds: (x.peopleIds || []).filter(pid => state.people.some(p => p.id === pid))
@@ -197,7 +198,7 @@ export function draftPlan(state) {
   Object.values(state.weeks).forEach(week => DAYS.forEach(day => (week.plan?.[day] || []).forEach(x => {
     recent[x.meal] = (recent[x.meal] || 0) + 1;
   })));
-  const recipes = Object.keys(state.recipes).filter(k => state.recipes[k].category === 'dinner' && state.recipes[k].ingredients?.length).sort((a, b) => (recent[a] || 0) - (recent[b] || 0) || Number(!!state.recipes[b].favourite) - Number(!!state.recipes[a].favourite));
+  const recipes = Object.keys(state.recipes).filter(k => state.recipes[k].category === 'dinner' && state.recipes[k].ingredients?.length && !recipeAvoidances(state.recipes[k],state.preferences).length).sort((a, b) => (recent[a] || 0) - (recent[b] || 0) || Number(!!state.recipes[b].favourite) - Number(!!state.recipes[a].favourite));
   let index = 0;
   DAYS.forEach(day => {
     if (!plan[day].some(x => x.mealType === 'dinner') && recipes.length) {

@@ -1,3 +1,4 @@
+import {recipeAvoidances} from './onboarding.js';
 import { basketKey, changeWeek, currentWeek, id, makeBasket, normal, number, quantity } from './engine.js';
 
 export const AISLES = [
@@ -108,6 +109,6 @@ export function mealMatches(state, slot) {
     const shared = ingredients.filter(([key]) => keys.has(key)).map(([,i]) => i.name);
     const atHome = ingredients.filter(([key]) => Number(stock[key]) > 0).map(([,i]) => i.name);
     const matched = ingredients.filter(([key]) => keys.has(key) || Number(stock[key]) > 0).length;
-    return { name, shared, atHome, matched, newItems: ingredients.length - matched, ratio: ingredients.length ? matched / ingredients.length : 0 };
-  }).sort((a,b) => b.ratio - a.ratio || a.newItems - b.newItems || Number(!!state.recipes[b.name].favourite) - Number(!!state.recipes[a.name].favourite) || a.name.localeCompare(b.name));
+    return { name, avoidances:recipeAvoidances(recipe,state.preferences), shared, atHome, matched, newItems: ingredients.length - matched, ratio: ingredients.length ? matched / ingredients.length : 0 };
+  }).sort((a,b) => a.avoidances.length - b.avoidances.length || b.ratio - a.ratio || a.newItems - b.newItems || Number(!!state.recipes[b.name].favourite) - Number(!!state.recipes[a.name].favourite) || a.name.localeCompare(b.name));
 }
