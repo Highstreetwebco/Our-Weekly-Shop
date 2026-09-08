@@ -1,6 +1,6 @@
 import { SEEDS } from './data.js';
 
-export const SETUP_VERSION = 1;
+export const SETUP_VERSION = 2;
 export const TOUR_TABS = ['Home', 'Week', 'Recipes', 'Basket'];
 
 export function hasShopData(shop) {
@@ -17,10 +17,10 @@ export function setupStep(shop) {
   return Number.isInteger(step) && step >= 0 && step <= 6 ? step : 0;
 }
 export function beginSetup(shop) {
-  return {...shop,onboarding:{...shop.onboarding,version:SETUP_VERSION,phase:'setup',step:shop.onboarding?.phase === 'done' ? 1 : setupStep(shop),startedAt:shop.onboarding?.startedAt || new Date().toISOString()}};
+  return {...shop,onboarding:{...shop.onboarding,version:SETUP_VERSION,flow:'recipes',phase:'setup',step:shop.onboarding?.phase === 'done' ? 1 : setupStep(shop),startedAt:shop.onboarding?.startedAt || new Date().toISOString()}};
 }
 export function moveSetup(shop, step) {
-  return {...shop,onboarding:{...shop.onboarding,version:SETUP_VERSION,phase:'setup',step:Math.max(0,Math.min(6,step))}};
+  return {...shop,onboarding:{...shop.onboarding,version:SETUP_VERSION,flow:'recipes',phase:'setup',step:Math.max(0,Math.min(6,step))}};
 }
 export function beginTour(shop) {
   return {...shop,onboarding:{...shop.onboarding,version:SETUP_VERSION,phase:'tour',tourIndex:0,setupFinishedAt:shop.onboarding?.setupFinishedAt || new Date().toISOString()}};

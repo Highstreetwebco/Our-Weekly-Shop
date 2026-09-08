@@ -1,5 +1,7 @@
 # First-run setup and app tour - 8 September 2026
 
+The question sequence below is the earlier design. The user subsequently requested a simpler [recipe-first signup](recipe-first-signup.md), which replaces the six-question setup while retaining the tour and saving behaviour.
+
 ## Research and decision
 
 Use a short, resumable sequence which produces actual household data, then explain the working app using that data. Make optional questions skippable, and let users replay the tour from Account. Do not replace the app with a slideshow or imply that supermarket ordering works today.

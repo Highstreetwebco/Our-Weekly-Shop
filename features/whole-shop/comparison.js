@@ -20,7 +20,7 @@ export function testCandidates(row, products, offers, preferences = {}) {
     const base = words(p.name.replace(testVariant,''));
     if (!wanted.length || !wanted.every(w => base.includes(w))) return [];
     const brandMatch = !row.brand || normal(row.brand) === normal(p.brand);
-    if (preferences.keepBrand && !brandMatch) return [];
+    if ((row.keepBrand ?? preferences.keepBrand) && !brandMatch) return [];
     const requestedUnit = canonicalUnit(row.unit), offeredUnit = canonicalUnit(p.pack_unit);
     const packRequest = requestedUnit === 'pack';
     if (!packRequest && requestedUnit !== offeredUnit) return [];
@@ -51,5 +51,5 @@ export function reviewedTestQuote(quote, choices = {}, approvals = {}) {
 }
 
 export function preparedBasketText(state, basket) {
-  return [`Our Weekly Shop · online basket · ${state.week}`, ...basket.toBuy.map(row => `${row.name} — ${row.need} ${row.unit}${row.brand ? ` · preferred brand: ${row.brand}` : ''}${row.notes ? ` · ${row.notes}` : ''}${state.products[row.key]?.keepBrand ? ' · keep this brand' : ''}`), 'Prepared requirements. Retailer products, prices and availability still need confirmation.'].join('\n');
+  return [`Our Weekly Shop · online basket · ${state.week}`, ...basket.toBuy.map(row => `${row.name} — ${row.need} ${row.unit}${row.brand ? ` · preferred brand: ${row.brand}` : ''}${row.notes ? ` · ${row.notes}` : ''}${row.keepBrand ? ' · keep this brand' : ''}${row.amountEstimated ? ' · suggested amount, check before ordering' : ''}`), 'Prepared requirements. Retailer products, prices and availability still need confirmation.'].join('\n');
 }
