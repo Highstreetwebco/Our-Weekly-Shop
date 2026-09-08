@@ -446,7 +446,7 @@ export default function WholeShopApp() {
       y: 0,
       animated: false
     });
-  }, [tab, activeDay, overview, shop.week, shop.onboarding?.step]);
+  }, [tab, activeDay, overview, shop.week, shop.onboarding?.step, setupActive, touring]);
   useEffect(() => {
     setUndo(null);
   }, [shop.week, session?.user?.id]);
@@ -827,7 +827,7 @@ export default function WholeShopApp() {
   <Text accessibilityLiveRegion="polite" style={s.saveStatus}>{status}</Text>
   </>}
   </PageMotion>
-  </ScrollView>{touring && <TourGuide {...{shop,update,Button}} onDone={() => setTab('Home')} />}{!setupActive && undo && <View style={s.undoBar}><Text accessibilityLiveRegion="polite" style={[s.caption, s.flex]}>{undo.label}</Text><Button label="Undo" small secondary onPress={() => {
+  </ScrollView>{touring && <TourGuide {...{shop,update,Button}} onDone={() => setTab('Home')} />}{!setupActive && !touring && undo && <View style={s.undoBar}><Text accessibilityLiveRegion="polite" style={[s.caption, s.flex]}>{undo.label}</Text><Button label="Undo" small secondary onPress={() => {
         undo.action();
         setUndo(null);
       }} /><Pressable accessibilityRole="button" accessibilityLabel="Dismiss undo" onPress={() => setUndo(null)} style={s.iconButton}>{icon('close-outline', C.muted, 18)}</Pressable></View>}{!setupActive && <SafeAreaView edges={['bottom']} style={s.navSafe}><View style={s.nav}>{[['Home','home-outline','Home'],['Week','calendar-outline','Plan'],['Recipes','restaurant-outline','Meals'],['Basket','basket-outline','Basket']].map(([name,i,label]) => {
