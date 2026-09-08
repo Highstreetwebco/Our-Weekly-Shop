@@ -16,7 +16,7 @@ const starter={
 'Chicken burgers':{emoji:'🍔',category:'dinner',servings:4,ingredients:[{name:'Chicken burgers',quantity:4,unit:'items'},{name:'Burger buns',quantity:4,unit:'items'},{name:'Oven chips',quantity:1,unit:'bag'}]},
 'Salmon & broccoli':{emoji:'🐟',category:'dinner',servings:2,ingredients:[{name:'Salmon fillets',quantity:2,unit:'items'},{name:'Broccoli',quantity:1,unit:'head'},{name:'New potatoes',quantity:500,unit:'g'}]}
 };
-export const SEEDS={...starter,...DISCOVERY_MEALS};
+export const SEEDS={...DISCOVERY_MEALS,...starter};
 export const GROUPS=[
 {id:'breakfast',label:'Breakfasts',icon:'sunny-outline',examples:['Cereal','Bread','Porridge oats']},
 {id:'lunch',label:'Lunches',icon:'restaurant-outline',examples:['Wraps','Ham','Soup']},
