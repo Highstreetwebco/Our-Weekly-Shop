@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../../lib/supabase';
 import { freshState, migrateLegacy } from './engine';
+import { SEEDS } from './data';
 import { saveCloud } from './storage';
 import { shouldStartSetup, beginSetup, validateAccountSession } from './onboarding';
 export function cacheKey(uid) {
@@ -108,6 +109,18 @@ export default function useShop() {
         message = local ? 'Device copy loaded. Account sync unavailable.' : 'Account could not be loaded. Changes will stay on this device.';
       }
       if (!live || run !== epoch.current) return;
+
+      // Keep the built-in meal library available to every account, including
+      // accounts created before new discovery recipes were added. User recipes
+      // always win when a meal name matches a built-in option.
+      next = {
+        ...next,
+        recipes: {
+          ...SEEDS,
+          ...(next.recipes || {})
+        }
+      };
+
       loadedAt.current = Number(next.updatedAt || 0);
       if (uid && allowCloud.current && shouldStartSetup(next)) {
         next = {...beginSetup(next),updatedAt:Math.max(Date.now(),loadedAt.current+1)};
