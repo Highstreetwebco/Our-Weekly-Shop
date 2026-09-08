@@ -1,31 +1,34 @@
 # Our Weekly Shop
 
-**Your weekly shop, sorted.** An Expo mobile app that learns a household's meals, regular essentials and likely stock to make weekly planning genuinely quick.
+Plan the household's meals, regular essentials and one combined weekly shopping list.
 
-## Family testing
+[Open the app](https://highstreetwebco.github.io/Our-Weekly-Shop/)
 
-The latest web preview is automatically deployed from `main` to:
+## Whole-household shopping
 
-**https://highstreetwebco.github.io/Our-Weekly-Shop/**
+- Home, Week, Basket, Recipes and Account tabs.
+- A guided flow: meals → usual groceries and household items → stock check → shopping list.
+- Breakfast, lunch and dinner plans with different eaters, adjustable portions, guests, extra servings and repeated days.
+- Editable recipes, favourites, a usual-week template and copying an earlier week.
+- Regular groceries, cleaning, toiletries, baby/pet supplies and one-time extras.
+- Recurring-item intervals with per-week include/skip choices.
+- Combined ingredient quantities, confirmed stock deductions and whole-pack rounding.
+- Optional entered prices, clearly labelled partial totals and a weekly budget.
+- Copy/share the list, open a retailer, tick bought items and explicitly record the shop.
 
-On iPhone, open the link in Safari, tap **Share**, then **Add to Home Screen**. On Android, open it in Chrome and choose **Install app** or **Add to Home screen**.
+Plans work on the device without signing in. Supabase accounts store a copy under the profile owner's RLS-protected `app_state.wholeShop`; old profile fields are preserved. Old household records and recipes are read for migration. Importing earlier unscoped device data requires an explicit choice. This release does not implement live shared editing across separate family accounts.
 
-## Version 0.1
+Retailer prices, automatic basket transfer, retailer account linking, checkout, full pantry/expiry tracking and AI dietary advice are not implemented. See [research and design decisions](docs/whole-shop-research.md).
 
-- A calm, five-tab mobile experience: Home, My Week, Shop, At Home and More.
-- Example household with reusable dinners, a weekly plan, use-soon items and one combined shopping list.
-- Add anything to the shop—food, batteries, toiletries or household items.
-- Mark meals cooked and tick off shopping items.
-- Supabase-ready client and a secure, household-scoped database migration.
+## Run and verify
 
-## Run locally
+1. `npm ci --legacy-peer-deps`
+2. Optionally set `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` for your own project. The default public client configuration points at the existing Our Weekly Shop project. Never use a service-role key in the app.
+3. `npm start` or `npm run web`
+4. `npm test`, `npm run typecheck`, `npx expo export --platform web`
 
-1. `npm install`
-2. Copy `.env.example` to `.env` and add the Supabase URL and publishable key once the new project has been created.
-3. `npx expo start`
+The app entry is `features/whole-shop/WholeShopApp.js`. Previous prototypes are retained under `snack/` for reference.
 
-Until the environment variables are present, the app intentionally runs with the included demo household so the UX can be reviewed straight away.
+## Publishing
 
-## What comes next
-
-The next build increment connects authentication, saved meals, shared households, weekly plans and shopping-list items to Supabase. Live supermarket prices, retailer account connection and checkout are deliberately not included in version 0.1.
+The Pages workflow builds and deploys `main` after running the tests. Set repository **Settings → Pages → Build and deployment → Source → GitHub Actions**. Branch-based Jekyll publishing can otherwise replace the app with this README.

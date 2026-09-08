@@ -26,11 +26,11 @@ jobs:
         with:
           node-version: 22
 
-      - name: Install Expo-compatible dependencies
-        run: |
-          npm install
-          npm_config_legacy_peer_deps=true npx expo install --fix
-          npm_config_legacy_peer_deps=true npx expo install expo-linking expo-constants
+      - name: Install locked dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Test shopping calculations and saves
+        run: npm test
 
       - name: Type-check app
         run: npm run typecheck
