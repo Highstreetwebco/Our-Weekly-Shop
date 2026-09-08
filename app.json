@@ -7,8 +7,8 @@
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
-    "backgroundColor": "#FAF8F2",
-    "primaryColor": "#25674F",
+    "backgroundColor": "#F4F7FC",
+    "primaryColor": "#3155D9",
     "icon": "./assets/brand/logo-master.png",
     "githubUrl": "https://github.com/Highstreetwebco/Our-Weekly-Shop",
     "plugins": ["expo-router"],
@@ -22,8 +22,8 @@
       "startUrl": "./",
       "display": "standalone",
       "orientation": "portrait",
-      "themeColor": "#25674F",
-      "backgroundColor": "#FAF8F2",
+      "themeColor": "#3155D9",
+      "backgroundColor": "#F4F7FC",
       "description": "Plan meals, organise the household shop and keep the weekly basket on budget."
     },
     "experiments": {
