@@ -1,11 +1,11 @@
-import {SEEDS} from './data.js';
+import {SEEDS,STARTER_SEEDS} from './data.js';
 
 const key = value => String(value || '').trim().toLowerCase().replace(/[’]/g,"'").replace(/\s+/g,' ');
 const round = value => Math.round(value * 100) / 100;
 const units = {items:'item',slices:'slice',packs:'pack',tins:'tin',jars:'jar',heads:'head'};
 
 // Planning estimates, not nutrition targets or retailer pack sizes. Prefer the
-// existing starter recipe for the same meal type before these generic defaults.
+// original starter recipes so adding discovery content never changes shopping maths.
 const defaults = [
   [/^(pasta|penne|penne pasta|spaghetti|linguine|fusilli|macaroni|noodles)$/,100,'g'],
   [/^(rice|basmati rice|long grain rice|brown rice|couscous)$/,75,'g'],
@@ -29,14 +29,12 @@ const defaults = [
   [/^(yoghurt|yogurt|greek yoghurt)$/,150,'g']
 ];
 export function estimateIngredient(name, category='dinner') {
-  const exact = Object.values(SEEDS).filter(r=>r.category===category).flatMap(r=>r.ingredients.filter(i=>key(i.name)===key(name)).map(i=>({quantity:round(i.quantity/r.servings),unit:units[i.unit]||i.unit})));
+  const exact = Object.values(STARTER_SEEDS).filter(r=>r.category===category).flatMap(r=>r.ingredients.filter(i=>key(i.name)===key(name)).map(i=>({quantity:round(i.quantity/r.servings),unit:units[i.unit]||i.unit})));
   if(exact.length) return {...exact[0],amountEstimated:true,amountBasis:'starter-recipe'};
   const rule=defaults.find(([pattern])=>pattern.test(key(name)));
   if(rule) return {quantity:rule[1],unit:rule[2],amountEstimated:true,amountBasis:'planning-default'};
-  const other=Object.values(SEEDS).flatMap(r=>r.ingredients.filter(i=>key(i.name)===key(name)).map(i=>({quantity:round(i.quantity/r.servings),unit:units[i.unit]||i.unit})));
+  const other=Object.values(STARTER_SEEDS).flatMap(r=>r.ingredients.filter(i=>key(i.name)===key(name)).map(i=>({quantity:round(i.quantity/r.servings),unit:units[i.unit]||i.unit})));
   if(other.length) return {...other[0],amountEstimated:true,amountBasis:'starter-recipe'};
-  // Unknown ingredients still save. One item per cooking occasion is a visible
-  // placeholder for review, never an invented gram amount or a pack conversion.
   return {quantity:1,unit:'item',amountEstimated:true,amountBasis:'needs-review',perMeal:true};
 }
 export function productPreference(shop, row) {
