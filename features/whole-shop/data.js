@@ -1,6 +1,6 @@
 import {DISCOVERY_MEALS} from './discoveryMeals.js';
 
-const starter={
+export const STARTER_SEEDS={
 'Tomato & basil pasta':{category:'dinner',servings:2,emoji:'🍝',ingredients:[{name:'Penne pasta',quantity:200,unit:'g'},{name:'Chopped tomatoes',quantity:1,unit:'tin'},{name:'Parmesan',quantity:50,unit:'g'},{name:'Fresh basil',quantity:10,unit:'g'}]},
 'Porridge & berries':{emoji:'🥣',category:'breakfast',servings:2,ingredients:[{name:'Porridge oats',quantity:100,unit:'g'},{name:'Milk',quantity:400,unit:'ml'},{name:'Mixed berries',quantity:120,unit:'g'}]},
 'Cereal & milk':{emoji:'🥛',category:'breakfast',servings:2,ingredients:[{name:'Cereal',quantity:80,unit:'g'},{name:'Milk',quantity:300,unit:'ml'}]},
@@ -16,7 +16,7 @@ const starter={
 'Chicken burgers':{emoji:'🍔',category:'dinner',servings:4,ingredients:[{name:'Chicken burgers',quantity:4,unit:'items'},{name:'Burger buns',quantity:4,unit:'items'},{name:'Oven chips',quantity:1,unit:'bag'}]},
 'Salmon & broccoli':{emoji:'🐟',category:'dinner',servings:2,ingredients:[{name:'Salmon fillets',quantity:2,unit:'items'},{name:'Broccoli',quantity:1,unit:'head'},{name:'New potatoes',quantity:500,unit:'g'}]}
 };
-export const SEEDS={...DISCOVERY_MEALS,...starter};
+export const SEEDS={...DISCOVERY_MEALS,...STARTER_SEEDS};
 export const GROUPS=[
 {id:'breakfast',label:'Breakfasts',icon:'sunny-outline',examples:['Cereal','Bread','Porridge oats']},
 {id:'lunch',label:'Lunches',icon:'restaurant-outline',examples:['Wraps','Ham','Soup']},
