@@ -9,6 +9,9 @@ import { GROUPS, RETAILERS } from './data';
 import { DAYS, SLOTS, id, number, normal, currentWeek, changeWeek, makeBasket, draftPlan, copyPreviousWeek, listText, labelWeek, shiftWeek, portions, isDue, selectedEssentials, structuredCopy, migrateLegacy, recordPurchased } from './engine';
 import { C, Gemma, MealPhoto, PageMotion, WelcomeIntro, useReducedMotion } from './Design';
 const STEPS = ['Meals', 'Usuals', 'At home', 'Shop'];
+const webState = (name, value) => Platform.OS === 'web' ? {
+  [`aria-${name}`]: value
+} : {};
 const titleCase = s => s.charAt(0).toUpperCase() + s.slice(1);
 const icon = (name, color = C.green, size = 20) => <Ionicons name={name} size={size} color={color} />;
 function Button({
@@ -39,7 +42,7 @@ function Chip({
 }) {
   return <Pressable accessibilityRole="button" accessibilityState={{
     selected: !!active
-  }} onPress={onPress} style={[s.chip, active && s.chipActive]}><Text style={[s.chipText, active && {
+  }} onPress={onPress} style={[s.chip, active && s.chipActive]} {...webState("pressed", !!active)}><Text style={[s.chipText, active && {
       color: C.white
     }]}>{label}</Text></Pressable>;
 }
@@ -169,7 +172,7 @@ function MealForm({
             setMeal(n);
             setStep(1);
             setError('');
-          }} style={[s.recipePick, meal === n && s.recipePickOn]}><MealPhoto name={n} recipe={shop.recipes[n]} style={{
+          }} style={[s.recipePick, meal === n && s.recipePickOn]} {...webState("pressed", meal === n)}><MealPhoto name={n} recipe={shop.recipes[n]} style={{
               height: 108,
               borderRadius: 13
             }} /><Text style={s.h3}>{n}</Text><Text style={s.caption}>{shop.recipes[n].ingredients.length} ingredients</Text></Pressable>)}</View>{!names.length && <Empty text="No meals match yet. Save your recipe below." />}<Button label="Create a meal" secondary onPress={onRecipe} /></>}
@@ -178,7 +181,11 @@ function MealForm({
             peopleIds: people,
             guests: Number(guests),
             extraPortions: Number(extra)
-          }, shop.people))} recipe portions</Text></> : <Text style={s.h2}>Eating out or already sorted</Text>}</>}
+          }, shop.people))} recipe portion{number(portions({
+            peopleIds: people,
+            guests: Number(guests),
+            extraPortions: Number(extra)
+          }, shop.people)) === 1 ? '' : 's'}</Text></> : <Text style={s.h2}>Eating out or already sorted</Text>}</>}
     {step === 2 && <><Text style={s.h2}>{kind === 'out' ? 'Already sorted' : meal}</Text><Text style={s.caption}>{entry ? 'Choose the day to move this meal to.' : 'Select every day you want this meal.'}</Text><View style={s.wrap}>{DAYS.map(d => <Chip key={d} label={d.slice(0, 3)} active={days.includes(d)} onPress={() => setDays(entry ? [d] : toggle(days, d))} />)}</View></>}
     <ErrorText error={error} /><View style={s.row}>{step > 0 && <Button label="Back" secondary onPress={() => {
         setStep(step - 1);
@@ -368,6 +375,11 @@ export default function WholeShopApp() {
     [store, setStore] = useState(RETAILERS[0]);
   const scroll = useRef(null);
   useEffect(() => {
+    if (!notice) return;
+    const timer = setTimeout(() => setNotice(''), 6000);
+    return () => clearTimeout(timer);
+  }, [notice]);
+  useEffect(() => {
     scroll.current?.scrollTo({
       y: 0,
       animated: false
@@ -427,7 +439,7 @@ export default function WholeShopApp() {
       }
     }));
     setUndo({
-      label: amount >= row.required ? `${row.name} is covered at home` : `${row.name} is on your shop`,
+      label: amount >= row.required ? `${row.name}: already at home` : `${row.name}: on your shop`,
       action: () => editWeek(old => {
         const stock = {
           ...old.stock
@@ -570,7 +582,7 @@ export default function WholeShopApp() {
   {tab === 'Week' && <>
     <View style={s.stepper}>{STEPS.map((label, i) => <Pressable key={label} accessibilityRole="button" accessibilityLabel={`Step ${i + 1}: ${label}`} accessibilityState={{
               selected: stage === i
-            }} onPress={() => goStep(i)} style={[s.step, stage === i && s.stepCurrent]}><Text style={[s.stepLabel, stage === i && {
+            }} onPress={() => goStep(i)} style={[s.step, stage === i && s.stepCurrent]} {...webState("pressed", stage === i)}><Text style={[s.stepLabel, stage === i && {
                 color: C.green
               }]}>{i + 1} · {label}</Text></Pressable>)}</View>
     <Heading eyebrow={['YOUR WEEK, MADE EASIER', 'YOUR REGULAR ESSENTIALS', 'A QUICK CUPBOARD CHECK', 'READY WHEN YOU ARE'][stage]} title={!shop.people.length && stage === 0 ? 'Let’s start with your people.' : [overview ? 'Your week at a glance.' : `${activeDay}, made easy.`, 'And the rest of the house.', 'Already got enough?', 'Your shop, sorted.'][stage]} />
@@ -587,7 +599,7 @@ export default function WholeShopApp() {
                 }} onPress={() => {
                   setActiveDay(day);
                   setOverview(false);
-                }} style={[s.dayPill, activeDay === day && !overview && s.dayPillOn]}><Text style={[s.dayText, activeDay === day && !overview && {
+                }} style={[s.dayPill, activeDay === day && !overview && s.dayPillOn]} {...webState("pressed", activeDay === day && !overview)}><Text style={[s.dayText, activeDay === day && !overview && {
                     color: C.white
                   }]}>{day.slice(0, 3)}</Text><View style={[s.dayDot, (w.plan[day].length > 0 || w.daysReviewed?.includes(day)) && {
                     backgroundColor: activeDay === day && !overview ? C.gold : C.green
@@ -632,7 +644,7 @@ export default function WholeShopApp() {
     {stage === 1 && <>
       <View style={s.categoryGrid}>{GROUPS.map(g => <Pressable key={g.id} accessibilityRole="button" accessibilityLabel={g.label} accessibilityState={{
                 selected: group === g.id
-              }} onPress={() => setGroup(g.id)} style={[s.categoryTile, group === g.id && s.categoryOn]}>{icon(g.icon, C.green, 22)}<Text style={s.categoryLabel}>{g.label}</Text></Pressable>)}</View>
+              }} onPress={() => setGroup(g.id)} style={[s.categoryTile, group === g.id && s.categoryOn]} {...webState("pressed", group === g.id)}>{icon(g.icon, C.green, 22)}<Text style={s.categoryLabel}>{g.label}</Text></Pressable>)}</View>
       <View style={s.rowBetween}><Text style={[s.h2, s.flex]}>{GROUPS.find(g => g.id === group).label}</Text><Button label="+ Add usual" secondary small onPress={() => setModal({
                 type: 'item',
                 usual: true,
@@ -645,7 +657,7 @@ export default function WholeShopApp() {
                     ...old.decisions,
                     [item.id]: selected.has(item.id) ? 'skip' : 'add'
                   }
-                }))} style={[s.row, s.flex]}><View style={[s.usualCheck, selected.has(item.id) && s.checkboxOn]}>{icon(selected.has(item.id) ? 'checkmark' : 'add-outline', selected.has(item.id) ? C.white : C.green, 18)}</View><View style={s.flex}><Text style={s.h3}>{item.name}</Text><Text style={s.caption}>{item.quantity} {item.unit}{item.brand ? ` · ${item.brand}` : ''}</Text><Text style={s.fine}>{selected.has(item.id) ? 'In this week’s shop' : isDue(item, shop.week) ? 'Skipped this week' : 'Not due yet'}</Text></View></Pressable><Button label="Edit" accessibilityLabel={`Edit usual ${item.name}`} small secondary onPress={() => setModal({
+                }))} style={[s.row, s.flex]} {...webState("checked", selected.has(item.id))}><View style={[s.usualCheck, selected.has(item.id) && s.checkboxOn]}>{icon(selected.has(item.id) ? 'checkmark' : 'add-outline', selected.has(item.id) ? C.white : C.green, 18)}</View><View style={s.flex}><Text style={s.h3}>{item.name}</Text><Text style={s.caption}>{item.quantity} {item.unit}{item.brand ? ` · ${item.brand}` : ''}</Text><Text style={s.fine}>{selected.has(item.id) ? 'In this week’s shop' : isDue(item, shop.week) ? 'Skipped this week' : 'Not due yet'}</Text></View></Pressable><Button label="Edit" accessibilityLabel={`Edit usual ${item.name}`} small secondary onPress={() => setModal({
                   type: 'item',
                   usual: true,
                   item
@@ -658,7 +670,7 @@ export default function WholeShopApp() {
                   name: n
                 }
               })} />)}</View>
-      <View style={s.softNote}>{icon('checkmark-circle-outline')}<Text accessibilityLiveRegion="polite" style={[s.caption, s.flex]}>{selected.size} regular items included across your household</Text></View>
+      <View style={s.softNote}>{icon('checkmark-circle-outline')}<Text accessibilityLiveRegion="polite" style={[s.caption, s.flex]}>{selected.size} regular item{selected.size === 1 ? '' : 's'} included across your household</Text></View>
       <Button label="Next: a quick cupboard check →" onPress={() => goStep(2)} />
     </>}
     {stage === 2 && <>
@@ -715,7 +727,7 @@ export default function WholeShopApp() {
                     favourite: !r.favourite
                   }
                 }
-              }))} style={s.favouriteButton}>{icon(r.favourite ? 'heart' : 'heart-outline', C.green, 18)}<Text style={s.caption}>{r.favourite ? 'Favourite' : 'Save favourite'}</Text></Pressable></View>)}</View>
+              }))} style={s.favouriteButton} {...webState("pressed", !!r.favourite)}>{icon(r.favourite ? 'heart' : 'heart-outline', C.green, 18)}<Text style={s.caption}>{r.favourite ? 'Favourite' : 'Save favourite'}</Text></Pressable></View>)}</View>
   {!Object.entries(shop.recipes).some(([n, r]) => (recipeFilter === 'all' || recipeFilter === 'favourites' && r.favourite || r.category === recipeFilter) && normal(n + ' ' + r.ingredients.map(i => i.name).join(' ')).includes(normal(search))) && <Empty text="No meals here yet. Add a recipe or try another filter." />}</>}
   {tab === 'Account' && <><Heading eyebrow="YOUR ACCOUNT" title="A shop that feels like yours." /><Gemma text="Who lives here, what they like and your budget. A little detail makes the next shop easier." /><View style={s.card}><Text style={s.h2}>{session ? 'Your account' : 'Using this device'}</Text><Text style={s.body}>{session?.user?.email || 'Your plan is saved in this browser. Sign in to keep a copy with your account.'}</Text><Text accessibilityLiveRegion="polite" style={s.caption}>{status}</Text>{session ? <View style={s.wrap}><Button label="Save to account" onPress={sync} /><Button label="Sign out" secondary onPress={async () => {
                 const {
@@ -734,7 +746,7 @@ export default function WholeShopApp() {
                 update(recovery);
                 close();
               }
-            })} /></View>}<View style={s.card}><Text style={s.h2}>Who are we shopping for?</Text>{shop.people.map(p => <View key={p.id} style={s.rowBetween}><View style={s.flex}><Text style={s.h3}>{p.name}</Text><Text style={s.caption}>{p.role || 'Adult'} · {p.portion_multiplier ?? 1} recipe portions</Text></View><Button label="Edit" accessibilityLabel={`Edit ${p.name}`} small secondary onPress={() => openPerson(p)} /></View>)}{!shop.people.length && <Text style={s.body}>Add the people you shop for to calculate meal quantities.</Text>}<Button label="Add a person" secondary onPress={() => openPerson()} /></View>
+            })} /></View>}<View style={s.card}><Text style={s.h2}>Who are we shopping for?</Text>{shop.people.map(p => <View key={p.id} style={s.rowBetween}><View style={s.flex}><Text style={s.h3}>{p.name}</Text><Text style={s.caption}>{p.role || 'Adult'} · {p.portion_multiplier ?? 1} recipe portion{Number(p.portion_multiplier ?? 1) === 1 ? '' : 's'}</Text></View><Button label="Edit" accessibilityLabel={`Edit ${p.name}`} small secondary onPress={() => openPerson(p)} /></View>)}{!shop.people.length && <Text style={s.body}>Add the people you shop for to calculate meal quantities.</Text>}<Button label="Add a person" secondary onPress={() => openPerson()} /></View>
   <View style={s.card}><Field label="Weekly budget (£, optional)" value={shop.budget} numeric onChangeText={budget => update(old => ({
               ...old,
               budget
@@ -777,7 +789,7 @@ export default function WholeShopApp() {
           Basket: 'Shop'
         }[name]} tab`} accessibilityState={{
           selected: tab === name
-        }} onPress={() => name === 'Week' ? goStep(0) : setTab(name)} style={[s.navItem, tab === name && s.navActive]}>{icon(i, tab === name ? C.green : C.muted, 22)}<Text style={[s.navLabel, tab === name && {
+        }} onPress={() => name === 'Week' ? goStep(0) : setTab(name)} style={[s.navItem, tab === name && s.navActive]} {...webState("pressed", tab === name)}>{icon(i, tab === name ? C.green : C.muted, 22)}<Text style={[s.navLabel, tab === name && {
             color: C.green,
             fontWeight: '700'
           }]}>{{
@@ -911,7 +923,7 @@ function BasketContent({
           transform: [{
             scale: .92
           }]
-        }]}>{w.checked[row.key] && icon('checkmark', C.white, 20)}</Pressable><Pressable accessibilityRole="button" accessibilityLabel={`Details for ${row.name}`} onPress={() => setModal({
+        }]} {...webState("checked", !!w.checked[row.key])}>{w.checked[row.key] && icon('checkmark', C.white, 20)}</Pressable><Pressable accessibilityRole="button" accessibilityLabel={`Details for ${row.name}`} onPress={() => setModal({
           type: 'product',
           row
         })} style={s.flex}><Text style={[s.h3, w.checked[row.key] && {
