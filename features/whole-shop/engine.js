@@ -168,6 +168,7 @@ export function makeBasket(state) {
       packSize,
       subtotal,
       brand: product.brand || row.brand,
+      notes: product.notes || '',
       price
     };
   }).sort((a, b) => a.name.localeCompare(b.name));
@@ -235,7 +236,7 @@ export function copyPreviousWeek(state) {
 }
 export function listText(state) {
   const b = makeBasket(state);
-  return [`Our Weekly Shop · week of ${labelWeek(state.week)}`, ...b.toBuy.map(i => `☐ ${i.name}${i.brand ? ` (${i.brand})` : ''} — ${i.packs != null ? `${i.packs} × ${i.packSize || 1} ${i.unit}` : `${i.need} ${i.unit}`}`), b.unpriced ? `Prices still needed for ${b.unpriced} items.` : `Entered prices: £${b.total.toFixed(2)} (before delivery).`, ...b.issues].join('\n');
+  return [`Our Weekly Shop · week of ${labelWeek(state.week)}`, ...b.toBuy.map(i => `${currentWeek(state).checked[i.key] ? '☑' : '☐'} ${i.name}${i.brand ? ` (${i.brand})` : ''} — ${i.packs != null ? `${i.packs} × ${i.packSize || 1} ${i.unit}` : `${i.need} ${i.unit}`}${i.notes ? ` · ${i.notes}` : ''}`), b.unpriced ? `Prices still needed for ${b.unpriced} items.` : `Entered prices: £${b.total.toFixed(2)} (before delivery).`, ...b.issues].join('\n');
 }
 // Import copies of old data; never remove or rewrite legacy storage keys.
 export function migrateLegacy(raw = {}, family = [], multi = {}) {
@@ -346,8 +347,9 @@ export function recordPurchased(state) {
       date: new Date().toISOString(),
       items: bought.map(i => ({
         name: i.name,
-        quantity: i.need,
-        unit: i.unit
+        quantity: i.packs != null ? number(i.packs * (i.packSize || 1)) : i.need,
+        unit: i.unit,
+        brand: i.brand
       })),
       knownTotal: number(bought.reduce((n, i) => n + (i.subtotal || 0), 0))
     }, ...state.history].slice(0, 52)

@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {freshState,blankPlan,changeWeek,currentWeek,makeBasket,draftPlan,copyPreviousWeek,basketKey,isDue,recordPurchased,migrateLegacy} from '../features/whole-shop/engine.js';
+import {freshState,blankPlan,changeWeek,currentWeek,makeBasket,draftPlan,copyPreviousWeek,basketKey,isDue,recordPurchased,migrateLegacy,listText} from '../features/whole-shop/engine.js';
+import {AISLES,aisleFor,aisleOrder,itemChoices,recentItems,addExtras,shoppingProgress,mealMatches} from '../features/whole-shop/grocery.js';
 import {saveCloud} from '../features/whole-shop/storage.js';
 const household=()=>({...freshState(),week:'2026-09-07',people:[{id:'a',name:'Adult',portion_multiplier:1},{id:'c',name:'Child',portion_multiplier:.5}]});
 const milk=()=>({id:'milk',name:'Milk',quantity:1,unit:'l',repeatWeeks:1,group:'drinks'});
@@ -64,4 +65,38 @@ test('account save does not claim success after a concurrent change or a denied 
  const old={app_state:{},updated_at:'time'};
  await assert.rejects(saveCloud(clientFor(old,{race:true}),'owner',{updatedAt:9},0),/changed while saving/);
  await assert.rejects(saveCloud(clientFor(old,{denied:true}),'owner',{updatedAt:9},0),/permission denied/);
+});
+
+test('aisles recognise whole-household items and preserve an explicit correction',()=>{
+ for(const [name,aisle] of [['Milk','dairy'],['Baby milk formula','baby'],['Frozen chicken','frozen'],['Chicken breast','meat'],['Cat food','pets'],['Chopped tomatoes','cupboard'],['Tomatoes','produce'],['Toilet roll','care'],['Washing liquid','home'],['Birthday candles','other']]) assert.equal(aisleFor({name,unit:'pack'}),aisle,name);
+ assert.equal(aisleFor({name:'Garlic bread',unit:'pack'},{'garlic bread|pack':{aisle:'frozen'}}),'frozen');
+ const order=aisleOrder(['home','home','deleted','dairy']);assert.deepEqual(order.slice(0,2),['home','dairy']);assert.equal(order.length,AISLES.length);
+});
+test('quick-add merges compatible extra quantities, keeps other units separate and resets affected bought ticks',()=>{
+ let s=changeWeek(household(),{extras:[{id:'keep',name:'Milk',quantity:500,unit:'ml'},{id:'other',name:'Milk',quantity:1,unit:'pack'}],stock:{'milk|ml':200},checked:{'milk|ml':true,'milk|pack':true}});
+ const before=JSON.stringify(s);const added=addExtras(s,[{name:' MILK ',quantity:1,unit:'l'},{name:'Milk',quantity:250,unit:'ml'},{name:'Batteries',quantity:1,unit:'pack'}]);
+ const week=currentWeek(added);assert.equal(week.extras.length,3);assert.equal(week.extras[0].id,'keep');assert.equal(week.extras[0].quantity,1750);assert.equal(week.checked['milk|ml'],false);assert.equal(week.checked['milk|pack'],true);assert.equal(week.stock['milk|ml'],200);assert.deepEqual(week.plan,currentWeek(s).plan);assert.equal(JSON.stringify(s),before);
+ assert.throws(()=>addExtras(s,[{name:'Milk',quantity:Infinity,unit:'ml'}]),/above zero/);
+ assert.throws(()=>addExtras(s,[{name:'Milk',quantity:-1,unit:'ml'}]),/above zero/);
+});
+test('buy-again uses the latest purchase and remembers the actual rounded pack amount and brand',()=>{
+ let s=changeWeek(household(),{extras:[{name:'Milk',quantity:200,unit:'ml'}],checked:{'milk|ml':true}});
+ s.products={'milk|ml':{packSize:1000,price:1.65,brand:'Own brand',notes:'Unsweetened'}};
+ s.history=[{id:'older',items:[{name:'Milk',quantity:500,unit:'ml'},{name:'Soap',quantity:1,unit:'item'}]}];
+ const saved=recordPurchased(s), recent=recentItems(saved);assert.equal(recent.length,2);assert.equal(recent[0].quantity,1000);assert.equal(recent[0].brand,'Own brand');
+ assert.equal(itemChoices(saved,'mi',true).length,1);assert.equal(itemChoices(saved,'cat food').some(i=>i.aisle==='pets'),true);assert.equal(itemChoices(household(),'Milk')[0].quantity,1000);
+});
+test('shopping progress separates bought costs and unknown prices without counting cupboard items',()=>{
+ let s=changeWeek(household(),{extras:[{name:'Milk',quantity:1500,unit:'ml'},{name:'Batteries',quantity:1,unit:'pack'},{name:'Soap',quantity:1,unit:'item'}],stock:{'soap|item':1},checked:{'milk|ml':true,'batteries|pack':true,'soap|item':true}});
+ s.products={'milk|ml':{packSize:1000,price:1.65}};const result=shoppingProgress(makeBasket(s),currentWeek(s).checked);
+ assert.deepEqual(result,{bought:2,remaining:0,knownSpend:3.3,unpricedBought:1});
+});
+test('meal suggestions match canonical ingredient units and explain overlap without changing the plan',()=>{
+ let s=changeWeek(household(),{extras:[{name:'Rice',quantity:1,unit:'kg'}],stock:{'milk|ml':100}});
+ s.recipes={'Rice pudding':{category:'dinner',ingredients:[{name:'Rice',quantity:100,unit:'g'},{name:'Milk',quantity:1,unit:'l'}]},'Fish supper':{category:'dinner',favourite:true,ingredients:[{name:'Fish',quantity:1,unit:'item'},{name:'Chips',quantity:200,unit:'g'}]},'Different unit':{category:'dinner',ingredients:[{name:'Rice',quantity:1,unit:'pack'}]},'Breakfast':{category:'breakfast',ingredients:[{name:'Rice',quantity:100,unit:'g'}]}};
+ const before=JSON.stringify(s),matches=mealMatches(s,'dinner');assert.equal(matches[0].name,'Rice pudding');assert.deepEqual(matches[0].shared,['Rice']);assert.deepEqual(matches[0].atHome,['Milk']);assert.equal(matches[0].newItems,0);assert.equal(matches.find(i=>i.name==='Different unit').matched,0);assert.equal(matches.length,3);assert.equal(JSON.stringify(s),before);
+});
+test('shared text preserves bought ticks and remembered shopping notes',()=>{
+ let s=changeWeek(household(),{extras:[{name:'Milk',quantity:1,unit:'l'}],checked:{'milk|ml':true}});s.products={'milk|ml':{notes:'Unsweetened'}};
+ assert.match(listText(s),/☑ Milk/);assert.match(listText(s),/Unsweetened/);
 });
