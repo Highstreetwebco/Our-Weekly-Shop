@@ -1,12 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, TextInput, Pressable, ScrollView, Modal, StyleSheet, Image, ActivityIndicator, Linking, Share, Platform } from 'react-native';
+import { View, Text, TextInput, Pressable, ScrollView, Modal, StyleSheet, Image, ActivityIndicator, Linking, Share, Platform, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../../lib/supabase';
 import useShop from './useShop';
 import { GROUPS } from './data';
-import { DAYS, SLOTS, id, number, normal, currentWeek, changeWeek, makeBasket, draftPlan, copyPreviousWeek, labelWeek, shiftWeek, basketKey, portions, isDue, selectedEssentials, structuredCopy, migrateLegacy } from './engine';
+import { DAYS, SLOTS, id, number, normal, currentWeek, changeWeek, makeBasket, draftPlan, copyPreviousWeek, startFollowingWeek, plannerPosition, labelWeek, shiftWeek, basketKey, portions, isDue, selectedEssentials, structuredCopy, migrateLegacy } from './engine';
+import { HomeDashboard, WeekBoard } from './WeeklyOverview';
 import { C, Gemma, MealPhoto, PageMotion, WelcomeIntro, useReducedMotion } from './Design';
 import { AISLES, aisleFor, itemChoices, recentItems, addExtras, mealMatches } from './grocery';
 import { ONLINE_RETAILERS, retailersFor, compareTestBasket, reviewedTestQuote, preparedBasketText } from './comparison';
@@ -17,7 +18,7 @@ const webState = (name, value) => Platform.OS === 'web' ? {
 } : {};
 const measured = (amount, unit) => `${amount} ${['item', 'pack', 'slice'].includes(unit) && Number(amount) !== 1 ? unit + 's' : unit}`;
 const titleCase = s => s.charAt(0).toUpperCase() + s.slice(1);
-const icon = (name, color = C.green, size = 20) => <Ionicons name={name} size={size} color={color} />;
+const icon = (name, color = C.primary, size = 20) => <Ionicons name={name} size={size} color={color} />;
 function Button({
   label,
   onPress,
@@ -377,31 +378,8 @@ function Confirm({
 }) {
   return <Sheet title={title} onClose={onClose}><Text style={s.body}>{text}</Text><Button label={label} onPress={onConfirm} /></Sheet>;
 }
-function StepGuide({ stage, onHome }) {
-  return <View style={s.guideBar}><View style={s.rowBetween}><Text style={s.label}>Step {stage + 1} of 4</Text><Button label="See all steps" small secondary onPress={onHome} /></View><View accessibilityLabel={`Step ${stage + 1} of 4: ${STEPS[stage]}`} style={s.progressTrack}>{STEPS.map((step, i) => <View key={step} style={[s.progressPart, i === stage && s.progressCurrent]} />)}</View></View>;
-}
-function StartPage({ shop, basket, stage, goStep, openPerson, setModal, setTab, status }) {
-  const w = currentWeek(shop);
-  const meals = DAYS.reduce((count, day) => count + w.plan[day].length, 0);
-  const checked = basket.items.filter(row => w.stock[row.key] != null).length;
-  const other = selectedEssentials(shop).length + w.extras.length;
-  const started = !!(meals || other || shop.people.length);
-  const details = [
-    { icon: 'restaurant-outline', hint: 'Choose what everyone will eat. We add the ingredients.', status: meals ? `${meals} meals planned` : 'No meals yet' },
-    { icon: 'home-outline', hint: 'Milk, snacks, cleaning, toiletries and anything else.', status: other ? `${other} items added` : 'Nothing added yet' },
-    { icon: 'file-tray-stacked-outline', hint: 'Tell us what you have, so you only buy what you need.', status: `${checked} of ${basket.items.length} items checked` },
-    { icon: 'basket-outline', hint: 'See everything you need and check the amounts.', status: `${basket.toBuy.length} items to buy` }
-  ];
-  return <>
-    <Heading eyebrow={`WEEK OF ${labelWeek(shop.week)}`} title={started ? 'Let’s get your shop ready.' : 'Your whole weekly shop. One step at a time.'} />
-    <Gemma text="I’m Gemma. I’ll help you plan meals and remember the other things your home needs. You can change anything as you go." />
-    <View style={s.startCard}><Text style={s.label}>{started ? 'PICK UP WHERE YOU LEFT OFF' : 'START HERE'}</Text><Text style={s.h2}>{!shop.people.length ? 'Who are you shopping for?' : STEPS[stage]}</Text><Text style={s.body}>{!shop.people.length ? 'Add a first name so we can work out meal portions.' : details[stage].hint}</Text><Button label={!shop.people.length ? 'Start with a name' : `Continue: ${STEPS[stage].toLowerCase()}`} onPress={() => { goStep(!shop.people.length ? 0 : stage); if (!shop.people.length) openPerson(); }} /><Text accessibilityLiveRegion="polite" style={s.caption}>{status}</Text></View>
-    <View style={s.rowBetween}><Text accessibilityRole="header" {...webState('level',2)} style={s.h2}>Your four steps</Text><Button label="Change week" secondary small onPress={() => setModal({type:'change-week'})} /></View>
-    <Text style={s.caption}>Start at step 1, or choose any step to make a change.</Text>
-    <View style={s.taskList}>{details.map((item, i) => <Pressable key={i} accessibilityRole="button" accessibilityLabel={`Step ${i + 1}: ${STEPS[i]}. ${item.status}`} onPress={() => goStep(i)} style={s.taskRow}><View style={s.taskNumber}><Text style={s.h3}>{i + 1}</Text></View><View style={s.flex}><Text style={s.h3}>{STEPS[i]}</Text><Text style={s.caption}>{item.hint}</Text><Text style={s.taskStatus}>{item.status}</Text></View>{icon('chevron-forward',C.green,20)}</Pressable>)}</View>
-    <View style={s.availability}><Text style={s.h3}>What you can do today</Text><Text style={s.body}>Prepare your whole basket here. Comparing real supermarket prices and sending your basket to a supermarket are not available yet.</Text><Text style={s.caption}>Nothing you do here places an order or takes a payment.</Text></View>
-    <Button label="See my saved meals" secondary onPress={() => setTab('Recipes')} />
-  </>;
+function StepGuide({ stage, goStep }) {
+  return <View style={s.guideBar}><Text style={s.label}>Your shop · step {stage + 1} of 4</Text><View style={s.wrap}>{['Meals', 'Other things', 'At home', 'Basket'].map((label,i) => <Chip key={label} label={`${i + 1}. ${label}`} active={stage === i} onPress={() => goStep(i)} />)}</View></View>;
 }
 function CupboardCheck({ basket, w, setStock, setModal, goStep }) {
   const [index, setIndex] = useState(0);
@@ -441,8 +419,6 @@ export default function WholeShopApp() {
     sync
   } = useShop();
   const [tab, setTab] = useState('Home'),
-    [activeDay, setActiveDay] = useState('Monday'),
-    [overview, setOverview] = useState(false),
     [replay, setReplay] = useState(0),
     [undo, setUndo] = useState(null),
     [modal, setModal] = useState(null),
@@ -452,6 +428,9 @@ export default function WholeShopApp() {
     [recipeFilter, setRecipeFilter] = useState('all'),
     [showRegulars, setShowRegulars] = useState(false);
   const scroll = useRef(null);
+  const wide = useWindowDimensions().width >= 760;
+  const position = plannerPosition(currentWeek(shop));
+  const activeDay = position.day, overview = position.view === 'week';
   useEffect(() => {
     if (!notice) return;
     const timer = setTimeout(() => setNotice(''), 6000);
@@ -465,19 +444,20 @@ export default function WholeShopApp() {
   }, [tab, activeDay, overview, shop.week]);
   useEffect(() => {
     setUndo(null);
-    setOverview(false);
-    setActiveDay('Monday');
   }, [shop.week, session?.user?.id]);
   const w = currentWeek(shop),
     basket = useMemo(() => makeBasket(shop), [shop]),
     stage = Math.max(0, Math.min(3, w.stage || 0));
   const editWeek = changes => update(old => changeWeek(old, typeof changes === 'function' ? changes(currentWeek(old)) : changes));
+  const setActiveDay = day => editWeek(old => ({planner:{...plannerPosition(old),day}}));
+  const setOverview = value => editWeek(old => ({planner:{...plannerPosition(old),view:value ? 'week' : 'day'}}));
+  const openDay = day => editWeek({planner:{day,view:'day'}});
   const close = () => setModal(null);
   const goStep = n => {
     editWeek({
       stage: n
     });
-    setTab('Week');
+    setTab(n === 3 ? 'Basket' : 'Week');
     scroll.current?.scrollTo({
       y: 0,
       animated: false
@@ -568,6 +548,19 @@ export default function WholeShopApp() {
       }
     });
   };
+  const startNextWeek = () => {
+    const target = shiftWeek(shop.week, 1);
+    if (shop.weeks[target]) {
+      update(old => ({...old,week:target}));
+      setTab('Week');
+      setNotice('Next week already has a saved plan. We’ve opened it without changing it.');
+      return;
+    }
+    setModal({type:'confirm', title:`Use this plan for ${labelWeek(target)}?`,
+      text:'Your meals and extra items will be copied into next week. Cupboard checks start fresh, and your regular items follow their usual schedule. You can change any meal afterwards.',
+      label:'Copy into next week', action:() => { update(startFollowingWeek); close(); setTab('Week'); setNotice('Next week is ready to edit. Your original week is still saved.'); }
+    });
+  };
   const draftWeek = () => {
     if (!shop.people.length) {
       openPerson();
@@ -626,11 +619,11 @@ export default function WholeShopApp() {
       initialMeal: name
     });else close();
   };
-  if (!ready) return <SafeAreaView style={s.loading}><ActivityIndicator color={C.green} /><Text style={s.body}>Opening your weekly shop…</Text></SafeAreaView>;
-  return <SafeAreaView style={s.root} edges={['top', 'left', 'right']}><View style={s.header}><View style={s.brand}><Image source={require('../../assets/brand/intro-logo.jpg')} style={s.logo} accessibilityLabel="Our Weekly Shop logo" /><Text style={s.brandName}>Our Weekly Shop</Text></View><View style={s.headerActions}><Button label="Help" secondary small onPress={() => setModal({type:'help'})} /><Button label="Account" secondary small onPress={() => setTab('Account')} /></View></View>
-  <ScrollView ref={scroll} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled"><PageMotion change={`${tab}-${stage}-${activeDay}-${overview}`}>
+  if (!ready) return <SafeAreaView style={s.loading}><ActivityIndicator color={C.primary} /><Text style={s.body}>Opening your weekly shop…</Text></SafeAreaView>;
+  return <SafeAreaView style={s.root} edges={['top', 'left', 'right']}><View style={s.header}><View style={s.brand}><View style={s.logo}>{icon('basket-outline',C.white,27)}</View><View><Text style={s.brandName}>Our Weekly Shop</Text><Text style={s.brandSub}>A little less to think about.</Text></View></View><View style={s.headerActions}><Button label="Help" secondary small onPress={() => setModal({type:'help'})} /><Button label="Account" secondary small onPress={() => setTab('Account')} /></View></View>
+  <ScrollView ref={scroll} contentContainerStyle={[s.content, (tab === 'Account' || tab === 'Basket' || tab === 'Week' && (stage !== 0 || !overview)) && {maxWidth:760}]} keyboardShouldPersistTaps="handled"><PageMotion change={`${tab}-${stage}-${activeDay}-${overview}`}>
   {notice ? <Pressable accessibilityRole="button" accessibilityLabel="Dismiss notice" onPress={() => setNotice('')} style={s.notice}><Text style={s.body}>{notice}</Text><Text style={s.caption}>Tap to dismiss</Text></Pressable> : null}
-  {tab === 'Home' && <StartPage {...{shop,basket,stage,goStep,openPerson,setModal,setTab,status}} />}
+  {tab === 'Home' && <HomeDashboard {...{shop,basket,stage,goStep,openPerson,setModal,setTab,startNextWeek,Button}} />}
   {tab === 'Week' && <View style={s.weekBar}><Button label="‹" accessibilityLabel="Previous week" small secondary onPress={() => update(old => ({
             ...old,
             week: shiftWeek(old.week, -1)
@@ -639,20 +632,17 @@ export default function WholeShopApp() {
             week: shiftWeek(old.week, 1)
           }))} /></View>}
   {tab === 'Week' && <>
-    <StepGuide stage={stage} onHome={() => setTab('Home')} />
+    <StepGuide stage={stage} goStep={goStep} />
     {stage < 3 && <>
-      <Heading title={!shop.people.length && stage === 0 ? 'Who are you shopping for?' : [overview ? 'Check your meal plan' : 'Plan your meals', 'What else do you need?', 'Check what’s at home'][stage]} />
+      <Heading title={!shop.people.length && stage === 0 ? 'Who are you shopping for?' : [overview ? 'A week that works for you.' : 'Let’s plan your day.', 'What else do you need?', 'Check what’s at home'][stage]} />
       <Gemma text={!shop.people.length && stage === 0 ? 'Start with a first name. This helps me work out how much food you need. You can add more people later.' : [overview ? 'Here’s what you’ve chosen. Tap a day to make a change. Blank meals won’t add any ingredients.' : 'Choose a meal, tell me who’s eating, then pick the days. I’ll add the ingredients to your basket.', 'Add anything besides your planned meals: milk, snacks, pet food, cleaning and toiletries.', 'Let’s check one item at a time. Anything you already have will come off the amount you need to buy.'][stage]} />
     </>}
     {stage === 0 && <>
       {!shop.people.length ? <View style={s.setup}><Button label="Add a person" onPress={() => openPerson()} /><Text style={s.body}>Shopping for yourself? Just add your own first name.</Text><Text style={s.caption}>You don’t need an account to start.</Text><Button label="Skip meals and add other things" secondary onPress={() => goStep(1)} /></View> : <>
         <View style={s.rowBetween}><Text style={[s.caption,s.flex]}>Shopping for {shop.people.map(p => p.name).join(', ')}</Text><Button label="Add person" secondary small onPress={() => openPerson()} /></View>
-        {!overview && <View style={s.dayHeading}><Text accessibilityRole="header" style={s.h2}>{activeDay}</Text><Text style={s.caption}>Day {DAYS.indexOf(activeDay) + 1} of 7</Text><Button label="See the whole week" secondary small onPress={() => setOverview(true)} /></View>}
-        {overview ? <View>{DAYS.map(day => <Pressable key={day} accessibilityRole="button" accessibilityLabel={`Edit ${day}`} onPress={() => {
-                  setActiveDay(day);
-                  setOverview(false);
-                }} style={s.overviewRow}><Text style={s.overviewDay}>{day}</Text><View style={s.flex}>{SLOTS.map(slot => <Text key={slot} style={s.caption}>{titleCase(slot)}: {w.plan[day].filter(e => e.mealType === slot).map(e => e.meal).join(' / ') || 'Not planned'}</Text>)}</View>{icon('chevron-forward', C.muted, 16)}</Pressable>)}</View> : <>
-          {SLOTS.map(slot => <View key={slot} style={s.daySection}><View style={s.rowBetween}><View style={s.row}>{icon(slot === 'breakfast' ? 'sunny-outline' : slot === 'lunch' ? 'cafe-outline' : 'moon-outline', C.green, 17)}<Text style={s.h3}>{titleCase(slot)}</Text></View><Button small secondary label={`Add ${slot}`} accessibilityLabel={`Add ${slot} on ${activeDay}`} onPress={() => setModal({
+        {!overview && <View style={s.dayHeading}><Text accessibilityRole="header" style={s.h2}>{activeDay}</Text><Text style={s.caption}>Choose the meals you need ingredients for</Text><Button label="See the whole week" secondary small onPress={() => setOverview(true)} /></View>}
+        {overview ? <WeekBoard shop={shop} onOpenDay={openDay} onMeal={(day,slot) => { setActiveDay(day); setModal({type:'meal',day,slot}); }} onReuse={() => setModal({type:'week-options'})} /> : <>
+          {SLOTS.map(slot => <View key={slot} style={s.daySection}><View style={s.rowBetween}><View style={s.row}>{icon(slot === 'breakfast' ? 'sunny-outline' : slot === 'lunch' ? 'cafe-outline' : 'moon-outline', C.primary, 17)}<Text style={s.h3}>{titleCase(slot)}</Text></View><Button small secondary label={`Add ${slot}`} accessibilityLabel={`Add ${slot} on ${activeDay}`} onPress={() => setModal({
                       type: 'meal',
                       day: activeDay,
                       slot
@@ -673,9 +663,9 @@ export default function WholeShopApp() {
         }} />
         {!overview && <Button label="Finished with meals? Add other things" secondary onPress={() => goStep(1)} />}
         {!overview && activeDay !== 'Monday' && <Button label="Previous day" secondary onPress={() => setActiveDay(DAYS[DAYS.indexOf(activeDay) - 1])} />}
-        {overview && <Button label="Back to my day" secondary onPress={() => setOverview(false)} />}
+
         <Text style={s.caption}>Only plan the meals you need help shopping for. You can leave others blank.</Text>
-        <Button label="Reuse a week or suggest meals" secondary onPress={() => setModal({type:'week-options'})} />
+        {!overview && <Button label="Reuse a week or suggest meals" secondary onPress={() => setModal({type:'week-options'})} />}
         <Text style={s.caption}>{mealCount} meal{mealCount === 1 ? '' : 's'} planned · {dinners} of 7 days have dinner plans</Text>
       </>}
     </>}
@@ -687,7 +677,7 @@ export default function WholeShopApp() {
       {showRegulars && <>
       <View style={s.categoryGrid}>{GROUPS.map(g => <Pressable key={g.id} accessibilityRole="button" accessibilityLabel={g.label} accessibilityState={{
                 selected: group === g.id
-              }} onPress={() => setGroup(g.id)} style={[s.categoryTile, group === g.id && s.categoryOn]} {...webState("pressed", group === g.id)}>{icon(g.icon, C.green, 22)}<Text style={s.categoryLabel}>{g.label}</Text></Pressable>)}</View>
+              }} onPress={() => setGroup(g.id)} style={[s.categoryTile, group === g.id && s.categoryOn]} {...webState("pressed", group === g.id)}>{icon(g.icon, C.primary, 22)}<Text style={s.categoryLabel}>{g.label}</Text></Pressable>)}</View>
       <View style={s.rowBetween}><Text style={[s.h2, s.flex]}>{GROUPS.find(g => g.id === group).label}</Text><Button label="Add regular item" secondary small onPress={() => setModal({
                 type: 'item',
                 usual: true,
@@ -700,7 +690,7 @@ export default function WholeShopApp() {
                     ...old.decisions,
                     [item.id]: selected.has(item.id) ? 'skip' : 'add'
                   }
-                }))} style={[s.row, s.flex]} {...webState("checked", selected.has(item.id))}><View style={[s.usualCheck, selected.has(item.id) && s.checkboxOn]}>{icon(selected.has(item.id) ? 'checkmark' : 'add-outline', selected.has(item.id) ? C.white : C.green, 18)}</View><View style={s.flex}><Text style={s.h3}>{item.name}</Text><Text style={s.caption}>{item.quantity} {item.unit}{item.brand ? ` · ${item.brand}` : ''}</Text><Text style={s.fine}>{selected.has(item.id) ? 'In this week’s shop' : isDue(item, shop.week) ? 'Skipped this week' : 'Not due yet'}</Text></View></Pressable><Button label="Edit" accessibilityLabel={`Edit usual ${item.name}`} small secondary onPress={() => setModal({
+                }))} style={[s.row, s.flex]} {...webState("checked", selected.has(item.id))}><View style={[s.usualCheck, selected.has(item.id) && s.checkboxOn]}>{icon(selected.has(item.id) ? 'checkmark' : 'add-outline', selected.has(item.id) ? C.white : C.primary, 18)}</View><View style={s.flex}><Text style={s.h3}>{item.name}</Text><Text style={s.caption}>{item.quantity} {item.unit}{item.brand ? ` · ${item.brand}` : ''}</Text><Text style={s.fine}>{selected.has(item.id) ? 'In this week’s shop' : isDue(item, shop.week) ? 'Skipped this week' : 'Not due yet'}</Text></View></Pressable><Button label="Edit" accessibilityLabel={`Edit usual ${item.name}`} small secondary onPress={() => setModal({
                   type: 'item',
                   usual: true,
                   item
@@ -738,10 +728,10 @@ export default function WholeShopApp() {
           copyList,
           goStep
         }} />}
-  {tab === 'Recipes' && <><Heading eyebrow="YOUR RECIPE BOOK" title="Your saved meals" /><Gemma text="Save a few favourites with their ingredients. Next time, just pick the meal and I’ll work out the shop." /><Field label="Search your meals" value={search} onChangeText={setSearch} placeholder="Meal or ingredient" /><View style={s.wrap}>{['all', ...SLOTS, 'favourites'].map(x => <Chip key={x} label={titleCase(x)} active={recipeFilter === x} onPress={() => setRecipeFilter(x)} />)}</View><Button label="+ Add my own meal" onPress={() => setModal({
+  {tab === 'Recipes' && <><Heading eyebrow="YOUR RECIPE BOOK" title="Keep your favourites close." /><Gemma text="Save a few favourites with their ingredients. Next time, just pick the meal and I’ll work out the shop." /><Field label="Search your meals" value={search} onChangeText={setSearch} placeholder="Meal or ingredient" /><View style={s.wrap}>{['all', ...SLOTS, 'favourites'].map(x => <Chip key={x} label={titleCase(x)} active={recipeFilter === x} onPress={() => setRecipeFilter(x)} />)}</View><Button label="+ Add my own meal" onPress={() => setModal({
             type: 'recipe'
           })} />
-  <View style={s.recipeGrid}>{Object.entries(shop.recipes).filter(([n, r]) => (recipeFilter === 'all' || recipeFilter === 'favourites' && r.favourite || r.category === recipeFilter) && normal(n + ' ' + r.ingredients.map(i => i.name).join(' ')).includes(normal(search))).map(([name, r]) => <View key={name} style={s.recipeTile}><Pressable accessibilityRole="button" accessibilityLabel={`View ${name}`} onPress={() => setModal({
+  <View style={s.recipeGrid}>{Object.entries(shop.recipes).sort((a,b) => Number(!!b[1].favourite)-Number(!!a[1].favourite)).filter(([n, r]) => (recipeFilter === 'all' || recipeFilter === 'favourites' && r.favourite || r.category === recipeFilter) && normal(n + ' ' + r.ingredients.map(i => i.name).join(' ')).includes(normal(search))).map(([name, r]) => <View key={name} style={[s.recipeTile,wide && {flexBasis:'30%'}]}><Pressable accessibilityRole="button" accessibilityLabel={`View ${name}`} onPress={() => setModal({
                 type: 'recipe-detail',
                 name,
                 recipe: r
@@ -761,7 +751,7 @@ export default function WholeShopApp() {
                     favourite: !r.favourite
                   }
                 }
-              }))} style={s.favouriteButton} {...webState("pressed", !!r.favourite)}>{icon(r.favourite ? 'heart' : 'heart-outline', C.green, 18)}<Text style={s.caption}>{r.favourite ? 'Favourite' : 'Save favourite'}</Text></Pressable></View>)}</View>
+              }))} style={s.favouriteButton} {...webState("pressed", !!r.favourite)}>{icon(r.favourite ? 'heart' : 'heart-outline', C.primary, 18)}<Text style={s.caption}>{r.favourite ? 'Favourite' : 'Save favourite'}</Text></Pressable></View>)}</View>
   {!Object.entries(shop.recipes).some(([n, r]) => (recipeFilter === 'all' || recipeFilter === 'favourites' && r.favourite || r.category === recipeFilter) && normal(n + ' ' + r.ingredients.map(i => i.name).join(' ')).includes(normal(search))) && <Empty text="No meals here yet. Add a recipe or try another filter." />}</>}
   {tab === 'Account' && <><Heading eyebrow="YOUR ACCOUNT" title="A shop that feels like yours." /><Gemma text="Who lives here, what they like and your budget. A little detail makes the next shop easier." /><View style={s.card}><Text style={s.h2}>{session ? 'Your account' : 'Using this device'}</Text><Text style={s.body}>{session?.user?.email || 'Your plan is saved in this browser. Sign in to keep a copy with your account.'}</Text><Text accessibilityLiveRegion="polite" style={s.caption}>{status}</Text>{session ? <View style={s.wrap}><Button label="Save to account" onPress={sync} /><Button label="Sign out" secondary onPress={async () => {
                 const {
@@ -817,15 +807,15 @@ export default function WholeShopApp() {
   </ScrollView>{undo && <View style={s.undoBar}><Text accessibilityLiveRegion="polite" style={[s.caption, s.flex]}>{undo.label}</Text><Button label="Undo" small secondary onPress={() => {
         undo.action();
         setUndo(null);
-      }} /><Pressable accessibilityRole="button" accessibilityLabel="Dismiss undo" onPress={() => setUndo(null)} style={s.iconButton}>{icon('close-outline', C.muted, 18)}</Pressable></View>}<SafeAreaView edges={['bottom']} style={s.navSafe}><View style={s.nav}>{[['Home','home-outline','My week'],['Recipes','book-outline','Saved meals'],['Basket','basket-outline','My basket']].map(([name,i,label]) => {
-      const active = tab === name || (name === 'Home' && tab === 'Week');
-      return <Pressable key={name} accessibilityRole="button" accessibilityLabel={`${label} tab`} accessibilityState={{selected:active}} {...webState('pressed',active)} onPress={() => setTab(name)} style={[s.navItem,active && s.navActive]}>{icon(i,active ? C.green : C.muted,22)}<Text style={[s.navLabel,active && {color:C.green,fontWeight:'700'}]}>{label}{name === 'Basket' && basket.toBuy.length ? ` (${basket.toBuy.length})` : ''}</Text></Pressable>;
+      }} /><Pressable accessibilityRole="button" accessibilityLabel="Dismiss undo" onPress={() => setUndo(null)} style={s.iconButton}>{icon('close-outline', C.muted, 18)}</Pressable></View>}<SafeAreaView edges={['bottom']} style={s.navSafe}><View style={s.nav}>{[['Home','home-outline','Home'],['Week','calendar-outline','Plan'],['Recipes','restaurant-outline','Meals'],['Basket','basket-outline','Basket']].map(([name,i,label]) => {
+      const active = tab === name;
+      return <Pressable key={name} accessibilityRole="button" accessibilityLabel={`${label} tab`} accessibilityState={{selected:active}} {...webState('pressed',active)} onPress={() => name === 'Week' ? goStep(0) : setTab(name)} style={[s.navItem,active && s.navActive]}>{icon(i,active ? C.primary : C.muted,22)}<Text style={[s.navLabel,active && {color:C.primary,fontWeight:'700'}]}>{label}{name === 'Basket' && basket.toBuy.length ? ` (${basket.toBuy.length})` : ''}</Text></Pressable>;
     })}</View></SafeAreaView>
   <WelcomeIntro replay={replay} />
-  {modal?.type === 'help' && <Sheet title="A little help" onClose={close} guidance="You can always come back to My week at the bottom. Your work is saved as you go; check the save message for its status.">
+  {modal?.type === 'help' && <Sheet title="A little help" onClose={close} guidance="Home helps you pick up where you left off. Plan shows your week, Meals holds your recipes, and Basket brings everything together. Your work is saved as you go; check the save message for its status.">
     {STEPS.map((step,i) => <View key={step} style={s.inset}><Text style={s.h3}>{i + 1}. {step}</Text><Text style={s.body}>{['Choose meals and who is eating. Ingredients go into your basket automatically.', 'Add food and household items. Regular items are things you want the app to remember for future weeks.', 'Say how much you have. We subtract it from the amount you need to buy.', 'Check the combined quantities and any brands you prefer. Nothing has been ordered.'][i]}</Text></View>)}
     <Text style={s.h3}>Can I order my shop here?</Text><Text style={s.body}>Not yet. Real supermarket prices and automatic basket transfer are not available. The example comparison uses made-up prices and cannot place an order.</Text>
-    <Text style={s.h3}>Can I change my mind?</Text><Text style={s.body}>Yes. Choose any step from My week. Tap a meal to edit it, or Change next to an item. The basket updates when you make changes.</Text>
+    <Text style={s.h3}>Can I change my mind?</Text><Text style={s.body}>Yes. Open Plan and choose Meals, Other things, At home or Basket at the top. Tap a meal to edit it, or Change next to an item. The basket updates when you make changes.</Text>
     <Button label="Back to what I was doing" onPress={close} />
   </Sheet>}
   {modal?.type === 'change-week' && <Sheet title="Which week are you planning?" onClose={close} guidance="Each week has its own meals and basket. Changing weeks keeps your saved plans."><Text style={s.h2}>Week of {labelWeek(shop.week)}</Text><Button label="Previous week" secondary onPress={() => update(old => ({...old,week:shiftWeek(old.week,-1)}))} /><Button label="Next week" secondary onPress={() => update(old => ({...old,week:shiftWeek(old.week,1)}))} /><Button label="Plan this week" onPress={close} /></Sheet>}
@@ -935,17 +925,17 @@ function BasketContent({ basket, w, shop, editWeek, setModal, copyList, goStep, 
   const openComparison = () => { setScreen('compare'); setSelected(null); setApprovals({}); setChoices({}); };
   const back = () => setScreen(screen === 'transfer' ? 'matches' : screen === 'matches' ? 'compare' : 'basket');
   return <PageMotion change={screen}>
-    <Heading eyebrow={screen === 'basket' ? `WEEK OF ${labelWeek(shop.week)}` : 'SUPERMARKET COMPARISON'} title={{basket:'Here’s what you need to buy',compare:mode === 'live' ? 'About supermarket prices' : 'Example prices only',matches:`Check the example ${retailer?.name || ''} products`,transfer:'About sending your basket'}[screen]} />
+    <Heading eyebrow={screen === 'basket' ? `WEEK OF ${labelWeek(shop.week)}` : 'SUPERMARKET COMPARISON'} title={{basket:'Everything, in one basket.',compare:mode === 'live' ? 'About supermarket prices' : 'Example prices only',matches:`Check the example ${retailer?.name || ''} products`,transfer:'About sending your basket'}[screen]} />
     {screen !== 'basket' && <Button label={screen === 'compare' ? 'Back to my basket' : screen === 'matches' ? 'Back to example prices' : 'Back to example products'} small secondary onPress={back} />}
     <Gemma text={{basket:'This brings your meals and other things together, with anything you already have taken off. Tap Change if something doesn’t look right.',compare:'Real prices and sending your basket to a supermarket are not available yet. You can try an example below to see how it would work.',matches:'These are example products. Check the size and brand, then choose whether each one suits you. Nothing will be sent to a supermarket.',transfer:'This is the end of the example. No products have been sent, and nothing has been ordered.'}[screen]} />
     {screen === 'basket' && <>
-      <View style={s.shopSummary}><Text style={s.shopCount}>{basket.toBuy.length} things to buy</Text><Text style={s.body}>This is your plan. Nothing has been ordered.</Text>{Number(shop.budget) > 0 && <Text style={s.label}>Your budget: £{Number(shop.budget).toFixed(2)}</Text>}</View>
+      <View style={s.shopSummary}><Text style={s.shopCount}>{basket.toBuy.length} things to buy</Text><Text style={s.body}>Food and household essentials, with what’s at home taken off.</Text><Text style={s.caption}>These are the amounts you need. Supermarket pack sizes are checked later. Nothing has been ordered.</Text>{Number(shop.budget) > 0 && <Text style={s.label}>Your budget: £{Number(shop.budget).toFixed(2)}</Text>}</View>
       {basket.issues.length > 0 && <View style={s.warning}><Text style={s.h3}>Some meals need another look</Text>{basket.issues.map(issue=><Text key={issue} style={s.body}>{issue}</Text>)}<Button label="Check my meals" secondary onPress={()=>goStep(0)} /></View>}
       <Button label="Add something I’ve forgotten" secondary onPress={()=>setModal({type:'quick-add'})} />
       {!basket.items.length && <><Empty text="Plan your meals and add anything your household needs. We’ll combine it into one online basket." /><Button label="Plan my week" secondary onPress={()=>goStep(0)} /></>}
       {basket.toBuy.length > 10 && <Field label="Find something in my basket" value={query} onChangeText={setQuery} placeholder="Item, brand or requirement" />}
       {!visible.length && query && <Empty text="No matches. Try another item, brand or requirement." />}
-      {groups.map(([category,rows])=><View key={category.id}><Text style={s.basketGroup}>{category.label} · {rows.length}</Text>{rows.map(row=><Pressable key={row.key} accessibilityRole="button" accessibilityLabel={`Change ${row.name}, buy ${row.need} ${row.unit}`} onPress={()=>setModal({type:'product',row})} style={s.basketRow}><View style={s.flex}><Text style={s.h3}>{row.name}</Text><Text style={s.label}>Buy {measured(row.need,row.unit)}{row.brand ? ` · ${row.brand}` : ''}{shop.products[row.key]?.keepBrand ? ' · keep this brand' : ''}</Text>{!!row.notes && <Text style={s.noteText}>{row.notes}</Text>}</View><Text style={s.changeLabel}>Change</Text></Pressable>)}</View>)}
+      {groups.map(([category,rows])=><View key={category.id}><Text style={s.basketGroup}>{category.label} · {rows.length}</Text>{rows.map(row=><Pressable key={row.key} accessibilityRole="button" accessibilityLabel={`Change ${row.name}, need ${row.need} ${row.unit}`} onPress={()=>setModal({type:'product',row})} style={s.basketRow}><View style={s.flex}><Text style={s.h3}>{row.name}</Text><Text style={s.label}>Need {measured(row.need,row.unit)}{row.brand ? ` · ${row.brand}` : ''}{shop.products[row.key]?.keepBrand ? ' · keep this brand' : ''}</Text>{!!row.notes && <Text style={s.noteText}>{row.notes}</Text>}</View><Text style={s.changeLabel}>Change</Text></Pressable>)}</View>)}
       {basket.items.some(i=>!i.need) && <View style={s.inset}><Text style={s.h3}>Already at home</Text><Text style={s.caption}>{basket.items.filter(i=>!i.need).map(i=>i.name).join(' · ')}</Text><Button label="Edit cupboard check" secondary small onPress={()=>goStep(2)} /></View>}
       <Button label={options ? 'Hide basket options' : 'Budget and other basket options'} secondary onPress={() => setOptions(!options)} />
       {options && <><Button label={Number(shop.budget)>0 ? 'Change my budget' : 'Set a budget'} secondary onPress={()=>setModal({type:'budget'})} /><Button label="Add things from an earlier shop" secondary onPress={()=>setModal({type:'quick-add',recent:true})} />
@@ -960,7 +950,7 @@ function BasketContent({ basket, w, shop, editWeek, setModal, copyList, goStep, 
       <View style={s.wrap}><Chip label="Home delivery" active={fulfilment === 'delivery'} onPress={()=>editWeek(old=>({online:{...old.online,fulfilment:'delivery'}}))} /><Chip label="Click & collect" active={fulfilment === 'collection'} onPress={()=>editWeek(old=>({online:{...old.online,fulfilment:'collection'}}))} /></View>
       <Text style={s.caption}>Retailer services depend on your area and available slots. Exact delivery or collection charges need a confirmed quote.</Text>
       {mode === 'live' ? <View style={s.inset}><Text style={s.h3}>Supermarket comparison is not available yet</Text><Text style={s.body}>You can prepare your basket here today. We cannot show real supermarket totals or send items to a supermarket yet.</Text><Text style={s.caption}>Want to see an example? It uses made-up prices and cannot place an order.</Text><Button label="Try an example with made-up prices" secondary disabled={!basket.toBuy.length || !!basket.issues.length} onPress={loadTest} />{!basket.toBuy.length && <Text style={s.caption}>Add something to your basket to try the example.</Text>}{!!basket.issues.length && <Text style={s.caption}>Check the meal problems shown in your basket before trying the example.</Text>}</View> : <View style={s.warning}><Text style={s.h3}>TEST COMPARISON · simulated prices</Text><Text style={s.body}>This uses example products and invented prices to test the matching flow. It cannot show the cheapest real supermarket or transfer products.</Text><Button label="Leave the example" secondary small onPress={()=>{request.current?.abort();request.current=null;setBusy(false);setMode('live');setError('');}} /></View>}
-      {busy && <View style={s.softNote}><ActivityIndicator color={C.green} /><Text accessibilityLiveRegion="polite" style={s.caption}>Loading example products and matching your quantities…</Text></View>}
+      {busy && <View style={s.softNote}><ActivityIndicator color={C.primary} /><Text accessibilityLiveRegion="polite" style={s.caption}>Loading example products and matching your quantities…</Text></View>}
       <ErrorText error={error} />{error && mode === 'test' && <Button label="Retry test comparison" secondary onPress={loadTest} />}
       {mode === 'live' && <View style={s.card}><Text style={s.h3}>Supermarkets planned for comparison</Text><Text style={s.body}>{retailers.map(r => r.name).join(', ')}.</Text><Text style={s.caption}>None are connected to this app yet. Choosing delivery or collection above does not book a slot.</Text></View>}
       {mode === 'test' && !busy && data && <><Text style={s.caption}>Sorted by most items matched, then the matched-item subtotal. Missing items and unknown fees prevent a complete price comparison.</Text>{quotes.map(q=><View key={q.retailer.id} style={s.retailerCard}><View style={s.rowBetween}><Text style={[s.h2,s.flex]}>{q.retailer.name}</Text><Text style={s.testTag}>TEST</Text></View><Text style={s.quotePrice}>{q.subtotalPence == null ? 'No test matches' : money(q.subtotalPence)}</Text><Text style={s.label}>{q.matched} of {basket.toBuy.length} items matched{q.missing ? ` · ${q.missing} unmatched` : ''}</Text><Text style={s.caption}>{q.status === 'no-test-data' ? 'No example offers are available for this retailer.' : 'Simulated matched-item subtotal only. Delivery / collection fees and loyalty prices are not included.'}</Text><Text style={s.caption}>Full basket total: unavailable</Text><Button label={`See ${q.retailer.name} example products`} secondary disabled={!q.matched} onPress={()=>{setSelected(q.retailer.id);setChoices({});setApprovals({});setScreen('matches');}} /></View>)}</>}
@@ -980,37 +970,37 @@ function BasketContent({ basket, w, shop, editWeek, setModal, copyList, goStep, 
   </PageMotion>;
 }
 const s = StyleSheet.create({
-  focused: Platform.OS === 'web' ? { outlineStyle: 'solid', outlineWidth: 3, outlineColor: '#B06A20', outlineOffset: 3 } : { borderWidth: 2, borderColor: '#B06A20' },
+  focused: Platform.OS === 'web' ? { outlineStyle: 'solid', outlineWidth: 3, outlineColor: C.primary, outlineOffset: 3 } : { borderWidth: 2, borderColor: C.primary },
   headerActions: { flexDirection: 'row', gap: 8 },
   startCard: { backgroundColor: C.pale, borderRadius: 22, padding: 22, gap: 14 },
   taskList: { backgroundColor: C.white, borderRadius: 20, borderWidth: 1, borderColor: C.line, overflow: 'hidden' },
   taskRow: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 18, minHeight: 100, borderBottomWidth: 1, borderColor: C.line },
   taskNumber: { width: 42, height: 42, borderRadius: 14, backgroundColor: C.pale, alignItems: 'center', justifyContent: 'center' },
-  taskStatus: { color: C.green, fontSize: 14, fontWeight: '700', marginTop: 6 },
-  availability: { backgroundColor: '#F3EEE4', padding: 20, borderRadius: 18, gap: 12, borderWidth: 1, borderColor: '#DFD5C4' },
+  taskStatus: { color: C.primary, fontSize: 14, fontWeight: '700', marginTop: 6 },
+  availability: { backgroundColor: C.sky, padding: 20, borderRadius: 18, gap: 12, borderWidth: 1, borderColor: C.line },
   guideBar: { gap: 10 },
   progressTrack: { flexDirection: 'row', gap: 6 },
   progressPart: { flex: 1, height: 6, borderRadius: 4, backgroundColor: C.line },
-  progressCurrent: { backgroundColor: C.green },
+  progressCurrent: { backgroundColor: C.primary },
   dayHeading: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 12, padding: 16, backgroundColor: C.pale, borderRadius: 16 },
   stockQuestion: { backgroundColor: C.white, borderWidth: 1, borderColor: C.line, borderRadius: 22, padding: 20, gap: 16 },
-  changeLabel: { color: C.green, fontSize: 15, fontWeight: '700', textDecorationLine: 'underline' },
+  changeLabel: { color: C.primary, fontSize: 15, fontWeight: '700', textDecorationLine: 'underline' },
   flowStep: { fontSize: 14, fontWeight: '600', color: C.muted, paddingHorizontal: 10, paddingVertical: 9, borderRadius: 12, backgroundColor: C.white },
-  flowStepOn: { backgroundColor: C.green, color: C.white },
+  flowStepOn: { backgroundColor: C.primary, color: C.white },
   retailerCard: { backgroundColor: C.white, borderWidth: 1, borderColor: C.line, padding: 18, borderRadius: 20, gap: 11 },
-  quotePrice: { fontSize: 25, fontWeight: '800', color: C.green },
-  testTag: { fontSize: 10, fontWeight: '800', letterSpacing: 1, backgroundColor: C.pale, color: C.green, padding: 7, borderRadius: 8 },
+  quotePrice: { fontSize: 25, fontWeight: '800', color: C.primary },
+  testTag: { fontSize: 10, fontWeight: '800', letterSpacing: 1, backgroundColor: C.pale, color: C.primary, padding: 7, borderRadius: 8 },
   sheetFooter: { paddingTop: 12, paddingBottom: 8, borderTopWidth: 1, borderColor: C.line, gap: 8 },
   suggestionList: { borderWidth: 1, borderColor: C.line, borderRadius: 12, overflow: 'hidden', marginTop: 5 },
   suggestionRow: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 48, padding: 10, backgroundColor: C.white },
   quickGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   quickTile: { flexBasis: '46%', flexGrow: 1, minWidth: 120, padding: 14, borderRadius: 16, backgroundColor: C.white, borderWidth: 1, borderColor: C.line, gap: 7 },
-  quickTileOn: { backgroundColor: C.pale, borderColor: C.green },
+  quickTileOn: { backgroundColor: C.pale, borderColor: C.primary },
   matchNote: { backgroundColor: C.pale, padding: 8, borderRadius: 9, gap: 3 },
-  matchText: { fontSize: 14, color: C.green, fontWeight: '700' },
+  matchText: { fontSize: 14, color: C.primary, fontWeight: '700' },
   spendRow: { flexDirection: 'row', gap: 12, flexWrap: 'wrap' },
   spendCard: { flex: 1, minWidth: 130, padding: 12, backgroundColor: C.white, borderRadius: 13, gap: 4 },
-  noteText: { fontSize: 15, lineHeight: 22, color: C.green, paddingTop: 3 },
+  noteText: { fontSize: 15, lineHeight: 22, color: C.primary, paddingTop: 3 },
   setup: {
     gap: 17,
     paddingVertical: 8
@@ -1037,7 +1027,7 @@ const s = StyleSheet.create({
     backgroundColor: C.white
   },
   dayPillOn: {
-    backgroundColor: C.green
+    backgroundColor: C.primary
   },
   dayText: {
     fontSize: 14,
@@ -1052,8 +1042,10 @@ const s = StyleSheet.create({
   },
   daySection: {
     gap: 10,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
+    padding: 18,
+    backgroundColor: C.white,
+    borderRadius: 22,
+    borderWidth: 1,
     borderColor: C.line
   },
   emptySlot: {
@@ -1104,7 +1096,7 @@ const s = StyleSheet.create({
   overviewDay: {
     fontSize: 14,
     fontWeight: '700',
-    color: C.green,
+    color: C.primary,
     width: 90
   },
   categoryGrid: {
@@ -1167,7 +1159,7 @@ const s = StyleSheet.create({
     borderRadius: 12
   },
   stockCovered: {
-    backgroundColor: '#EDF2DD'
+    backgroundColor: C.pale
   },
   recipeGrid: {
     flexDirection: 'row',
@@ -1195,7 +1187,7 @@ const s = StyleSheet.create({
     borderColor: C.line
   },
   recipePickOn: {
-    borderColor: C.green,
+    borderColor: C.primary,
     backgroundColor: C.pale
   },
   favouriteButton: {
@@ -1206,7 +1198,7 @@ const s = StyleSheet.create({
   },
   undoBar: {
     width: '100%',
-    maxWidth: 680,
+    maxWidth: 1080,
     alignSelf: 'center',
     paddingHorizontal: 16,
     paddingVertical: 7,
@@ -1234,17 +1226,6 @@ const s = StyleSheet.create({
     backgroundColor: C.bg,
     alignItems: 'center',
     justifyContent: 'center'
-  },
-  progressTrack: {
-    height: 5,
-    borderRadius: 3,
-    backgroundColor: '#D1DDC0',
-    overflow: 'hidden',
-    marginTop: 5
-  },
-  progressFill: {
-    height: 5,
-    backgroundColor: C.green
   },
   basketGroup: {
     fontSize: 14,
@@ -1274,7 +1255,7 @@ const s = StyleSheet.create({
     paddingVertical: 12,
     gap: 10,
     width: '100%',
-    maxWidth: 680,
+    maxWidth: 1080,
     alignSelf: 'center',
     paddingHorizontal: 24,
     flexDirection: 'row',
@@ -1293,7 +1274,7 @@ const s = StyleSheet.create({
     width: 43,
     height: 43,
     borderRadius: 14,
-    backgroundColor: C.green,
+    backgroundColor: C.primary,
     alignItems: 'center',
     justifyContent: 'center'
   },
@@ -1304,7 +1285,7 @@ const s = StyleSheet.create({
     letterSpacing: -.5
   },
   brandSub: {
-    fontSize: 15,
+    fontSize: 12,
     color: C.muted,
     marginTop: 3
   },
@@ -1318,10 +1299,10 @@ const s = StyleSheet.create({
   },
   content: {
     width: '100%',
-    maxWidth: 680,
+    maxWidth: 1080,
     alignSelf: 'center',
-    padding: 20,
-    paddingBottom: 35,
+    padding: 22,
+    paddingBottom: 38,
     gap: 18
   },
   weekBar: {
@@ -1340,14 +1321,14 @@ const s = StyleSheet.create({
     marginTop: 6
   },
   eyebrow: {
-    fontSize: 10,
-    color: C.green,
+    fontSize: 12,
+    color: C.primary,
     fontWeight: '800',
     letterSpacing: 1.5
   },
   title: {
-    fontSize: 28,
-    lineHeight: 34,
+    fontSize: 34,
+    lineHeight: 41,
     color: C.ink,
     fontWeight: '800',
     letterSpacing: -.6
@@ -1381,7 +1362,7 @@ const s = StyleSheet.create({
   },
   button: {
     minHeight: 54,
-    backgroundColor: C.green,
+    backgroundColor: C.primary,
     borderRadius: 13,
     paddingHorizontal: 16,
     paddingVertical: 13,
@@ -1396,7 +1377,7 @@ const s = StyleSheet.create({
     textAlign: 'center'
   },
   secondary: {
-    backgroundColor: C.pale
+    backgroundColor: C.white, borderWidth: 1, borderColor: C.line
   },
   small: {
     minHeight: 48,
@@ -1415,8 +1396,8 @@ const s = StyleSheet.create({
     justifyContent: 'center'
   },
   chipActive: {
-    backgroundColor: C.green,
-    borderColor: C.green
+    backgroundColor: C.primary,
+    borderColor: C.primary
   },
   chipText: {
     fontSize: 15,
@@ -1495,7 +1476,7 @@ const s = StyleSheet.create({
     borderColor: C.line
   },
   stepCurrent: {
-    borderColor: C.green
+    borderColor: C.primary
   },
   stepLabel: {
     fontSize: 14,
@@ -1503,12 +1484,15 @@ const s = StyleSheet.create({
     color: C.muted
   },
   basketRow: {
+    backgroundColor: C.white,
+    borderRadius: 16,
+    marginTop: 8,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 13,
     paddingVertical: 15,
-    paddingHorizontal: 5,
-    borderBottomWidth: 1,
+    paddingHorizontal: 17,
+    borderWidth: 1,
     borderColor: C.line
   },
   checkbox: {
@@ -1516,23 +1500,23 @@ const s = StyleSheet.create({
     height: 44,
     borderRadius: 9,
     borderWidth: 1.5,
-    borderColor: '#9BAD99',
+    borderColor: C.muted,
     alignItems: 'center',
     justifyContent: 'center'
   },
   checkboxOn: {
-    backgroundColor: C.green,
-    borderColor: C.green
+    backgroundColor: C.primary,
+    borderColor: C.primary
   },
   warning: {
     padding: 18,
     borderRadius: 14,
-    backgroundColor: '#FAE7D8',
+    backgroundColor: C.coralLight,
     gap: 7
   },
   notice: {
     padding: 15,
-    backgroundColor: '#E1EBDD',
+    backgroundColor: C.sky,
     borderRadius: 13,
     gap: 5
   },
@@ -1554,7 +1538,7 @@ const s = StyleSheet.create({
   },
   nav: {
     width: '100%',
-    maxWidth: 680,
+    maxWidth: 1080,
     alignSelf: 'center',
     flexDirection: 'row',
     paddingVertical: 7,
@@ -1573,12 +1557,12 @@ const s = StyleSheet.create({
     backgroundColor: C.pale
   },
   navLabel: {
-    fontSize: 14,
+    fontSize: 13,
     color: C.muted
   },
   shade: {
     flex: 1,
-    backgroundColor: 'rgba(20,35,25,.5)',
+    backgroundColor: 'rgba(25,42,81,.5)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 14
