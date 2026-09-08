@@ -8,7 +8,7 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
-    "test": "node --test tests/whole-shop.test.mjs"
+    "test": "node --test tests/whole-shop.test.mjs tests/pages-publishing.test.cjs"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",
