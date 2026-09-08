@@ -43,13 +43,6 @@ export function Gemma({
     clearInterval(timer.current);
     setSpoken(text);
     if (reduced === false) {
-      let letters = 0;
-      setSpoken('');
-      timer.current = setInterval(() => {
-        letters += Math.max(2, Math.ceil(text.length / 30));
-        setSpoken(text.slice(0, letters));
-        if (letters >= text.length) clearInterval(timer.current);
-      }, 20);
       nod.setValue(0);
       Animated.sequence([Animated.timing(nod, {
         toValue: 1,
@@ -80,12 +73,9 @@ export function Gemma({
         })
       }]
     }]} />
-    <Pressable accessibilityRole="button" accessibilityLabel={`Gemma: ${text} Tap to show the full message.`} onPress={() => {
-      clearInterval(timer.current);
-      setSpoken(text);
-    }} style={d.speech}>
-      <Text style={d.speaker}>Gemma</Text><Text style={d.words}>{spoken || ' '}</Text>
-    </Pressable>
+    <View style={d.speech}>
+      <Text style={d.speaker}>Gemma · your shopping helper</Text><Text style={d.words}>{spoken}</Text>
+    </View>
   </View>;
 }
 const photos = {
@@ -254,14 +244,14 @@ const d = StyleSheet.create({
     minHeight: 79
   },
   speaker: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '700',
     color: C.green,
     marginBottom: 4
   },
   words: {
-    fontSize: 13,
-    lineHeight: 19,
+    fontSize: 16,
+    lineHeight: 24,
     color: C.ink
   },
   photo: {
@@ -283,7 +273,7 @@ const d = StyleSheet.create({
     backgroundColor: '#EAF0DC'
   },
   photoLabel: {
-    fontSize: 11,
+    fontSize: 13,
     color: C.muted
   },
   welcomeShade: {
@@ -303,7 +293,7 @@ const d = StyleSheet.create({
     overflow: 'hidden'
   },
   welcomeEyebrow: {
-    fontSize: 11,
+    fontSize: 13,
     letterSpacing: 1.6,
     fontWeight: '700',
     color: C.green
