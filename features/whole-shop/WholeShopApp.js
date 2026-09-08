@@ -7,6 +7,8 @@ import { supabase } from '../../lib/supabase';
 import useShop from './useShop';
 import { GROUPS } from './data';
 import { DAYS, SLOTS, id, number, normal, currentWeek, changeWeek, makeBasket, draftPlan, copyPreviousWeek, startFollowingWeek, plannerPosition, labelWeek, shiftWeek, basketKey, portions, isDue, selectedEssentials, structuredCopy, migrateLegacy } from './engine';
+import {SetupFlow, TourGuide} from './OnboardingFlow';
+import {beginSetup, beginTour, tourIndex, TOUR_TABS, recipeAvoidances} from './onboarding';
 import { HomeDashboard, WeekBoard } from './WeeklyOverview';
 import { C, Gemma, MealPhoto, PageMotion, WelcomeIntro, useReducedMotion } from './Design';
 import { AISLES, aisleFor, itemChoices, recentItems, addExtras, mealMatches } from './grocery';
@@ -218,9 +220,9 @@ function MealForm({
           }} style={[s.recipePick, meal === n && s.recipePickOn]} {...webState("pressed", meal === n)}><MealPhoto name={n} recipe={shop.recipes[n]} style={{
               height: 108,
               borderRadius: 13
-            }} /><Text style={s.h3}>{n}</Text><Text style={s.caption}>{shop.recipes[n].ingredients.length} ingredients</Text>{matches.find(m => m.name === n)?.matched > 0 && <View style={s.matchNote}><Text style={s.matchText}>{matches.find(m => m.name === n).newItems} new ingredient types</Text>{matches.find(m => m.name === n).shared.length > 0 && <Text style={s.fine}>On your list: {matches.find(m => m.name === n).shared.join(', ')}</Text>}{matches.find(m => m.name === n).atHome.length > 0 && <Text style={s.fine}>Reported at home: {matches.find(m => m.name === n).atHome.join(', ')}</Text>}</View>}</Pressable>)}</View>{!names.length && <Empty text="No meals match yet. Save your recipe below." />}<Button label="Create a meal" secondary onPress={onRecipe} /></>}
+            }} /><Text style={s.h3}>{n}</Text><Text style={s.caption}>{shop.recipes[n].ingredients.length} ingredients</Text>{recipeAvoidances(shop.recipes[n],shop.preferences).length > 0 && <Text style={s.error}>Preference check: {recipeAvoidances(shop.recipes[n],shop.preferences).join(', ')}</Text>}{matches.find(m => m.name === n)?.matched > 0 && <View style={s.matchNote}><Text style={s.matchText}>{matches.find(m => m.name === n).newItems} new ingredient types</Text>{matches.find(m => m.name === n).shared.length > 0 && <Text style={s.fine}>On your list: {matches.find(m => m.name === n).shared.join(', ')}</Text>}{matches.find(m => m.name === n).atHome.length > 0 && <Text style={s.fine}>Reported at home: {matches.find(m => m.name === n).atHome.join(', ')}</Text>}</View>}</Pressable>)}</View>{!names.length && <Empty text="No meals match yet. Save your recipe below." />}<Button label="Create a meal" secondary onPress={onRecipe} /></>}
     </>}
-    {step === 1 && <>{kind === 'meal' ? <><View style={s.row}><MealPhoto name={meal} recipe={shop.recipes[meal]} small /><Text style={[s.h2, s.flex]}>{meal}</Text></View>{!shop.people.length && <Text style={s.body}>Add household members in your profile, or enter guest portions below.</Text>}<View style={s.wrap}>{shop.people.map(p => <Chip key={p.id} label={p.name} active={people.includes(p.id)} onPress={() => setPeople(toggle(people, p.id))} />)}</View><View style={s.wrap}><Button label="Everyone" secondary small onPress={() => setPeople(shop.people.map(p => p.id))} /><Button label="Adults" secondary small onPress={() => setPeople(shop.people.filter(p => normal(p.role) === 'adult').map(p => p.id))} /><Button label="Children" secondary small onPress={() => setPeople(shop.people.filter(p => normal(p.role) === 'child').map(p => p.id))} /></View><Button label={advanced ? 'Hide extra portions' : 'Guests or leftovers?'} small secondary onPress={() => setAdvanced(!advanced)} />{(advanced || !shop.people.length) && <><Field label="Guest portions" value={guests} onChangeText={setGuests} numeric /><Field label="Extra portions for later" value={extra} onChangeText={setExtra} numeric /><Text style={s.caption}>For a later meal using these leftovers, choose “already sorted”.</Text></>}<Text style={s.caption}>{number(portions({
+    {step === 1 && <>{kind === 'meal' ? <>{recipeAvoidances(shop.recipes[meal],shop.preferences).length > 0 && <View style={s.warning}><Text style={s.h3}>Check this against your preferences</Text><Text style={s.body}>This recipe mentions {recipeAvoidances(shop.recipes[meal],shop.preferences).join(', ')}. You can edit its ingredients in Meals or choose another recipe.</Text></View>}<View style={s.row}><MealPhoto name={meal} recipe={shop.recipes[meal]} small /><Text style={[s.h2, s.flex]}>{meal}</Text></View>{!shop.people.length && <Text style={s.body}>Add household members in your profile, or enter guest portions below.</Text>}<View style={s.wrap}>{shop.people.map(p => <Chip key={p.id} label={p.name} active={people.includes(p.id)} onPress={() => setPeople(toggle(people, p.id))} />)}</View><View style={s.wrap}><Button label="Everyone" secondary small onPress={() => setPeople(shop.people.map(p => p.id))} /><Button label="Adults" secondary small onPress={() => setPeople(shop.people.filter(p => normal(p.role) === 'adult').map(p => p.id))} /><Button label="Children" secondary small onPress={() => setPeople(shop.people.filter(p => normal(p.role) === 'child').map(p => p.id))} /></View><Button label={advanced ? 'Hide extra portions' : 'Guests or leftovers?'} small secondary onPress={() => setAdvanced(!advanced)} />{(advanced || !shop.people.length) && <><Field label="Guest portions" value={guests} onChangeText={setGuests} numeric /><Field label="Extra portions for later" value={extra} onChangeText={setExtra} numeric /><Text style={s.caption}>For a later meal using these leftovers, choose “already sorted”.</Text></>}<Text style={s.caption}>{number(portions({
             peopleIds: people,
             guests: Number(guests),
             extraPortions: Number(extra)
@@ -328,11 +330,11 @@ function ProductForm({ row, product, onSave, onClose, extras = [], regulars = []
   return <Sheet title={row.name} onClose={onClose} guidance="What is already at home, and is there a brand you want to keep? This helps prepare your basket for product matching."><Text style={s.body}>Needed this week: {measured(row.required,row.unit)}</Text><Text style={s.caption}>This amount comes from your meals and added items. Change those to change the amount you need.</Text>{extras.map(item => <Button key={item.id} label={`Change added ${item.name} amount`} secondary onPress={() => onEditExtra(item)} />)}{regulars.map(item => <Button key={item.id} label={`Change regular ${item.name} amount`} secondary onPress={() => onEditRegular(item)} />)}{onEditMeals && <Button label="Change my meals" secondary small onPress={onEditMeals} />}<Field label={`Already at home (${row.unit})`} numeric value={have} onChangeText={setHave} /><Field label="Preferred brand (optional)" value={brand} onChangeText={setBrand} /><View style={s.wrap}><Chip label="Keep this brand" active={keepBrand} onPress={() => setKeepBrand(!keepBrand)} /></View><Text style={s.caption}>When selected, a different brand must stay unmatched. Otherwise, you can review alternatives before any transfer.</Text><Field label="Product requirements (optional)" value={notes} onChangeText={setNotes} placeholder="e.g. unsweetened, flavour, preferred size" multiline /><Text style={s.caption}>Review product labels and these requirements when choosing a match. Free-text notes are not an automatic dietary check.</Text><Text style={s.label}>Why it is in your basket</Text>{row.sources.map(source => <Text key={source} style={s.caption}>• {source}</Text>)}<ErrorText error={error} /><Button label="Save item details" onPress={() => { if (!Number.isFinite(Number(have)) || Number(have) < 0) { setError('Enter an amount at home of zero or more.'); return; } if (keepBrand && !brand.trim()) { setError('Enter the brand you want to keep.'); return; } onSave({...product,notes:notes.trim(),brand:brand.trim(),keepBrand},Number(have)); }} /></Sheet>;
 }
 function AuthForm({
-  onClose
+  onClose, initialMode = 'login'
 }) {
   const [email, setEmail] = useState(''),
     [password, setPassword] = useState(''),
-    [mode, setMode] = useState('login'),
+    [mode, setMode] = useState(initialMode),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(''),
     [message, setMessage] = useState('');
@@ -363,7 +365,7 @@ function AuthForm({
       setBusy(false);
     }
   };
-  return <Sheet title={mode === 'login' ? 'Welcome back' : 'Create an account'} onClose={onClose} guidance="Sign in to keep a copy of your household plan with your account."><Text style={s.body}>Keep your plan with your account. Device-only plans stay separate until you choose to import them.</Text><Field label="Email" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" autoComplete="email" /><Field label="Password" value={password} onChangeText={setPassword} secureTextEntry autoComplete={mode === 'login' ? 'current-password' : 'new-password'} /><ErrorText error={error} />{message && <Text style={s.body}>{message}</Text>}<Button label={busy ? 'Please wait…' : mode === 'login' ? 'Sign in' : 'Create account'} onPress={submit} disabled={busy} /><Button secondary label={mode === 'login' ? 'Create a new account' : 'I already have an account'} onPress={() => {
+  return <Sheet title={mode === 'login' ? 'Welcome back' : 'Create an account'} onClose={onClose} guidance="Sign in to save your household plan, or create an account for a guided start."><Text style={s.body}>{mode === 'signup' ? 'After signing in, Gemma will help you add your household, familiar meals and everyday essentials, then show you around.' : 'Pick up your saved household plan.'}</Text><Text style={s.caption}>A new account starts fresh. Earlier device plans are only imported if you choose to do so in Account.</Text><Field label="Email" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" autoComplete="email" /><Field label="Password" value={password} onChangeText={setPassword} secureTextEntry autoComplete={mode === 'login' ? 'current-password' : 'new-password'} /><ErrorText error={error} />{message && <Text style={s.body}>{message}</Text>}<Button label={busy ? 'Please wait…' : mode === 'login' ? 'Sign in' : 'Create account'} onPress={submit} disabled={busy} /><Button secondary label={mode === 'login' ? 'Create a new account' : 'I already have an account'} onPress={() => {
       setMode(mode === 'login' ? 'signup' : 'login');
       setError('');
       setMessage('');
@@ -421,12 +423,15 @@ export default function WholeShopApp() {
   const [tab, setTab] = useState('Home'),
     [replay, setReplay] = useState(0),
     [undo, setUndo] = useState(null),
-    [modal, setModal] = useState(null),
+    [modal, setModal] = useState(() => Platform.OS === 'web' && new URLSearchParams(globalThis.location?.search || '').get('signup') === '1' ? {type:'auth',initialMode:'signup'} : null),
     [notice, setNotice] = useState(''),
     [group, setGroup] = useState('snacks'),
     [search, setSearch] = useState(''),
     [recipeFilter, setRecipeFilter] = useState('all'),
     [showRegulars, setShowRegulars] = useState(false);
+  const setupActive = shop.onboarding?.phase === 'setup';
+  const touring = shop.onboarding?.phase === 'tour';
+  const tourStep = tourIndex(shop);
   const scroll = useRef(null);
   const wide = useWindowDimensions().width >= 760;
   const position = plannerPosition(currentWeek(shop));
@@ -441,7 +446,7 @@ export default function WholeShopApp() {
       y: 0,
       animated: false
     });
-  }, [tab, activeDay, overview, shop.week]);
+  }, [tab, activeDay, overview, shop.week, shop.onboarding?.step]);
   useEffect(() => {
     setUndo(null);
   }, [shop.week, session?.user?.id]);
@@ -453,10 +458,22 @@ export default function WholeShopApp() {
   const setOverview = value => editWeek(old => ({planner:{...plannerPosition(old),view:value ? 'week' : 'day'}}));
   const openDay = day => editWeek({planner:{day,view:'day'}});
   const close = () => setModal(null);
+  useEffect(() => {
+    if (!ready || !touring) return;
+    setTab(TOUR_TABS[tourStep]);
+    if (tourStep === 1 && (stage !== 0 || !overview)) editWeek(old => ({stage:0,planner:{...plannerPosition(old),view:'week'}}));
+  }, [ready,touring,tourStep,shop.week]);
+  const startSetup = () => { setModal(null); update(beginSetup); setTab('Home'); };
+  const startTour = () => { setModal(null); update(beginTour); setTab('Home'); };
+  const chooseTab = name => {
+    if (touring && TOUR_TABS.includes(name)) update(old => ({...old,onboarding:{...old.onboarding,tourIndex:TOUR_TABS.indexOf(name)}}));
+    if (name === 'Week') goStep(0); else setTab(name);
+  };
   const goStep = n => {
     editWeek({
       stage: n
     });
+    if (touring) update(old => ({...old,onboarding:{...old.onboarding,tourIndex:n === 3 ? 3 : 1}}));
     setTab(n === 3 ? 'Basket' : 'Week');
     scroll.current?.scrollTo({
       y: 0,
@@ -593,6 +610,7 @@ export default function WholeShopApp() {
     close();
   };
   const saveRecipe = (name, recipe) => {
+    if (modal.fromSetup) recipe = {...recipe,favourite:true};
     if (name !== modal.name && shop.recipes[name]) return 'There is already a recipe with this name. Choose a different name.';
     update(old => {
       const recipes = {
@@ -620,10 +638,14 @@ export default function WholeShopApp() {
     });else close();
   };
   if (!ready) return <SafeAreaView style={s.loading}><ActivityIndicator color={C.primary} /><Text style={s.body}>Opening your weekly shop…</Text></SafeAreaView>;
-  return <SafeAreaView style={s.root} edges={['top', 'left', 'right']}><View style={s.header}><View style={s.brand}><View style={s.logo}>{icon('basket-outline',C.white,27)}</View><View><Text style={s.brandName}>Our Weekly Shop</Text><Text style={s.brandSub}>A little less to think about.</Text></View></View><View style={s.headerActions}><Button label="Help" secondary small onPress={() => setModal({type:'help'})} /><Button label="Account" secondary small onPress={() => setTab('Account')} /></View></View>
-  <ScrollView ref={scroll} contentContainerStyle={[s.content, (tab === 'Account' || tab === 'Basket' || tab === 'Week' && (stage !== 0 || !overview)) && {maxWidth:760}]} keyboardShouldPersistTaps="handled"><PageMotion change={`${tab}-${stage}-${activeDay}-${overview}`}>
+  return <SafeAreaView style={s.root} edges={['top', 'left', 'right']}><View style={s.header}><View style={s.brand}><View style={s.logo}>{icon('basket-outline',C.white,27)}</View><View><Text style={s.brandName}>Our Weekly Shop</Text><Text style={s.brandSub}>A little less to think about.</Text></View></View><View style={s.headerActions}><Button label="Help" secondary small onPress={() => setModal({type:'help'})} />{!setupActive && !touring && <><Button label="Account" secondary small onPress={() => setTab('Account')} />{!session && <Button label="Create account" small onPress={() => setModal({type:'auth',initialMode:'signup'})} />}</>}</View></View>
+  <ScrollView ref={scroll} contentContainerStyle={[s.content, (setupActive || tab === 'Account' || tab === 'Basket' || tab === 'Week' && (stage !== 0 || !overview)) && {maxWidth:760}]} keyboardShouldPersistTaps="handled"><PageMotion change={`${tab}-${stage}-${activeDay}-${overview}-${shop.onboarding?.step}`}>
+  {setupActive && <SetupFlow key={session?.user?.id || 'guest'} {...{shop,update,status,session,setModal,openPerson,Button,Field,Chip}} onTour={() => setTab('Home')} />}
+  {!setupActive && <>
   {notice ? <Pressable accessibilityRole="button" accessibilityLabel="Dismiss notice" onPress={() => setNotice('')} style={s.notice}><Text style={s.body}>{notice}</Text><Text style={s.caption}>Tap to dismiss</Text></Pressable> : null}
-  {tab === 'Home' && <HomeDashboard {...{shop,basket,stage,goStep,openPerson,setModal,setTab,startNextWeek,Button}} />}
+  {tab === 'Home' && shop.onboarding?.phase === 'paused' && <View style={s.inset}><Text style={s.h2}>Finish making this your shop</Text><Text style={s.body}>Your saved answers are ready. Continue your setup, then take a short tour.</Text><Button label="Continue my setup" onPress={startSetup} /></View>}
+  {tab === 'Home' && !session && !shop.onboarding && <View style={s.inset}><Text style={s.h2}>New here? Let’s get you started.</Text><Text style={s.body}>Create an account for a guided setup and a tour using your own shop.</Text><Button label="Create my account" onPress={() => setModal({type:'auth',initialMode:'signup'})} /></View>}
+  {tab === 'Home' && <HomeDashboard {...{shop,basket,stage,goStep,openPerson,setModal,startNextWeek,Button}} setTab={chooseTab} />}
   {tab === 'Week' && <View style={s.weekBar}><Button label="‹" accessibilityLabel="Previous week" small secondary onPress={() => update(old => ({
             ...old,
             week: shiftWeek(old.week, -1)
@@ -753,10 +775,10 @@ export default function WholeShopApp() {
                 }
               }))} style={s.favouriteButton} {...webState("pressed", !!r.favourite)}>{icon(r.favourite ? 'heart' : 'heart-outline', C.primary, 18)}<Text style={s.caption}>{r.favourite ? 'Favourite' : 'Save favourite'}</Text></Pressable></View>)}</View>
   {!Object.entries(shop.recipes).some(([n, r]) => (recipeFilter === 'all' || recipeFilter === 'favourites' && r.favourite || r.category === recipeFilter) && normal(n + ' ' + r.ingredients.map(i => i.name).join(' ')).includes(normal(search))) && <Empty text="No meals here yet. Add a recipe or try another filter." />}</>}
-  {tab === 'Account' && <><Heading eyebrow="YOUR ACCOUNT" title="A shop that feels like yours." /><Gemma text="Who lives here, what they like and your budget. A little detail makes the next shop easier." /><View style={s.card}><Text style={s.h2}>{session ? 'Your account' : 'Using this device'}</Text><Text style={s.body}>{session?.user?.email || 'Your plan is saved in this browser. Sign in to keep a copy with your account.'}</Text><Text accessibilityLiveRegion="polite" style={s.caption}>{status}</Text>{session ? <View style={s.wrap}><Button label="Save to account" onPress={sync} /><Button label="Sign out" secondary onPress={async () => {
+  {tab === 'Account' && <><View style={s.card}><Text style={s.h2}>Make the most of your shop</Text><Text style={s.body}>Set up your household, familiar meals, regular items and shopping preferences. Your existing plans stay in place.</Text><Button label={shop.onboarding?.phase === 'paused' ? 'Continue my setup' : 'Set up my shop'} onPress={startSetup} /><Button label="Take the app tour" secondary onPress={startTour} /></View><Heading eyebrow="YOUR ACCOUNT" title="A shop that feels like yours." /><Gemma text="Who lives here, what they like and your budget. A little detail makes the next shop easier." /><View style={s.card}><Text style={s.h2}>{session ? 'Your account' : 'Using this device'}</Text><Text style={s.body}>{session?.user?.email || 'Your plan is saved in this browser. Sign in to keep a copy with your account.'}</Text><Text accessibilityLiveRegion="polite" style={s.caption}>{status}</Text>{session ? <View style={s.wrap}><Button label="Save to account" onPress={sync} /><Button label="Sign out" secondary onPress={async () => {
                 const {
                   error
-                } = await supabase.auth.signOut();
+                } = await supabase.auth.signOut({scope:'local'});
                 if (error) setNotice(error.message);
               }} /></View> : <Button label="Sign in / create account" onPress={() => setModal({
               type: 'auth'
@@ -803,15 +825,16 @@ export default function WholeShopApp() {
   {shop.history.length > 0 && <View style={s.card}><Text style={s.h2}>Recent shops</Text>{shop.history.slice(0, 5).map(h => <View key={h.id}><Text style={s.h3}>Week of {labelWeek(h.week)}</Text><Text style={s.caption}>{h.items.length} bought items · {h.items.map(i => i.name).join(', ')}</Text></View>)}</View>}</>}
   {tab === 'Account' && <Button label="Replay the welcome" secondary onPress={() => setReplay(n => n + 1)} />}
   <Text accessibilityLiveRegion="polite" style={s.saveStatus}>{status}</Text>
+  </>}
   </PageMotion>
-  </ScrollView>{undo && <View style={s.undoBar}><Text accessibilityLiveRegion="polite" style={[s.caption, s.flex]}>{undo.label}</Text><Button label="Undo" small secondary onPress={() => {
+  </ScrollView>{touring && <TourGuide {...{shop,update,Button}} onDone={() => setTab('Home')} />}{!setupActive && undo && <View style={s.undoBar}><Text accessibilityLiveRegion="polite" style={[s.caption, s.flex]}>{undo.label}</Text><Button label="Undo" small secondary onPress={() => {
         undo.action();
         setUndo(null);
-      }} /><Pressable accessibilityRole="button" accessibilityLabel="Dismiss undo" onPress={() => setUndo(null)} style={s.iconButton}>{icon('close-outline', C.muted, 18)}</Pressable></View>}<SafeAreaView edges={['bottom']} style={s.navSafe}><View style={s.nav}>{[['Home','home-outline','Home'],['Week','calendar-outline','Plan'],['Recipes','restaurant-outline','Meals'],['Basket','basket-outline','Basket']].map(([name,i,label]) => {
+      }} /><Pressable accessibilityRole="button" accessibilityLabel="Dismiss undo" onPress={() => setUndo(null)} style={s.iconButton}>{icon('close-outline', C.muted, 18)}</Pressable></View>}{!setupActive && <SafeAreaView edges={['bottom']} style={s.navSafe}><View style={s.nav}>{[['Home','home-outline','Home'],['Week','calendar-outline','Plan'],['Recipes','restaurant-outline','Meals'],['Basket','basket-outline','Basket']].map(([name,i,label]) => {
       const active = tab === name;
-      return <Pressable key={name} accessibilityRole="button" accessibilityLabel={`${label} tab`} accessibilityState={{selected:active}} {...webState('pressed',active)} onPress={() => name === 'Week' ? goStep(0) : setTab(name)} style={[s.navItem,active && s.navActive]}>{icon(i,active ? C.primary : C.muted,22)}<Text style={[s.navLabel,active && {color:C.primary,fontWeight:'700'}]}>{label}{name === 'Basket' && basket.toBuy.length ? ` (${basket.toBuy.length})` : ''}</Text></Pressable>;
-    })}</View></SafeAreaView>
-  <WelcomeIntro replay={replay} />
+      return <Pressable key={name} accessibilityRole="button" accessibilityLabel={`${label} tab`} accessibilityState={{selected:active}} {...webState('pressed',active)} onPress={() => chooseTab(name)} style={[s.navItem,active && s.navActive]}>{icon(i,active ? C.primary : C.muted,22)}<Text style={[s.navLabel,active && {color:C.primary,fontWeight:'700'}]}>{label}{name === 'Basket' && basket.toBuy.length ? ` (${basket.toBuy.length})` : ''}</Text></Pressable>;
+    })}</View></SafeAreaView>}
+  <WelcomeIntro replay={replay} enabled={replay > 0 || (!setupActive && !touring && !shop.onboarding)} />
   {modal?.type === 'help' && <Sheet title="A little help" onClose={close} guidance="Home helps you pick up where you left off. Plan shows your week, Meals holds your recipes, and Basket brings everything together. Your work is saved as you go; check the save message for its status.">
     {STEPS.map((step,i) => <View key={step} style={s.inset}><Text style={s.h3}>{i + 1}. {step}</Text><Text style={s.body}>{['Choose meals and who is eating. Ingredients go into your basket automatically.', 'Add food and household items. Regular items are things you want the app to remember for future weeks.', 'Say how much you have. We subtract it from the amount you need to buy.', 'Check the combined quantities and any brands you prefer. Nothing has been ordered.'][i]}</Text></View>)}
     <Text style={s.h3}>Can I order my shop here?</Text><Text style={s.body}>Not yet. Real supermarket prices and automatic basket transfer are not available. The example comparison uses made-up prices and cannot place an order.</Text>
@@ -890,7 +913,7 @@ export default function WholeShopApp() {
       }));
       close();
     }} />}
-  {modal?.type === 'auth' && <AuthForm onClose={close} />}
+  {modal?.type === 'auth' && <AuthForm initialMode={modal.initialMode} onClose={close} />}
   {modal?.type === 'confirm' && <Confirm {...modal} onClose={close} onConfirm={modal.action} />}
   {modal?.type === 'list' && <Sheet title="Your prepared basket" onClose={close}><TextInput accessibilityLabel="Basket requirements to copy" multiline editable={false} value={preparedBasketText(shop, basket)} style={[s.input, {
         minHeight: 260
@@ -901,7 +924,7 @@ function BasketContent({ basket, w, shop, editWeek, setModal, copyList, goStep, 
   const [screen,setScreen] = useState('basket'), [query,setQuery] = useState(''), [mode,setMode] = useState('live'), [data,setData] = useState(null), [busy,setBusy] = useState(false), [error,setError] = useState(''), [selected,setSelected] = useState(null), [choices,setChoices] = useState({}), [approvals,setApprovals] = useState({}), [options,setOptions] = useState(false);
   const request = useRef(null);
   useEffect(() => { scrollRef?.current?.scrollTo({y:0,animated:false}); }, [screen,scrollRef]);
-  const fulfilment = w.online?.fulfilment || 'delivery';
+  const fulfilment = w.online?.fulfilment || shop.preferences?.fulfilment || 'delivery';
   const signature = JSON.stringify([shop.week,basket.toBuy.map(row => [row.key,row.need,row.brand,row.notes,shop.products[row.key]?.keepBrand])]);
   useEffect(() => { setScreen('basket'); setSelected(null); setChoices({}); setApprovals({}); }, [signature]);
   useEffect(() => () => { request.current?.abort(); request.current = null; }, []);

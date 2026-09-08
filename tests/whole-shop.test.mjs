@@ -1,6 +1,7 @@
+import {shouldStartSetup,beginSetup,moveSetup,setupStep,beginTour,tourIndex,finishTour,preferenceUpdate,recipeAvoidances,validateAccountSession} from '../features/whole-shop/onboarding.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {freshState,blankPlan,changeWeek,currentWeek,makeBasket,draftPlan,copyPreviousWeek,startFollowingWeek,plannerPosition,basketKey,isDue,recordPurchased,migrateLegacy,listText} from '../features/whole-shop/engine.js';
+import {DAYS,freshState,blankPlan,changeWeek,currentWeek,makeBasket,draftPlan,copyPreviousWeek,startFollowingWeek,plannerPosition,basketKey,isDue,recordPurchased,migrateLegacy,listText} from '../features/whole-shop/engine.js';
 import {AISLES,aisleFor,aisleOrder,itemChoices,recentItems,addExtras,shoppingProgress,mealMatches} from '../features/whole-shop/grocery.js';
 import {testCandidates,compareTestBasket,reviewedTestQuote,preparedBasketText,retailersFor} from '../features/whole-shop/comparison.js';
 import {loadTestCatalogue} from '../features/whole-shop/retailerData.js';
@@ -169,4 +170,51 @@ test('test catalogue loading paginates and refuses an incomplete response',async
  const data=await loadTestCatalogue(client,new AbortController().signal);assert.equal(data.products.length,503);assert.equal(data.offers.length,503);assert.equal(pages.length,4);
  const broken={from(){return {select(){return this;},eq(){return this;},order(){return this;},range(){return this;},async abortSignal(){return {data:null,error:new Error('offline')};}};}};
  await assert.rejects(loadTestCatalogue(broken,new AbortController().signal),/could not be loaded/);
+});
+
+// The same setup state is used after signup and by the replayable device flow.
+test('new account setup detection preserves populated and paused legacy accounts',()=>{
+ const fresh=freshState();assert.equal(shouldStartSetup(fresh),true);
+ assert.equal(shouldStartSetup(migrateLegacy({})),true);
+ for(const s of [household(),{...fresh,budget:'60'},{...fresh,recipes:{...fresh.recipes,'My meal':{ingredients:[]}}},changeWeek(fresh,{stock:{'rice|g':100}})])assert.equal(shouldStartSetup(s),false);
+ assert.equal(shouldStartSetup({...fresh,onboarding:{phase:'paused',step:3}}),false);
+});
+test('setup and tour resume without overwriting saved household plans or preferences',()=>{
+ let s=changeWeek(household(),{extras:[{name:'Soap',quantity:2,unit:'item'}]});const original=JSON.stringify(s.weeks);
+ s=moveSetup(beginSetup(s),4);s.onboarding.phase='paused';
+ const restored=JSON.parse(JSON.stringify(s));s=beginSetup(restored);assert.equal(setupStep(s),4);
+ s=beginTour(s);s.onboarding.tourIndex=2;assert.equal(tourIndex(JSON.parse(JSON.stringify(s))),2);
+ s=finishTour(s,true);assert.equal(s.onboarding.phase,'done');assert.equal(shouldStartSetup(s),false);assert.equal(JSON.stringify(s.weeks),original);assert.equal(s.people.length,2);
+});
+test('preferences shape new draft meals while preserving deliberate choices and unrelated settings',()=>{
+ let s=household(),plan=blankPlan(),usual=blankPlan();
+ plan.Monday=[{id:'keep',meal:'Chicken burritos',mealType:'dinner',peopleIds:['a']}];
+ usual.Tuesday=[{id:'usual',meal:'Chicken burritos',mealType:'dinner',peopleIds:['a']}];
+ s=changeWeek({...s,usualPlan:usual,preferences:{keepMe:true}}, {plan});
+ s=preferenceUpdate(s,{budget:'80',fulfilment:'collection',avoidText:'Chicken, chicken,  Mushrooms'});
+ assert.equal(s.budget,'80');assert.equal(s.preferences.fulfilment,'collection');assert.equal(s.preferences.keepMe,true);
+ const draft=draftPlan(s);assert.deepEqual(draft.Monday,plan.Monday);
+ for(const day of DAYS.slice(1)) for(const e of draft[day]) assert.equal(recipeAvoidances(s.recipes[e.meal],s.preferences).length,0);
+ assert.equal(recipeAvoidances({ingredients:[{name:'Chicken breast'}]},s.preferences).length>0,true);
+ assert.throws(()=>preferenceUpdate(s,{budget:'NaN'}),/budget/);
+ assert.throws(()=>preferenceUpdate(s,{budget:'-1'}),/budget/);
+ assert.equal(preferenceUpdate(s,{budget:'',avoidText:''}).budget,'');
+});
+test('setup answers flow through the same portion, regular item and cupboard calculation',()=>{
+ let s=freshState();s.people=[{id:'adult',name:'Parent',portion_multiplier:1},{id:'child',name:'Child',portion_multiplier:.5}];
+ s.recipes={'Our pasta':{servings:2,category:'dinner',favourite:true,ingredients:[{name:'Pasta',quantity:200,unit:'g'}]}};
+ s.essentials=[{id:'soap',name:'Hand soap',quantity:1,unit:'item',repeatWeeks:1}];
+ const plan=blankPlan();plan.Wednesday=[{id:'meal',meal:'Our pasta',mealType:'dinner',peopleIds:['adult','child']}];
+ s=changeWeek(beginSetup(s),{plan,stock:{'pasta|g':50}});
+ const saved=JSON.parse(JSON.stringify(finishTour(beginTour(s))));const basket=makeBasket(saved);
+ assert.equal(basket.items.find(i=>i.name==='Pasta').required,150);assert.equal(basket.items.find(i=>i.name==='Pasta').need,100);
+ assert.equal(basket.items.find(i=>i.name==='Hand soap').need,1);assert.equal(saved.recipes['Our pasta'].favourite,true);
+});
+test('deleted sessions are signed out locally; temporary failures do not discard an account',async()=>{
+ const calls=[];const client={auth:{getUser:async()=>({data:{user:null},error:{code:'user_not_found',status:403}}),signOut:async value=>calls.push(value)}};
+ assert.equal(await validateAccountSession(client,'old'),false);assert.deepEqual(calls,[{scope:'local'}]);
+ client.auth.getUser=async()=>({data:{user:null},error:{status:503,message:'Temporary failure'}});
+ await assert.rejects(validateAccountSession(client,'old'));assert.equal(calls.length,1);
+ client.auth.getUser=async()=>({data:{user:{id:'new'}},error:null});
+ assert.equal(await validateAccountSession(client,'new'),true);await assert.rejects(validateAccountSession(client,'old'),/changed/);
 });

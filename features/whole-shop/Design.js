@@ -127,7 +127,7 @@ export function PageMotion({
   }}>{children}</Animated.View>;
 }
 export function WelcomeIntro({
-  replay = 0
+  replay = 0, enabled = true
 }) {
   const [visible, setVisible] = useState(false);
   const reduced = useReducedMotion();
@@ -140,7 +140,7 @@ export function WelcomeIntro({
     setVisible(false);
   };
   useEffect(() => {
-    if (reduced === null) return;
+    if (!enabled || reduced === null) return;
     let live = true;
     async function welcome() {
       let seen = true;
@@ -180,8 +180,8 @@ export function WelcomeIntro({
       live = false;
       running.current?.stop();
     };
-  }, [replay, reduced, open, logo, drive]);
-  if (!visible) return null;
+  }, [replay, reduced, open, logo, drive, enabled]);
+  if (!visible || !enabled) return null;
   return <Modal transparent animationType="none" onRequestClose={close}><View style={d.welcomeShade}><View style={d.welcome}>
     <Text style={d.welcomeEyebrow}>OUR WEEKLY SHOP</Text><Text style={d.welcomeTitle}>A little less to remember.</Text>
     <View style={d.vanStage}>

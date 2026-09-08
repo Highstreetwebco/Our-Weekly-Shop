@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, Image, Pressable, StyleSheet, useWindowDimensions, Platform } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import {recipeAvoidances} from './onboarding';
 import { C, Gemma, MealPhoto } from './Design';
 import { DAYS, SLOTS, currentWeek, labelWeek, selectedEssentials } from './engine';
 
@@ -20,7 +21,7 @@ export function HomeDashboard({ shop, basket, stage, goStep, openPerson, setModa
   const checked = basket.items.filter(item => w.stock[item.key] != null).length;
   const started = meals > 0 || other > 0;
   const next = ['Choose this week’s meals', 'Add your household essentials', 'Check what you already have', 'Review your whole basket'][stage];
-  const picks = Object.entries(shop.recipes).sort((a,b) => Number(!!b[1].favourite)-Number(!!a[1].favourite) || Number(['Pizza night','Porridge & berries','Tomato & basil pasta'].includes(b[0]))-Number(['Pizza night','Porridge & berries','Tomato & basil pasta'].includes(a[0]))).slice(0,3);
+  const picks = Object.entries(shop.recipes).filter(([,r]) => !recipeAvoidances(r,shop.preferences).length).sort((a,b) => Number(!!b[1].favourite)-Number(!!a[1].favourite) || Number(['Pizza night','Porridge & berries','Tomato & basil pasta'].includes(b[0]))-Number(['Pizza night','Porridge & berries','Tomato & basil pasta'].includes(a[0]))).slice(0,3);
   return <>
     <View style={d.rowBetween}><Text style={d.eyebrow}>A LITTLE LESS TO THINK ABOUT</Text><Button label={`Week of ${labelWeek(shop.week)} ▾`} secondary small onPress={() => setModal({type:'change-week'})} /></View>
     <View style={[d.hero, wide && d.heroWide]}>
