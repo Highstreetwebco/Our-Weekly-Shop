@@ -5,11 +5,13 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../../lib/supabase';
 import useShop from './useShop';
-import { GROUPS, RETAILERS } from './data';
-import { DAYS, SLOTS, id, number, normal, currentWeek, changeWeek, makeBasket, draftPlan, copyPreviousWeek, listText, labelWeek, shiftWeek, portions, isDue, selectedEssentials, structuredCopy, migrateLegacy, recordPurchased } from './engine';
+import { GROUPS } from './data';
+import { DAYS, SLOTS, id, number, normal, currentWeek, changeWeek, makeBasket, draftPlan, copyPreviousWeek, labelWeek, shiftWeek, portions, isDue, selectedEssentials, structuredCopy, migrateLegacy } from './engine';
 import { C, Gemma, MealPhoto, PageMotion, WelcomeIntro, useReducedMotion } from './Design';
-import { AISLES, aisleFor, aisleOrder, itemChoices, recentItems, addExtras, shoppingProgress, mealMatches } from './grocery';
-const STEPS = ['Meals', 'Usuals', 'At home', 'Shop'];
+import { AISLES, aisleFor, itemChoices, recentItems, addExtras, mealMatches } from './grocery';
+import { ONLINE_RETAILERS, retailersFor, compareTestBasket, reviewedTestQuote, preparedBasketText } from './comparison';
+import { loadTestCatalogue } from './retailerData';
+const STEPS = ['Meals', 'Usuals', 'At home', 'Basket'];
 const webState = (name, value) => Platform.OS === 'web' ? {
   [`aria-${name}`]: value
 } : {};
@@ -102,22 +104,17 @@ function QuickAddForm({ shop, initialRecent = false, onSave, onClose }) {
   };
   return <Sheet title={review ? 'Check your extras' : 'Anything else for your shop?'} onClose={onClose} guidance={review ? 'Check these quantities. Items already in your plan will have these amounts added on top.' : 'Tap a few things you need. Food, toiletries, pet food — it all goes on the same list.'} footer={<><ErrorText error={error} /><View style={s.row}>{review && <Button label="Back to items" secondary onPress={() => setReview(false)} />}<Button style={s.flex} label={review ? `Add ${picked.length} item${picked.length === 1 ? '' : 's'} to my shop` : `Review ${picked.length} selected`} disabled={!picked.length} onPress={next} /></View></>}>
     {!review ? <><View style={s.wrap}><Chip label="Browse items" active={source === 'all'} onPress={() => { setSource('all'); setLimit(24); }} /><Chip label="Buy again" active={source === 'recent'} onPress={() => { setSource('recent'); setAisle('all'); setLimit(24); }} /></View><Field label="Find items to add" value={search} onChangeText={v => { setSearch(v); setLimit(24); }} placeholder="Milk, batteries, dog food…" />
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}><View style={s.row}>{[{id:'all',label:'All aisles'}, ...AISLES].map(a => <Chip key={a.id} label={a.label} active={aisle === a.id} onPress={() => { setAisle(a.id); setLimit(24); }} />)}</View></ScrollView>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}><View style={s.row}>{[{id:'all',label:'All categories'}, ...AISLES].map(a => <Chip key={a.id} label={a.label} active={aisle === a.id} onPress={() => { setAisle(a.id); setLimit(24); }} />)}</View></ScrollView>
       <Text accessibilityLiveRegion="polite" style={s.caption}>{picked.length} selected · quantities can be changed next</Text><View style={s.quickGrid}>{choices.slice(0, limit).map(item => <Pressable key={item.key} accessibilityRole="checkbox" accessibilityLabel={`Select ${item.name}, ${item.quantity} ${item.unit}`} accessibilityState={{checked:!!selected[item.key]}} {...webState('checked', !!selected[item.key])} style={[s.quickTile, selected[item.key] && s.quickTileOn]} onPress={() => toggle(item)}><View style={s.rowBetween}>{icon(AISLES.find(a => a.id === item.aisle)?.icon || 'bag-outline')}{selected[item.key] && icon('checkmark-circle')}</View><Text style={s.h3}>{item.name}</Text><Text style={s.caption}>{item.quantity} {item.unit}</Text>{item.source && <Text style={s.fine}>{item.source}</Text>}{basket.items.some(i => i.key === item.key) && <Text style={s.fine}>Already planned · adds extra</Text>}</Pressable>)}</View>
       {choices.length > limit && <Button label={`Show more items (${choices.length - limit})`} secondary onPress={() => setLimit(n => n + 24)} />}
       {search.trim() && !itemChoices(shop, search).some(i => normal(i.name) === normal(search)) && <Button label={`+ Choose “${search.trim()}”`} secondary onPress={() => { const item = { name: search.trim(), quantity: 1, unit: 'item', group: 'snacks' }; item.key = `${normal(item.name)}|item`; item.aisle = aisleFor(item); setSelected(old => ({ ...old, [item.key]: item })); setSearch(''); setReview(true); }} />}
-      {!choices.length && <Empty text={source === 'recent' && !recentItems(shop).length ? 'Your bought items will appear here after you record a shop. Browse items to start.' : 'No matches in this view. Try another aisle or search.'} />}
+      {!choices.length && <Empty text={source === 'recent' && !recentItems(shop).length ? 'Items from earlier recorded shops appear here. Browse items to start your basket.' : 'No matches in this view. Try another category or search.'} />}
     </> : <>{picked.map(([key,item]) => { const existing = basket.items.find(i => i.key === key); return <View key={key} style={s.inset}><View style={s.rowBetween}><Text style={[s.h3,s.flex]}>{item.name}</Text><Button label="Remove" accessibilityLabel={`Remove selected ${item.name}`} small secondary onPress={() => toggle({key})} /></View><View style={s.row}><View style={s.flex}><Field label={`Quantity for ${item.name}`} value={item.quantity} numeric onChangeText={v => change(key,'quantity',v)} /></View><View style={s.flex}><Field label={`Unit for ${item.name}`} value={item.unit} onChangeText={v => change(key,'unit',v)} /></View></View>{item.brand && <Text style={s.caption}>Preferred brand: {item.brand}</Text>}{existing && <Text style={s.caption}>Already planned: {existing.required} {existing.unit}. This adds extra.</Text>}</View>; })}</>}
   </Sheet>;
 }
 function BudgetForm({ value, onSave, onClose }) {
   const [budget, setBudget] = useState(String(value || '')), [error, setError] = useState('');
-  return <Sheet title="Your weekly budget" onClose={onClose} guidance="Set an amount that works for you. Your shopping list will compare it with the prices you enter."><Field label="Weekly budget (£, optional)" value={budget} onChangeText={setBudget} numeric /><Text style={s.caption}>Leave blank to remove your budget. Delivery and other retailer charges are extra.</Text><ErrorText error={error} /><Button label="Save budget" onPress={() => { if (budget.trim() && (!Number.isFinite(Number(budget)) || Number(budget) < 0)) { setError('Enter an amount of zero or more, or leave it blank.'); return; } onSave(budget.trim()); }} /></Sheet>;
-}
-function AisleForm({ saved, onSave, onClose }) {
-  const [order, setOrder] = useState(aisleOrder(saved));
-  const move = (index, by) => setOrder(old => { const next = [...old]; [next[index], next[index + by]] = [next[index + by], next[index]]; return next; });
-  return <Sheet title="Your aisle order" onClose={onClose} guidance="Put these in the order you walk around your supermarket. I’ll remember it for your next shop." footer={<Button label="Save aisle order" onPress={() => onSave(order)} />}><Text style={s.caption}>To move an individual item to another aisle, open its details in your shopping list.</Text>{order.map((key,index) => <View key={key} style={s.rowBetween}><Text style={[s.label,s.flex]}>{index + 1}. {AISLES.find(a => a.id === key).label}</Text><Button label="↑" accessibilityLabel={`Move ${AISLES.find(a => a.id === key).label} up`} small secondary disabled={!index} onPress={() => move(index,-1)} /><Button label="↓" accessibilityLabel={`Move ${AISLES.find(a => a.id === key).label} down`} small secondary disabled={index === order.length - 1} onPress={() => move(index,1)} /></View>)}<Button label="Reset to standard order" secondary onPress={() => setOrder(aisleOrder())} /></Sheet>;
+  return <Sheet title="Your weekly budget" onClose={onClose} guidance="Set an amount that works for you. We’ll compare it with confirmed supermarket totals once live prices are connected."><Field label="Weekly budget (£, optional)" value={budget} onChangeText={setBudget} numeric /><Text style={s.caption}>Leave blank to remove your budget. Delivery and other retailer charges are extra.</Text><ErrorText error={error} /><Button label="Save budget" onPress={() => { if (budget.trim() && (!Number.isFinite(Number(budget)) || Number(budget) < 0)) { setError('Enter an amount of zero or more, or leave it blank.'); return; } onSave(budget.trim()); }} /></Sheet>;
 }
 function ErrorText({
   error
@@ -321,33 +318,9 @@ function ItemForm({
       if (error) setError(error);
     }} />{item?.id && <Button label={usual ? 'Remove from usuals' : 'Remove extra item'} secondary onPress={onDelete} />}</Sheet>;
 }
-function ProductForm({
-  row,
-  product,
-  onSave,
-  onClose
-}) {
-  const [have, setHave] = useState(String(row.have)),
-    [pack, setPack] = useState(String(product?.packSize || '')),
-    [price, setPrice] = useState(String(product?.price ?? '')),
-    [brand, setBrand] = useState(product?.brand || row.brand || ''),
-    [notes, setNotes] = useState(product?.notes || ''),
-    [aisle, setAisle] = useState(aisleFor(row, { [row.key]: product })),
-    [error, setError] = useState('');
-  return <Sheet title={row.name} onClose={onClose} guidance="How much is at home? Add the pack size and price if you know them."><Text style={s.body}>Needed this week: {row.required} {row.unit}</Text><Field label={`Already at home (${row.unit})`} numeric value={have} onChangeText={setHave} /><Field label={`Amount in one shop pack (${row.unit})`} numeric value={pack} onChangeText={setPack} placeholder={`e.g. ${row.unit === 'g' ? '500' : row.unit === 'ml' ? '1000' : '1'}`} /><Field label="Price per pack (£, optional)" numeric value={price} onChangeText={setPrice} placeholder="Enter the retailer’s current price" /><Field label="Preferred brand (optional)" value={brand} onChangeText={setBrand} /><Field label="Shopping note (optional)" value={notes} onChangeText={setNotes} placeholder="e.g. unsweetened, the blue packet" multiline /><Text style={s.label}>Supermarket aisle</Text><View style={s.wrap}>{AISLES.map(a => <Chip key={a.id} label={a.label} active={aisle === a.id} onPress={() => setAisle(a.id)} />)}</View><Text style={s.caption}>Pack sizes and prices are your entries. We round up to whole packs and reuse these details next time.</Text><Text style={s.label}>Why it is on your list</Text>{row.sources.map(source => <Text key={source} style={s.caption}>• {source}</Text>)}<ErrorText error={error} /><Button label="Save item details" onPress={() => {
-      if (!Number.isFinite(Number(have)) || Number(have) < 0 || pack !== '' && !(Number(pack) > 0) || price !== '' && (!Number.isFinite(Number(price)) || Number(price) < 0)) {
-        setError('Use a non-negative amount at home and price, and a pack size above zero.');
-        return;
-      }
-      onSave({
-        ...product,
-        aisle,
-        notes: notes.trim(),
-        packSize: pack === '' ? '' : Number(pack),
-        price: price === '' ? '' : Number(price),
-        brand: brand.trim()
-      }, Number(have));
-    }} /></Sheet>;
+function ProductForm({ row, product, onSave, onClose }) {
+  const [have,setHave] = useState(String(row.have)), [brand,setBrand] = useState(product?.brand || row.brand || ''), [notes,setNotes] = useState(product?.notes || ''), [keepBrand,setKeepBrand] = useState(!!product?.keepBrand), [error,setError] = useState('');
+  return <Sheet title={row.name} onClose={onClose} guidance="What is already at home, and is there a brand you want to keep? This helps prepare your basket for product matching."><Text style={s.body}>Needed this week: {row.required} {row.unit}</Text><Field label={`Already at home (${row.unit})`} numeric value={have} onChangeText={setHave} /><Field label="Preferred brand (optional)" value={brand} onChangeText={setBrand} /><View style={s.wrap}><Chip label="Keep this brand" active={keepBrand} onPress={() => setKeepBrand(!keepBrand)} /></View><Text style={s.caption}>When selected, a different brand must stay unmatched. Otherwise, you can review alternatives before any transfer.</Text><Field label="Product requirements (optional)" value={notes} onChangeText={setNotes} placeholder="e.g. unsweetened, flavour, preferred size" multiline /><Text style={s.caption}>Review product labels and these requirements when choosing a match. Free-text notes are not an automatic dietary check.</Text><Text style={s.label}>Why it is in your basket</Text>{row.sources.map(source => <Text key={source} style={s.caption}>• {source}</Text>)}<ErrorText error={error} /><Button label="Save item details" onPress={() => { if (!Number.isFinite(Number(have)) || Number(have) < 0) { setError('Enter an amount at home of zero or more.'); return; } if (keepBrand && !brand.trim()) { setError('Enter the brand you want to keep.'); return; } onSave({...product,notes:notes.trim(),brand:brand.trim(),keepBrand},Number(have)); }} /></Sheet>;
 }
 function AuthForm({
   onClose
@@ -419,8 +392,7 @@ export default function WholeShopApp() {
     [notice, setNotice] = useState(''),
     [group, setGroup] = useState('snacks'),
     [search, setSearch] = useState(''),
-    [recipeFilter, setRecipeFilter] = useState('all'),
-    [store, setStore] = useState(RETAILERS[0]);
+    [recipeFilter, setRecipeFilter] = useState('all');
   const scroll = useRef(null);
   useEffect(() => {
     if (!notice) return;
@@ -464,11 +436,11 @@ export default function WholeShopApp() {
   const copyList = async () => {
     try {
       if (Platform.OS === 'web' && globalThis.navigator?.clipboard) {
-        await navigator.clipboard.writeText(listText(shop));
-        setNotice('Shopping list copied. Paste it into a message or keep it beside your retailer’s basket.');
+        await navigator.clipboard.writeText(preparedBasketText(shop, basket));
+        setNotice('Basket requirements copied, including quantities and brand preferences.');
       } else {
         await Share.share({
-          message: listText(shop)
+          message: preparedBasketText(shop, basket)
         });
       }
     } catch {
@@ -533,7 +505,7 @@ export default function WholeShopApp() {
     setModal({
       type: 'confirm',
       title: 'Repeat your latest earlier week?',
-      text: 'This replaces this week’s meals and extras. Cupboard checks and bought ticks start fresh.',
+      text: 'This replaces this week’s meals and extras. Cupboard checks start fresh.',
       action: () => {
         update(next);
         close();
@@ -600,24 +572,6 @@ export default function WholeShopApp() {
       initialMeal: name
     });else close();
   };
-  const finish = () => {
-    const bought = basket.toBuy.filter(i => w.checked[i.key]);
-    if (!bought.length) {
-      setNotice('Tick the items you bought first.');
-      return;
-    }
-    setModal({
-      type: 'confirm',
-      title: 'Save this completed shop?',
-      text: `Record ${bought.length} bought items. Only purchased usuals will have their next reminder moved forward. Anything unticked stays on your list.`,
-      label: 'Record bought items',
-      action: () => {
-        update(recordPurchased);
-        close();
-        setNotice('Bought items recorded. Your next shop will use your updated usuals.');
-      }
-    });
-  };
   if (!ready) return <SafeAreaView style={s.loading}><ActivityIndicator color={C.green} /><Text style={s.body}>Opening your weekly shop…</Text></SafeAreaView>;
   return <SafeAreaView style={s.root} edges={['top', 'left', 'right']}><View style={s.header}><View style={s.brand}><Image source={require('../../assets/brand/intro-logo.jpg')} style={s.logo} accessibilityLabel="Our Weekly Shop logo" /><View><Text style={s.brandName}>Our Weekly Shop</Text><Text style={s.brandSub}>The whole household, sorted.</Text></View></View><Pressable accessibilityRole="button" accessibilityLabel="Open account" onPress={() => setTab('Account')} style={s.avatar}>{icon('person-outline')}</Pressable></View>
   <ScrollView ref={scroll} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled"><PageMotion change={`${tab}-${stage}-${activeDay}-${overview}`}>
@@ -635,8 +589,10 @@ export default function WholeShopApp() {
             }} onPress={() => goStep(i)} style={[s.step, stage === i && s.stepCurrent]} {...webState("pressed", stage === i)}><Text style={[s.stepLabel, stage === i && {
                 color: C.green
               }]}>{i + 1} · {label}</Text></Pressable>)}</View>
+    {stage < 3 && <>
     <Heading eyebrow={['YOUR WEEK, MADE EASIER', 'YOUR REGULAR ESSENTIALS', 'A QUICK CUPBOARD CHECK', 'READY WHEN YOU ARE'][stage]} title={!shop.people.length && stage === 0 ? 'Let’s start with your people.' : [overview ? 'Your week at a glance.' : `${activeDay}, made easy.`, 'And the rest of the house.', 'Already got enough?', 'Your shop, sorted.'][stage]} />
     <Gemma text={!shop.people.length && stage === 0 ? 'Who are we shopping for? Start with a name. You can add everyone else as you go.' : [overview ? 'Here’s the week so far. Tap a day to fill a gap or change a meal.' : 'What’s on the menu? Pick a familiar meal and tell me who is having it.', 'Meals are covered separately. Let’s check the milk, snacks and everyday bits.', 'Tell me what you already have. I’ll take it off the amount you need to buy.', 'Your meals and essentials are together. Check the amounts, then you’re ready to shop.'][stage]} />
+    </>}
     {stage === 0 && <>
       {!shop.people.length ? <View style={s.setup}><Text style={s.body}>Your usual meals. The right portions. A simpler shop every week.</Text><Button label="Add my first person" onPress={() => openPerson()} />{!session && <Button label="Sign in / create account" secondary onPress={() => setModal({
                 type: 'auth'
@@ -730,30 +686,27 @@ export default function WholeShopApp() {
                     type: 'product',
                     row
                   })} /></View></View>)}</View>
-      <Button label="See my whole shop →" onPress={() => goStep(3)} />
+      <Button label="Review my online basket →" onPress={() => goStep(3)} />
     </>}
-    {stage === 3 && <BasketContent {...{
+    {stage === 3 && <BasketContent scrollRef={scroll} {...{
             basket,
             w,
             shop,
             editWeek,
             setModal,
             copyList,
-            finish,
             goStep
           }} guided />}
   </>}
-  {tab === 'Basket' && <BasketContent {...{
+  {tab === 'Basket' && <BasketContent scrollRef={scroll} {...{
           basket,
           w,
           shop,
           editWeek,
           setModal,
           copyList,
-          finish,
           goStep
         }} />}
-  {(tab === 'Basket' || tab === 'Week' && stage === 3) && <View style={s.card}><Text style={s.h2}>Shop your way</Text><Text style={s.body}>Take this list to the shop, share it, or open your usual online retailer.</Text><View style={s.wrap}>{RETAILERS.map(r => <Chip key={r.name} label={r.name} active={store.name === r.name} onPress={() => setStore(r)} />)}</View><Button label={`Open ${store.name} ↗`} secondary onPress={() => Linking.openURL(store.url).catch(() => setNotice('Could not open the retailer. Try again shortly.'))} /><Text style={s.caption}>Your list isn’t transferred automatically. Retailer prices, availability, offers and delivery charges are confirmed on their site.</Text></View>}
   {tab === 'Recipes' && <><Heading eyebrow="MY FOOD" title="The meals you come back to." /><Gemma text="Save a few favourites with their ingredients. Next time, just pick the meal and I’ll work out the shop." /><Field label="Search your meals" value={search} onChangeText={setSearch} placeholder="Meal or ingredient" /><View style={s.wrap}>{['all', ...SLOTS, 'favourites'].map(x => <Chip key={x} label={titleCase(x)} active={recipeFilter === x} onPress={() => setRecipeFilter(x)} />)}</View><Button label="+ Add my own meal" onPress={() => setModal({
             type: 'recipe'
           })} />
@@ -800,7 +753,7 @@ export default function WholeShopApp() {
   <View style={s.card}><Field label="Weekly budget (£, optional)" value={shop.budget} numeric onChangeText={budget => update(old => ({
               ...old,
               budget
-            }))} /><Text style={s.caption}>Compare it with the prices you enter in your basket. Delivery and unpriced items are shown separately.</Text></View>
+            }))} /><Text style={s.caption}>Compare this with confirmed supermarket totals when live prices are connected. Delivery or collection fees must be included.</Text></View>
   <View style={s.card}><Text style={s.h2}>Bring back an earlier plan</Text><Text style={s.body}>If you used the old app on this device, you can recover its meals and household details.</Text><Button label="Review device import" secondary onPress={async () => {
               try {
                 const rows = await AsyncStorage.multiGet(['ows-working-state', 'ows-family-members', 'ows-multiweek-state', 'ows-whole-shop:guest']);
@@ -836,7 +789,7 @@ export default function WholeShopApp() {
       }} /><Pressable accessibilityRole="button" accessibilityLabel="Dismiss undo" onPress={() => setUndo(null)} style={s.iconButton}>{icon('close-outline', C.muted, 18)}</Pressable></View>}<SafeAreaView edges={['bottom']} style={s.navSafe}><View style={s.nav}>{[['Week', 'calendar-outline'], ['Recipes', 'book-outline'], ['Basket', 'basket-outline']].map(([name, i]) => <Pressable key={name} accessibilityRole="button" accessibilityLabel={`${{
           Week: 'This week',
           Recipes: 'My food',
-          Basket: 'Shop'
+          Basket: 'Basket'
         }[name]} tab`} accessibilityState={{
           selected: tab === name
         }} onPress={() => name === 'Week' ? goStep(0) : setTab(name)} style={[s.navItem, tab === name && s.navActive]} {...webState("pressed", tab === name)}>{icon(i, tab === name ? C.green : C.muted, 22)}<Text style={[s.navLabel, tab === name && {
@@ -845,7 +798,7 @@ export default function WholeShopApp() {
           }]}>{{
               Week: 'This week',
               Recipes: 'My food',
-              Basket: 'Shop'
+              Basket: 'Basket'
             }[name]}{name === 'Basket' && basket.toBuy.length ? ` (${basket.toBuy.length})` : ''}</Text></Pressable>)}</View></SafeAreaView>
   <WelcomeIntro replay={replay} />
   {modal?.type === 'week-options' && <Sheet title="A little head start" onClose={close} guidance="Use a familiar week, fill the gaps, or save this one to use again."><Button label="Repeat a previous week" onPress={repeatWeek} /><Button label="Draft my week" secondary onPress={draftWeek} /><Button label="Save as my usual week" secondary disabled={!mealCount} onPress={() => {
@@ -903,7 +856,6 @@ export default function WholeShopApp() {
     }} />}
   {modal?.type === 'quick-add' && <QuickAddForm shop={shop} initialRecent={modal.recent} onClose={close} onSave={items => { update(old => addExtras(old, items)); close(); setNotice(`${items.length} item${items.length === 1 ? '' : 's'} added. Quantities combine with your meals and usuals.`); }} />}
   {modal?.type === 'budget' && <BudgetForm value={shop.budget} onClose={close} onSave={budget => { update(old => ({...old,budget})); close(); }} />}
-  {modal?.type === 'aisle-order' && <AisleForm saved={shop.aisleOrder} onClose={close} onSave={aisleOrder => { update(old => ({...old, aisleOrder})); close(); setNotice('Your aisle order is saved for future shops.'); }} />}
   {modal?.type === 'product' && <ProductForm row={modal.row} product={shop.products[modal.row.key]} onClose={close} onSave={(product, have) => {
       update(old => ({
         ...changeWeek(old, {
@@ -921,56 +873,86 @@ export default function WholeShopApp() {
     }} />}
   {modal?.type === 'auth' && <AuthForm onClose={close} />}
   {modal?.type === 'confirm' && <Confirm {...modal} onClose={close} onConfirm={modal.action} />}
-  {modal?.type === 'list' && <Sheet title="Your shopping list" onClose={close}><TextInput accessibilityLabel="Shopping list to copy" multiline editable={false} value={listText(shop)} style={[s.input, {
+  {modal?.type === 'list' && <Sheet title="Your prepared basket" onClose={close}><TextInput accessibilityLabel="Basket requirements to copy" multiline editable={false} value={preparedBasketText(shop, basket)} style={[s.input, {
         minHeight: 260
-      }]} /><Text style={s.caption}>Select and copy this list to share it.</Text></Sheet>}
+      }]} /><Text style={s.caption}>These are prepared requirements. No items have been transferred to a supermarket.</Text></Sheet>}
   </SafeAreaView>;
 }
-function BasketContent({
-  basket,
-  w,
-  shop,
-  editWeek,
-  setModal,
-  copyList,
-  finish,
-  goStep,
-  guided = false
-}) {
-  const [filter, setFilter] = useState('remaining'), [query, setQuery] = useState('');
-  useEffect(() => { setFilter('remaining'); setQuery(''); }, [shop.week]);
-  const progress = shoppingProgress(basket, w.checked), checked = progress.bought;
-  const visible = basket.toBuy.filter(row => (filter === 'all' || (filter === 'bought' ? !!w.checked[row.key] : !w.checked[row.key])) && normal(row.name + ' ' + row.brand + ' ' + (row.notes || '')).includes(normal(query)));
-  const order = aisleOrder(shop.aisleOrder);
-  const groups = order.map(aisle => [AISLES.find(a => a.id === aisle), visible.filter(row => aisleFor(row, shop.products) === aisle)]).filter(([,rows]) => rows.length);
-  const priced = basket.toBuy.length - basket.unpriced;
-  return <>
-    {!guided && <><Heading eyebrow="YOUR WHOLE WEEK, TOGETHER" title="Your shop, sorted." /><Gemma text="Work down the aisles and tick things as you go. Bought items move out of the way; you can find and untick them in Bought." /></>}
-    <View style={s.shopSummary}><View style={s.rowBetween}><View style={s.flex}><Text style={s.shopCount}>{progress.remaining} left to buy</Text><Text style={s.caption}>Meals, usuals and extras together</Text></View><View style={s.basketBadge}>{icon('basket-outline', C.green, 27)}</View></View>
-      <View style={s.progressTrack}><View style={[s.progressFill, {
-          width: `${basket.toBuy.length ? checked / basket.toBuy.length * 100 : 0}%`
-        }]} /></View><Text accessibilityLiveRegion="polite" style={s.caption}>{checked} of {basket.toBuy.length} ticked off</Text>
-      <View style={s.spendRow}><View style={s.spendCard}><Text style={s.caption}>Whole list estimate</Text><Text style={s.h3}>{priced ? `£${basket.total.toFixed(2)}` : 'Add prices to estimate'}</Text><Text style={s.fine}>{basket.unpriced ? `${basket.unpriced} items without a total` : 'From your entered prices'}</Text></View><View style={s.spendCard}><Text style={s.caption}>Picked up so far</Text><Text style={s.h3}>{checked && progress.unpricedBought === checked ? 'Prices needed' : `£${progress.knownSpend.toFixed(2)}`}</Text><Text style={s.fine}>{progress.unpricedBought ? `${progress.unpricedBought} bought items still unpriced` : `${checked} items picked up`}</Text></View></View>
-      {Number(shop.budget) > 0 && <Text style={s.label}>Budget £{Number(shop.budget).toFixed(2)}{basket.total > Number(shop.budget) ? ` · at least £${(basket.total - Number(shop.budget)).toFixed(2)} over` : basket.unpriced ? ' · more prices needed to check it' : ` · £${(Number(shop.budget) - basket.total).toFixed(2)} left`}</Text>}
-      <Text style={s.fine}>Estimates use your pack sizes and prices. Delivery and other retailer charges are extra.</Text><Button label={Number(shop.budget) > 0 ? 'Edit weekly budget' : 'Set a weekly budget'} secondary small onPress={() => setModal({type:'budget'})} />
-    </View>
-    {basket.issues.length > 0 && <View style={s.warning}><Text style={s.h3}>A quick check before you shop</Text>{basket.issues.map(x => <Text key={x} style={s.body}>{x}</Text>)}<Button label="Review my meals" secondary small onPress={() => goStep(0)} /></View>}
-    <View style={s.row}><Button label="+ Add anything" secondary onPress={() => setModal({ type: 'quick-add' })} style={s.flex} /><Button label="Copy / share" disabled={!basket.toBuy.length} onPress={copyList} style={s.flex} /></View>
-    <View style={s.wrap}><Button label="Buy again" secondary small onPress={() => setModal({type:'quick-add',recent:true})} /><Button label="Arrange aisles" secondary small onPress={() => setModal({type:'aisle-order'})} /></View>
-    {!basket.items.length && <><Empty text="Your list fills itself as you plan meals and add your usual items." /><Button label="Plan my week" onPress={() => goStep(0)} /></>}
-    {basket.toBuy.length > 0 && <><Field label="Search your shopping list" value={query} onChangeText={setQuery} placeholder="Item, brand or note" /><View style={s.wrap}>{[['remaining',`To buy (${progress.remaining})`],['bought',`Bought (${checked})`],['all','All items']].map(([key,label]) => <Chip key={key} label={label} active={filter === key} onPress={() => setFilter(key)} />)}</View></>}
-    {!visible.length && basket.toBuy.length > 0 && <View style={s.inset}><Text style={s.h3}>{query ? 'No matching items' : filter === 'remaining' ? 'Everything is picked up.' : 'Nothing ticked off yet.'}</Text><Text style={s.caption}>{query ? 'Try another item, brand or note.' : filter === 'remaining' ? 'Review Bought if you need to untick anything, then record your shop below.' : 'Tick items in To buy as they go into your trolley.'}</Text>{query && <Button label="Clear shopping search" secondary small onPress={() => setQuery('')} />}</View>}
-    {groups.map(([aisle, rows]) => <View key={aisle.id}><View style={s.row}>{icon(aisle.icon)}<Text style={s.basketGroup}>{aisle.label} · {rows.length}</Text></View>{rows.map(row => <View key={row.key} style={s.basketRow}><Pressable accessibilityRole="checkbox" accessibilityLabel={`Bought ${row.name}`} accessibilityState={{ checked: !!w.checked[row.key] }} onPress={() => editWeek(old => ({ checked: { ...old.checked, [row.key]: !old.checked[row.key] } }))} style={({ pressed }) => [s.checkbox, w.checked[row.key] && s.checkboxOn, pressed && {transform:[{scale:.92}]}]} {...webState('checked', !!w.checked[row.key])}>{w.checked[row.key] && icon('checkmark', C.white, 20)}</Pressable><Pressable accessibilityRole="button" accessibilityLabel={`Details for ${row.name}`} onPress={() => setModal({ type: 'product', row })} style={s.flex}><Text style={[s.h3, w.checked[row.key] && { textDecorationLine:'line-through', color:C.muted }]}>{row.name}</Text><Text style={s.caption}>{row.packs != null ? `${row.packs} × ${row.packSize || 1} ${row.unit}` : `${row.need} ${row.unit}`}{row.brand ? ` · ${row.brand}` : ''}{row.subtotal != null ? ` · £${row.subtotal.toFixed(2)}` : ''}</Text>{!!row.notes && <Text style={s.noteText}>{row.notes}</Text>}</Pressable>{icon('chevron-forward', C.muted, 16)}</View>)}</View>)}
-    {basket.items.some(i => !i.need) && <View style={s.inset}><View style={s.row}>{icon('home-outline')}<Text style={s.h3}>Already at home</Text></View><Text style={s.caption}>{basket.items.filter(i => !i.need).map(i => i.name).join(' · ')}</Text><Button label="Edit cupboard check" secondary small onPress={() => goStep(2)} /></View>}
-    {w.extras.length > 0 && <View style={s.extrasSection}><Text style={s.h3}>Extras you added</Text>{w.extras.map(i => <View key={i.id} style={s.rowBetween}><Text style={[s.caption, s.flex]}>{i.name} · {i.quantity} {i.unit}</Text><Button label="Edit" accessibilityLabel={`Edit extra ${i.name}`} small secondary onPress={() => setModal({
-          type: 'item',
-          usual: false,
-          item: i
-        })} /></View>)}</View>}
-    {basket.toBuy.length > 0 && <Button label={`Record bought items (${checked})`} disabled={!checked || basket.issues.length > 0} onPress={finish} />}
-  </>;
+function BasketContent({ basket, w, shop, editWeek, setModal, copyList, goStep, scrollRef }) {
+  const [screen,setScreen] = useState('basket'), [query,setQuery] = useState(''), [mode,setMode] = useState('live'), [data,setData] = useState(null), [busy,setBusy] = useState(false), [error,setError] = useState(''), [selected,setSelected] = useState(null), [choices,setChoices] = useState({}), [approvals,setApprovals] = useState({});
+  const request = useRef(null);
+  useEffect(() => { scrollRef?.current?.scrollTo({y:0,animated:false}); }, [screen,scrollRef]);
+  const fulfilment = w.online?.fulfilment || 'delivery';
+  const signature = JSON.stringify([shop.week,basket.toBuy.map(row => [row.key,row.need,row.brand,row.notes,shop.products[row.key]?.keepBrand])]);
+  useEffect(() => { setScreen('basket'); setSelected(null); setChoices({}); setApprovals({}); }, [signature]);
+  useEffect(() => () => { request.current?.abort(); request.current = null; }, []);
+  const retailers = retailersFor(fulfilment);
+  const quotes = useMemo(() => data ? compareTestBasket(basket,shop.products,data,fulfilment) : [], [basket,shop.products,data,fulfilment]);
+  const quote = quotes.find(q => q.retailer.id === selected);
+  const reviewed = quote ? reviewedTestQuote(quote,choices,approvals) : null;
+  const retailer = ONLINE_RETAILERS.find(r => r.id === selected);
+  const visible = basket.toBuy.filter(row => normal(row.name+' '+row.brand+' '+row.notes).includes(normal(query)));
+  const groups = AISLES.map(category => [category,visible.filter(row => aisleFor(row) === category.id)]).filter(([,rows])=>rows.length);
+  const money = pence => `£${(pence / 100).toFixed(2)}`;
+  const loadTest = async () => {
+    request.current?.abort();
+    const controller = new AbortController(); request.current = controller;
+    const timeout = setTimeout(() => controller.abort(),15000);
+    setMode('test'); setBusy(true); setError(''); setData(null); setSelected(null); setChoices({}); setApprovals({});
+    try { const result = await loadTestCatalogue(supabase,controller.signal); if (request.current === controller && !controller.signal.aborted) setData(result); else if (request.current === controller) setError('Loading took too long. Please try the test comparison again.'); }
+    catch (e) { if (request.current === controller) setError(controller.signal.aborted ? 'Loading took too long. Please try the test comparison again.' : e.message); }
+    finally { clearTimeout(timeout); if (request.current === controller) setBusy(false); }
+  };
+  const openComparison = () => { setScreen('compare'); setSelected(null); setApprovals({}); setChoices({}); };
+  const back = () => setScreen(screen === 'transfer' ? 'matches' : screen === 'matches' ? 'compare' : 'basket');
+  return <PageMotion change={screen}>
+    <Heading eyebrow="YOUR ONLINE WEEKLY SHOP" title={{basket:'Your basket, prepared.',compare:'Choose where to order.',matches:`Your ${retailer?.name || ''} matches.`,transfer:'Transfer to your supermarket.'}[screen]} />
+    <View style={s.wrap}>{[['basket','1 · Prepare'],['compare','2 · Compare'],['matches','3 · Matches'],['transfer','4 · Transfer']].map(([key,label])=><Text key={key} style={[s.flowStep,screen === key && s.flowStepOn]}>{label}</Text>)}</View>
+    {screen !== 'basket' && <Button label={screen === 'compare' ? 'Back to my basket' : screen === 'matches' ? 'Back to comparisons' : 'Back to matches'} small secondary onPress={back} />}
+    <Gemma text={{basket:'Meals, regulars and extras are together. Check the quantities, then compare supermarket baskets for delivery or collection.',compare:'Choose delivery or collection. Compare the whole basket, check anything unmatched, then choose your supermarket.',matches:'Check the products, pack sizes and brands. You decide which alternatives are right before anything is sent.',transfer:'The next step is a secure handoff to your chosen supermarket. You complete the order and pay on their website.'}[screen]} />
+    {screen === 'basket' && <>
+      <View style={s.shopSummary}><View style={s.rowBetween}><View style={s.flex}><Text style={s.shopCount}>{basket.toBuy.length} items to match</Text><Text style={s.caption}>Quantities from your meals, usuals and extras, after your cupboard check</Text></View>{icon('basket-outline',C.green,28)}</View>{Number(shop.budget) > 0 && <Text style={s.label}>Weekly budget: £{Number(shop.budget).toFixed(2)}</Text>}<Button label={Number(shop.budget)>0 ? 'Edit weekly budget' : 'Set a weekly budget'} secondary small onPress={()=>setModal({type:'budget'})} /></View>
+      {basket.issues.length > 0 && <View style={s.warning}><Text style={s.h3}>Check these before comparing</Text>{basket.issues.map(issue=><Text key={issue} style={s.body}>{issue}</Text>)}<Button label="Review my meals" small secondary onPress={()=>goStep(0)} /></View>}
+      <Button label="Compare supermarket baskets →" disabled={!basket.toBuy.length || !!basket.issues.length} onPress={openComparison} />
+      <Text style={s.caption}>Live supermarket prices and basket transfer are not connected yet. The next screen shows connection status and an optional test comparison.</Text>
+      <View style={s.row}><Button label="+ Add anything" secondary style={s.flex} onPress={()=>setModal({type:'quick-add'})} /><Button label="Buy again" secondary style={s.flex} onPress={()=>setModal({type:'quick-add',recent:true})} /></View>
+      {!basket.items.length && <><Empty text="Plan your meals and add anything your household needs. We’ll combine it into one online basket." /><Button label="Plan my week" secondary onPress={()=>goStep(0)} /></>}
+      {basket.toBuy.length > 0 && <Field label="Search your prepared basket" value={query} onChangeText={setQuery} placeholder="Item, brand or requirement" />}
+      {!visible.length && query && <Empty text="No matches. Try another item, brand or requirement." />}
+      {groups.map(([category,rows])=><View key={category.id}><Text style={s.basketGroup}>{category.label} · {rows.length}</Text>{rows.map(row=><Pressable key={row.key} accessibilityRole="button" accessibilityLabel={`Details for ${row.name}`} onPress={()=>setModal({type:'product',row})} style={s.basketRow}><View style={s.flex}><Text style={s.h3}>{row.name}</Text><Text style={s.caption}>{row.need} {row.unit} needed{row.brand ? ` · ${row.brand}` : ''}{shop.products[row.key]?.keepBrand ? ' · keep this brand' : ''}</Text>{!!row.notes && <Text style={s.noteText}>{row.notes}</Text>}</View>{icon('create-outline',C.muted,18)}</Pressable>)}</View>)}
+      {basket.items.some(i=>!i.need) && <View style={s.inset}><Text style={s.h3}>Already at home</Text><Text style={s.caption}>{basket.items.filter(i=>!i.need).map(i=>i.name).join(' · ')}</Text><Button label="Edit cupboard check" secondary small onPress={()=>goStep(2)} /></View>}
+      {w.extras.length > 0 && <View style={s.extrasSection}><Text style={s.h3}>Extras you added</Text>{w.extras.map(i=><View key={i.id} style={s.rowBetween}><Text style={[s.caption,s.flex]}>{i.name} · {i.quantity} {i.unit}</Text><Button label="Edit" accessibilityLabel={`Edit extra ${i.name}`} small secondary onPress={()=>setModal({type:'item',usual:false,item:i})} /></View>)}</View>}
+      {!!basket.toBuy.length && <Button label="Copy basket requirements" secondary small onPress={copyList} />}
+    </>}
+    {screen === 'compare' && <>
+      <View style={s.wrap}><Chip label="Home delivery" active={fulfilment === 'delivery'} onPress={()=>editWeek(old=>({online:{...old.online,fulfilment:'delivery'}}))} /><Chip label="Click & collect" active={fulfilment === 'collection'} onPress={()=>editWeek(old=>({online:{...old.online,fulfilment:'collection'}}))} /></View>
+      <Text style={s.caption}>Retailer services depend on your area and available slots. Exact delivery or collection charges need a confirmed quote.</Text>
+      {mode === 'live' ? <View style={s.inset}><Text style={s.h3}>Live connections are being prepared</Text><Text style={s.body}>Your basket is saved. Real supermarket totals and account transfers will appear here once the retailer connections are available.</Text><Button label="Try a test comparison" secondary onPress={loadTest} /></View> : <View style={s.warning}><Text style={s.h3}>TEST COMPARISON · simulated prices</Text><Text style={s.body}>This uses example products and invented prices to test the matching flow. It cannot show the cheapest real supermarket or transfer products.</Text><Button label="Back to live connection status" secondary small onPress={()=>{request.current?.abort();request.current=null;setBusy(false);setMode('live');setError('');}} /></View>}
+      {busy && <View style={s.softNote}><ActivityIndicator color={C.green} /><Text accessibilityLiveRegion="polite" style={s.caption}>Loading example products and matching your quantities…</Text></View>}
+      <ErrorText error={error} />{error && mode === 'test' && <Button label="Retry test comparison" secondary onPress={loadTest} />}
+      {mode === 'live' && retailers.map(r=><View key={r.id} style={s.retailerCard}><Text style={s.h2}>{r.name}</Text><Text style={s.quotePrice}>Total unavailable</Text><Text style={s.caption}>Live product prices: not connected</Text><Text style={s.caption}>Basket transfer: not connected</Text><Button label={`Choose ${r.name} — not connected`} secondary disabled /></View>)}
+      {mode === 'test' && !busy && data && <><Text style={s.caption}>Sorted by most items matched, then the matched-item subtotal. Missing items and unknown fees prevent a complete price comparison.</Text>{quotes.map(q=><View key={q.retailer.id} style={s.retailerCard}><View style={s.rowBetween}><Text style={[s.h2,s.flex]}>{q.retailer.name}</Text><Text style={s.testTag}>TEST</Text></View><Text style={s.quotePrice}>{q.subtotalPence == null ? 'No test matches' : money(q.subtotalPence)}</Text><Text style={s.label}>{q.matched} of {basket.toBuy.length} items matched{q.missing ? ` · ${q.missing} unmatched` : ''}</Text><Text style={s.caption}>{q.status === 'no-test-data' ? 'No example offers are available for this retailer.' : 'Simulated matched-item subtotal only. Delivery / collection fees and loyalty prices are not included.'}</Text><Text style={s.caption}>Full basket total: unavailable</Text><Button label={`Review ${q.retailer.name} test matches`} secondary disabled={!q.matched} onPress={()=>{setSelected(q.retailer.id);setChoices({});setApprovals({});setScreen('matches');}} /></View>)}</>}
+    </>}
+    {screen === 'matches' && reviewed && <>
+      <View style={s.warning}><Text style={s.h3}>TEST MATCHES · no real products will be sent</Text><Text style={s.caption}>{reviewed.approved} of {reviewed.lines.length} items approved · {reviewed.missing} unmatched. Pack sizes are shown for your review.</Text></View>
+      {reviewed.lines.map(line=><View key={line.row.key} style={s.retailerCard}><Text style={s.h2}>{line.row.name}</Text><Text style={s.caption}>You need {line.row.need} {line.row.unit}{line.row.brand ? ` · preferred: ${line.row.brand}` : ''}</Text>{!!line.row.notes && <Text style={s.noteText}>Your requirements: {line.row.notes}</Text>}{line.candidate ? <><Text style={s.eyebrow}>PROPOSED TEST PRODUCT</Text><Text style={s.h3}>{line.candidate.product.name}</Text><Text style={s.caption}>{line.candidate.product.brand} · {line.candidate.packs} × {line.candidate.packQuantity} {line.candidate.packUnit}</Text><Text style={s.label}>{money(line.candidate.subtotalPence)} simulated item total</Text>{(!line.candidate.brandMatch || !line.candidate.exactName || line.candidate.packReview) && <Text style={s.caption}>Alternative product or pack size — please check it suits your request.</Text>}<Pressable accessibilityRole="checkbox" accessibilityLabel={`Approve test match for ${line.row.name}`} accessibilityState={{checked:line.approved}} {...webState('checked',line.approved)} style={s.row} onPress={()=>setApprovals(old=>({...old,[line.row.key]:line.approved ? null : line.candidate.product.id}))}><View style={[s.checkbox,line.approved && s.checkboxOn]}>{line.approved && icon('checkmark',C.white)}</View><Text style={[s.label,s.flex]}>Use this test match</Text></Pressable>{line.candidates.length > 1 && <><Text style={s.label}>Other pack options</Text><View style={s.wrap}>{line.candidates.slice(0,4).map(c=><Chip key={c.product.id} label={`${c.product.name} · ${c.packs} × ${c.packQuantity} ${c.packUnit} · ${money(c.subtotalPence)}`} active={c.product.id === line.candidate.product.id} onPress={()=>{setChoices(old=>({...old,[line.row.key]:c.product.id}));setApprovals(old=>({...old,[line.row.key]:null}));}} />)}</View></>}</> : <><Text style={s.label}>No compatible test match</Text><Text style={s.caption}>This item stays in your prepared basket. Its quantity or brand cannot be matched from the example catalogue.</Text></>}</View>)}
+      <Text style={s.h3}>Simulated matched-item subtotal: {reviewed.subtotalPence == null ? 'unavailable' : money(reviewed.subtotalPence)}</Text><Text style={s.caption}>Includes proposed matches, including those awaiting approval. Unmatched items and delivery / collection fees are excluded.</Text><Button label="Review transfer step →" disabled={!reviewed.approved} onPress={()=>setScreen('transfer')} />
+    </>}
+    {screen === 'transfer' && reviewed && <>
+      <View style={s.shopSummary}><Text style={s.h2}>{retailer.name}</Text><Text style={s.body}>{reviewed.approved} of {reviewed.lines.length} test matches approved</Text><Text style={s.caption}>{reviewed.missing} unmatched items · {reviewed.matched-reviewed.approved} proposed matches still to review</Text><Text style={s.caption}>Full basket total: unavailable</Text></View>
+      <View style={s.warning}><Text style={s.h3}>Automatic transfer is not connected yet</Text><Text style={s.body}>No supermarket account has been linked and no products have been sent. Test matches cannot be transferred.</Text></View>
+      <View style={s.card}><Text style={s.h3}>The connected journey</Text><Text style={s.body}>1. Resolve unmatched items and approve product alternatives.</Text><Text style={s.body}>2. Confirm the current basket total, including your delivery or collection charge.</Text><Text style={s.body}>3. Authorise the connection on the supermarket’s own sign-in page.</Text><Text style={s.body}>4. Transfer the approved products, then review and pay on their website.</Text></View>
+      <Button label={`Transfer to ${retailer.name} — unavailable`} disabled />
+      <Button label={`Open ${retailer.name} website ↗`} secondary onPress={()=>Linking.openURL(retailer.url).catch(()=>setError('Could not open the supermarket website. Please try again.'))} /><Text style={s.caption}>Opening the website does not transfer your prepared basket.</Text><ErrorText error={error} />
+    </>}
+  </PageMotion>;
 }
 const s = StyleSheet.create({
+  flowStep: { fontSize: 12, fontWeight: '600', color: C.muted, paddingHorizontal: 10, paddingVertical: 9, borderRadius: 12, backgroundColor: C.white },
+  flowStepOn: { backgroundColor: C.green, color: C.white },
+  retailerCard: { backgroundColor: C.white, borderWidth: 1, borderColor: C.line, padding: 18, borderRadius: 20, gap: 11 },
+  quotePrice: { fontSize: 25, fontWeight: '800', color: C.green },
+  testTag: { fontSize: 10, fontWeight: '800', letterSpacing: 1, backgroundColor: C.pale, color: C.green, padding: 7, borderRadius: 8 },
   sheetFooter: { paddingTop: 12, paddingBottom: 8, borderTopWidth: 1, borderColor: C.line, gap: 8 },
   suggestionList: { borderWidth: 1, borderColor: C.line, borderRadius: 12, overflow: 'hidden', marginTop: 5 },
   suggestionRow: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 48, padding: 10, backgroundColor: C.white },

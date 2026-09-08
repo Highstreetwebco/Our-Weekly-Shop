@@ -2,6 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {freshState,blankPlan,changeWeek,currentWeek,makeBasket,draftPlan,copyPreviousWeek,basketKey,isDue,recordPurchased,migrateLegacy,listText} from '../features/whole-shop/engine.js';
 import {AISLES,aisleFor,aisleOrder,itemChoices,recentItems,addExtras,shoppingProgress,mealMatches} from '../features/whole-shop/grocery.js';
+import {testCandidates,compareTestBasket,reviewedTestQuote,preparedBasketText,retailersFor} from '../features/whole-shop/comparison.js';
+import {loadTestCatalogue} from '../features/whole-shop/retailerData.js';
 import {saveCloud} from '../features/whole-shop/storage.js';
 const household=()=>({...freshState(),week:'2026-09-07',people:[{id:'a',name:'Adult',portion_multiplier:1},{id:'c',name:'Child',portion_multiplier:.5}]});
 const milk=()=>({id:'milk',name:'Milk',quantity:1,unit:'l',repeatWeeks:1,group:'drinks'});
@@ -99,4 +101,47 @@ test('meal suggestions match canonical ingredient units and explain overlap with
 test('shared text preserves bought ticks and remembered shopping notes',()=>{
  let s=changeWeek(household(),{extras:[{name:'Milk',quantity:1,unit:'l'}],checked:{'milk|ml':true}});s.products={'milk|ml':{notes:'Unsweetened'}};
  assert.match(listText(s),/☑ Milk/);assert.match(listText(s),/Unsweetened/);
+});
+
+const testProduct=(id,extra={})=>({id,name:'Milk Standard',brand:'Example',pack_quantity:1000,pack_unit:'ml',is_test_data:true,...extra});
+const testOffer=(product_id,retailer_id='tesco',price_pence=150,extra={})=>({id:product_id+retailer_id,product_id,retailer_id,price_pence,available:true,is_test_data:true,...extra});
+test('online matching rounds compatible units and never treats live data as a test offer',()=>{
+ const products=[testProduct('one'),testProduct('two',{pack_quantity:2000,name:'Milk Bulk'}),testProduct('live',{is_test_data:false})];
+ const offers=[testOffer('one'),testOffer('two','tesco',250),testOffer('live','tesco',1)];
+ const matches=testCandidates({name:'Milk',need:1.5,unit:'l'},products,offers);
+ assert.equal(matches[0].packs,1);assert.equal(matches[0].subtotalPence,250);assert.equal(matches.some(x=>x.product.id==='live'),false);
+ assert.equal(testCandidates({name:'Milk',need:2,unit:'item'},products,offers).length,0);
+ assert.equal(testCandidates({name:'Milk',need:1,unit:'pack'},products,offers)[0].packReview,true);
+ assert.equal(testCandidates({name:'Milk',need:500,unit:'ml'},products,[testOffer('one','tesco',100,{is_test_data:false})]).length,0);
+});
+test('brand locks and specified product qualifiers cannot be silently substituted',()=>{
+ const products=[testProduct('one')],offers=[testOffer('one')],row={name:'Milk',need:500,unit:'ml',brand:'Required brand'};
+ assert.equal(testCandidates(row,products,offers,{keepBrand:true}).length,0);
+ assert.equal(testCandidates(row,products,offers)[0].brandMatch,false);
+ assert.equal(testCandidates({...row,name:'Lactose free milk'},products,offers).length,0);
+ assert.equal(testCandidates(row,products,[testOffer('one','tesco',150,{available:false})]).length,0);
+});
+test('online comparisons keep missing items and fees unknown, and prioritise coverage over a low partial subtotal',()=>{
+ const basket={toBuy:[{key:'milk|ml',name:'Milk',need:500,unit:'ml'},{key:'rice|g',name:'Rice',need:500,unit:'g'}]};
+ const data={products:[testProduct('milk'),testProduct('rice',{name:'Rice Standard',pack_unit:'g',pack_quantity:500})],offers:[testOffer('milk','tesco',200),testOffer('rice','tesco',200),testOffer('milk','asda',10)]};
+ const quotes=compareTestBasket(basket,{},data);assert.equal(quotes[0].retailer.id,'tesco');assert.equal(quotes[0].subtotalPence,400);assert.equal(quotes[0].totalPence,null);assert.equal(quotes[0].feePence,null);assert.equal(quotes[0].canTransfer,false);
+ assert.equal(quotes.find(x=>x.retailer.id==='asda').missing,1);assert.equal(quotes.find(x=>x.retailer.id==='iceland').subtotalPence,null);assert.equal(quotes.length,8);
+ assert.equal(retailersFor('collection').some(x=>x.id==='ocado'),false);assert.equal(retailersFor('collection').some(x=>x.id==='tesco'),true);
+});
+test('approvals apply to a specific product and test baskets can never transfer',()=>{
+ const basket={toBuy:[{key:'milk|ml',name:'Milk',need:1000,unit:'ml'}]},data={products:[testProduct('one'),testProduct('two',{pack_quantity:500,name:'Milk Small'})],offers:[testOffer('one'),testOffer('two')]};
+ const quote=compareTestBasket(basket,{},data).find(q=>q.retailer.id==='tesco');
+ assert.equal(reviewedTestQuote(quote,{},{}).approved,0);
+ assert.equal(reviewedTestQuote(quote,{}, {'milk|ml':'one'}).approved,1);
+ const changed=reviewedTestQuote(quote,{'milk|ml':'two'},{'milk|ml':'one'});assert.equal(changed.approved,0);assert.equal(changed.subtotalPence,300);assert.equal(changed.canTransfer,false);
+});
+test('prepared online requirements ignore old physical shopping ticks',()=>{
+ let s=changeWeek(household(),{extras:[{name:'Milk',quantity:1,unit:'l'}],stock:{'milk|ml':200},checked:{'milk|ml':true}});s.products={'milk|ml':{brand:'Example',keepBrand:true,notes:'Blue carton'}};
+ const text=preparedBasketText(s,makeBasket(s));assert.match(text,/Milk — 800 ml/);assert.match(text,/keep this brand/);assert.match(text,/Blue carton/);assert.doesNotMatch(text,/☑|☐/);
+});
+test('test catalogue loading paginates and refuses an incomplete response',async()=>{
+ const pages=[];const client={from(table){return {select(){return this;},eq(column,value){assert.equal(column,'is_test_data');assert.equal(value,true);return this;},order(){return this;},range(start,end){this.start=start;pages.push([table,start,end]);return this;},async abortSignal(){return {data:Array.from({length:this.start===0?500:3},(_,id)=>({id})),error:null};}};}};
+ const data=await loadTestCatalogue(client,new AbortController().signal);assert.equal(data.products.length,503);assert.equal(data.offers.length,503);assert.equal(pages.length,4);
+ const broken={from(){return {select(){return this;},eq(){return this;},order(){return this;},range(){return this;},async abortSignal(){return {data:null,error:new Error('offline')};}};}};
+ await assert.rejects(loadTestCatalogue(broken,new AbortController().signal),/could not be loaded/);
 });

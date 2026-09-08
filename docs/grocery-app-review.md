@@ -1,5 +1,7 @@
 # Grocery app review and implemented improvements
 
+Update: the product direction was clarified after this review. Physical shopping controls have been replaced by the [online basket journey](online-basket-journey.md). Quick entry, repeat items and ingredient overlap remain; preparation, supermarket comparison and basket handoff are the primary flow.
+
 Reviewed 8 September 2026. These are five strong references for Our Weekly Shop's particular goal: making a whole household's weekly shop simple. This is a comparison of official product descriptions, help guides and UK App Store listings, not an objective worldwide top-five ranking or a claim of hands-on testing of every competitor.
 
 | App | What works well and why | What Our Weekly Shop now borrows |
