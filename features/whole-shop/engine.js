@@ -1,5 +1,6 @@
 import {recipeAvoidances} from './onboarding.js';
 import { SEEDS } from './data.js';
+import {productPreference} from './recipes.js';
 export const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 export const SLOTS = ['breakfast', 'lunch', 'dinner'];
 export const blankPlan = () => Object.fromEntries(DAYS.map(day => [day, []]));
@@ -108,7 +109,7 @@ export function makeBasket(state) {
   const w = currentWeek(state),
     rows = new Map(),
     issues = [];
-  function add(name, amount, unit, source, brand = '') {
+  function add(name, amount, unit, source, brand = '', estimated = false, needsReview = false) {
     if (!name?.trim()) return;
     const converted = quantity(amount, unit),
       key = basketKey(name, unit);
@@ -126,6 +127,8 @@ export function makeBasket(state) {
     });
     const row = rows.get(key);
     row.required += converted.q;
+    row.amountEstimated = row.amountEstimated || estimated;
+    row.needsQuantityReview = row.needsQuantityReview || needsReview;
     if (!row.sources.includes(source)) row.sources.push(source);
     if (brand && !row.brand) row.brand = brand;
   }
@@ -142,7 +145,7 @@ export function makeBasket(state) {
       return;
     }
     const scale = people / Math.max(.1, Number(recipe.servings || 1));
-    recipe.ingredients.forEach(i => add(i.name, i.quantity == null ? 0 : i.quantity * scale, i.unit, `${day} ${entry.mealType}: ${entry.meal}`, i.brand));
+    recipe.ingredients.forEach(i => add(i.name, i.quantity == null ? 0 : i.quantity * (i.perMeal ? 1 : scale), i.unit, `${day} ${entry.mealType}: ${entry.meal}`, i.brand, i.amountEstimated, i.amountBasis === 'needs-review'));
   }));
   selectedEssentials(state).forEach(i => add(i.name, i.quantity, i.unit, 'Your usuals', i.brand));
   (w.extras || []).forEach(i => add(i.name, i.quantity, i.unit, 'Added this week', i.brand));
@@ -152,7 +155,7 @@ export function makeBasket(state) {
     row.required = number(row.required);
     const have = Math.min(row.required, Math.max(0, Number(w.stock[row.key] || 0)));
     const need = number(row.required - have),
-      product = state.products[row.key] || {};
+      product = productPreference(state,row);
     const packSize = Number(product.packSize) > 0 ? Number(product.packSize) : null;
     const discrete = !['g', 'ml'].includes(row.unit);
     const packs = need === 0 ? 0 : packSize ? Math.ceil((need - 1e-8) / packSize) : discrete ? Math.ceil(need - 1e-8) : null;
@@ -168,7 +171,8 @@ export function makeBasket(state) {
       packs,
       packSize,
       subtotal,
-      brand: product.brand || row.brand,
+      brand: product.brand ?? row.brand,
+      keepBrand: !!product.keepBrand,
       notes: product.notes || '',
       price
     };

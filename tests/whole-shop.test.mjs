@@ -1,3 +1,4 @@
+import {buildRecipe,ingredientBrand,withRecipePreferences,withIngredientPreference,savedMeals,validateSignup} from '../features/whole-shop/recipes.js';
 import {shouldStartSetup,beginSetup,moveSetup,setupStep,beginTour,tourIndex,finishTour,preferenceUpdate,recipeAvoidances,validateAccountSession} from '../features/whole-shop/onboarding.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -217,4 +218,53 @@ test('deleted sessions are signed out locally; temporary failures do not discard
  await assert.rejects(validateAccountSession(client,'old'));assert.equal(calls.length,1);
  client.auth.getUser=async()=>({data:{user:{id:'new'}},error:null});
  assert.equal(await validateAccountSession(client,'new'),true);await assert.rejects(validateAccountSession(client,'old'),/changed/);
+});
+
+test('signup requires an email, eight-character password and an exact confirmation',()=>{
+ assert.match(validateSignup('invalid','abcdefgh','abcdefgh'),/email/);
+ assert.match(validateSignup('test@example.com','short','short'),/eight/);
+ assert.match(validateSignup('test@example.com','abcdefgh','abcdefgH'),/match/);
+ assert.match(validateSignup('test@example.com','abcdefgh',''),/match/);
+ assert.equal(validateSignup(' test@example.com ','a b c d e','a b c d e'),'');
+});
+test('names-only meals scale by eaters, aggregate ingredients and subtract cupboard stock',()=>{
+ const recipe=buildRecipe({name:'Our burritos',category:'dinner',ingredients:[{name:'Chicken breast'},{name:'Wraps'},{name:'Salsa',brand:'Favourite'}]});
+ let s=household();s={...withRecipePreferences(s,recipe.ingredients),recipes:{Burritos:recipe}};
+ const plan=blankPlan();plan.Monday=[{meal:'Burritos',mealType:'dinner',peopleIds:['a','c']}];plan.Tuesday=[{meal:'Burritos',mealType:'dinner',peopleIds:['a']}];
+ s=JSON.parse(JSON.stringify(changeWeek(s,{plan,stock:{'chicken breast|g':50}})));
+ const b=makeBasket(s),chicken=b.items.find(i=>i.name==='Chicken breast');
+ assert.equal(recipe.servings,1);assert.equal(recipe.custom,true);assert.equal(recipe.favourite,true);
+ assert.equal(chicken.required,312.5);assert.equal(chicken.need,262.5);assert.equal(chicken.amountEstimated,true);
+ assert.equal(b.items.find(i=>i.name==='Wraps').required,5);assert.equal(b.issues.length,0);
+ assert.equal(b.items.find(i=>i.name==='Salsa').brand,'Favourite');assert.equal(b.items.find(i=>i.name==='Salsa').keepBrand,true);
+ assert.deepEqual(savedMeals(s).map(([name])=>name),['Burritos']);
+});
+test('a saved ingredient brand applies across meals and units, blocks cheaper brands and can be cleared',()=>{
+ let s=household();const recipe=buildRecipe({name:'Pasta',category:'dinner',ingredients:[{name:'Pasta',brand:'Chosen brand'}]});
+ s=withRecipePreferences({...s,products:{'pasta|g':{brand:'Old brand',packSize:500,price:2}}},recipe.ingredients);
+ const plan=blankPlan();plan.Monday=[{meal:'Pasta',mealType:'dinner',peopleIds:['a']}];s=changeWeek({...s,recipes:{Pasta:recipe}},{plan,extras:[{name:'Pasta',quantity:1,unit:'kg'}]});
+ let row=makeBasket(s).toBuy[0];assert.equal(row.brand,'Chosen brand');assert.equal(row.required,1125);assert.equal(row.packSize,500);
+ assert.equal(ingredientBrand(s,{name:'PASTA',unit:'kg'}),'Chosen brand');
+ const products=[{id:'cheap',name:'Pasta',brand:'Other brand',pack_quantity:500,pack_unit:'g',is_test_data:true}],offers=[{product_id:'cheap',retailer_id:'tesco',price_pence:40,is_test_data:true,available:true}];
+ assert.equal(testCandidates(row,products,offers).length,0);
+ assert.equal(compareTestBasket(makeBasket(s),s.products,{products,offers}).find(q=>q.retailer.id==='tesco').missing,1);
+ s=withIngredientPreference(s,'Pasta',{brand:'',keepBrand:false});row=makeBasket(s).toBuy[0];
+ assert.equal(row.brand,'');assert.equal(row.keepBrand,false);assert.equal(ingredientBrand(s,recipe.ingredients[0]),'');assert.equal(testCandidates(row,products,offers).length,1);
+ assert.equal(s.products['pasta|g'].price,2);assert.equal(recipe.ingredients[0].brand,'Chosen brand');
+});
+test('unfamiliar ingredients save without a made-up weight and get an explicit per-meal review amount',()=>{
+ const r=buildRecipe({name:'Family special',category:'dinner',ingredients:[{name:'Our special mix'}]});
+ let s=household(),plan=blankPlan();plan.Monday=[{meal:'Family special',peopleIds:['a','c'],mealType:'dinner'}];plan.Tuesday=[{meal:'Family special',peopleIds:['a'],mealType:'dinner'}];
+ s=changeWeek({...s,recipes:{'Family special':r}},{plan});const row=makeBasket(s).items[0];
+ assert.equal(row.required,2);assert.equal(row.unit,'item');assert.equal(row.needsQuantityReview,true);assert.equal(row.amountEstimated,true);
+ const fixed=buildRecipe({name:'Family special',category:'dinner',original:r,ingredients:[{...r.ingredients[0],quantity:50,unit:'g',amountEdited:true}]});
+ s.recipes['Family special']=fixed;const revised=makeBasket(s).items[0];assert.equal(revised.required,125);assert.equal(revised.needsQuantityReview,false);assert.equal(revised.amountEstimated,false);
+});
+test('simple editing preserves existing measured recipes and validates empty or duplicate ingredients',()=>{
+ const original={servings:4,notes:'Keep these notes',ingredients:[{name:'Rice',quantity:320,unit:'g'}]};
+ const edited=buildRecipe({name:'Rice bowl',category:'dinner',original,ingredients:original.ingredients,notes:original.notes});
+ assert.equal(edited.servings,4);assert.equal(edited.ingredients[0].quantity,320);assert.equal(edited.ingredients[0].amountEstimated,false);assert.equal(edited.notes,original.notes);
+ assert.throws(()=>buildRecipe({name:'Meal',ingredients:[{name:''}]}),/ingredient name/);
+ assert.throws(()=>buildRecipe({name:'Meal',ingredients:[{name:'Rice'},{name:' rice '}]}),/twice/);
+ const setup=beginSetup({...household(),recipes:{Rice:edited}});assert.equal(setup.onboarding.flow,'recipes');assert.equal(setup.onboarding.version,2);assert.equal(setup.recipes.Rice,edited);
 });
