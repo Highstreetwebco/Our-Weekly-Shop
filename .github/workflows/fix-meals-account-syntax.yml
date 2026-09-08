@@ -1,0 +1,31 @@
+name: Fix Meals account syntax
+
+on:
+  push:
+    paths:
+      - 'scripts/fix-meals-account-syntax.mjs'
+      - '.github/workflows/fix-meals-account-syntax.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Fix JSX marker
+        run: node scripts/fix-meals-account-syntax.mjs
+      - name: Commit fix
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add features/whole-shop/WholeShopApp.js
+          git commit -m 'Fix Meals account JSX syntax'
+          git push origin HEAD:main
