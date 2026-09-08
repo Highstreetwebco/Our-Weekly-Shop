@@ -1,4 +1,13 @@
 export const SEEDS = {
+  "Tomato & basil pasta": {
+    category: 'dinner', servings: 2, emoji: '🍝',
+    ingredients: [
+      {name:'Penne pasta',quantity:200,unit:'g'},
+      {name:'Chopped tomatoes',quantity:1,unit:'tin'},
+      {name:'Parmesan',quantity:50,unit:'g'},
+      {name:'Fresh basil',quantity:10,unit:'g'}
+    ]
+  },
   "Porridge & berries": {
     emoji: "🥣",
     category: "breakfast",
