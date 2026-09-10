@@ -1,0 +1,38 @@
+{
+  "manifest_version": 3,
+  "name": "Our Weekly Shop – Sainsbury's pilot",
+  "description": "Adds only products approved in Our Weekly Shop to the current Sainsbury's trolley during the private one-account test.",
+  "version": "0.1.0",
+  "permissions": [
+    "storage"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Our Weekly Shop pilot",
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://highstreetwebco.github.io/Our-Weekly-Shop/*",
+        "https://reetwebco.github.io/Our-Weekly-Shop/*",
+        "http://localhost/*",
+        "http://127.0.0.1/*"
+      ],
+      "js": ["app-bridge.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "https://www.sainsburys.co.uk/groceries",
+        "https://www.sainsburys.co.uk/groceries/",
+        "https://www.sainsburys.co.uk/groceries/product/*",
+        "https://www.sainsburys.co.uk/groceries/trolley"
+      ],
+      "js": ["sainsburys-bridge.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

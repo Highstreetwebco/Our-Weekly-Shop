@@ -7,6 +7,7 @@ on:
       - '.github/workflows/publish-root.yml'
       - 'app/**'
       - 'features/**'
+      - 'connector/**'
       - 'lib/**'
       - 'assets/**'
       - 'app.json'
@@ -36,11 +37,18 @@ jobs:
         run: npm run typecheck
       - name: Export Expo web app
         run: npx expo export --platform web
+      - name: Package private Sainsbury's pilot connector
+        run: |
+          mkdir -p dist/downloads
+          cd connector
+          zip -qr ../dist/downloads/our-weekly-shop-sainsburys-pilot.zip sainsburys
       - name: Copy built site to repository root
         run: |
           cp dist/index.html ./index.html
           rm -rf _expo
           cp -R dist/_expo ./_expo
+          mkdir -p downloads
+          cp dist/downloads/our-weekly-shop-sainsburys-pilot.zip ./downloads/
           if [ -d dist/assets ]; then cp -R dist/assets/. ./assets/; fi
           if [ -f dist/favicon.ico ]; then cp dist/favicon.ico ./favicon.ico; fi
           touch .nojekyll
@@ -48,7 +56,7 @@ jobs:
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -f index.html _expo assets .nojekyll favicon.ico 2>/dev/null || true
+          git add -f index.html _expo assets downloads .nojekyll favicon.ico 2>/dev/null || true
           if git diff --cached --quiet; then
             echo 'Built site already matches current root.'
             exit 0

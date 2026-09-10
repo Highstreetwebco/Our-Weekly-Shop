@@ -43,6 +43,12 @@ jobs:
       - name: Export Expo web app
         run: npx expo export --platform web
 
+      - name: Package private Sainsbury's pilot connector
+        run: |
+          mkdir -p dist/downloads
+          cd connector
+          zip -qr ../dist/downloads/our-weekly-shop-sainsburys-pilot.zip sainsburys
+
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
         with:

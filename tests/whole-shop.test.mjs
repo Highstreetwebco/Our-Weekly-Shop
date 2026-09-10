@@ -9,6 +9,7 @@ import {loadTestCatalogue,loadSainsburysBasketCatalogue,searchSainsburysCatalogu
 import {parsePack,parseSainsburysProducts} from '../supabase/functions/_shared/sainsburys.js';
 import {saveCloud} from '../features/whole-shop/storage.js';
 import {DISCOVERY_MEALS} from '../features/whole-shop/discoveryMeals.js';
+import {buildSainsburysTransfer,isApprovedSainsburysProductUrl,sainsburysPilotReportText,summariseSainsburysPilot} from '../features/whole-shop/sainsburysPilot.js';
 const household=()=>({...freshState(),week:'2026-09-07',people:[{id:'a',name:'Adult',portion_multiplier:1},{id:'c',name:'Child',portion_multiplier:.5}]});
 const milk=()=>({id:'milk',name:'Milk',quantity:1,unit:'l',repeatWeeks:1,group:'drinks'});
 
@@ -210,6 +211,28 @@ test('live Sainsbury matches keep standard and Nectar totals separate',()=>{
  const row={key:'milk|ml',name:'Semi skimmed milk',need:3000,unit:'ml'};
  const matches=liveCandidates(row,[product],[offer]);assert.equal(matches[0].packs,2);assert.equal(matches[0].subtotalPence,530);assert.equal(matches[0].loyaltySubtotalPence,400);
  const quote=compareLiveBasket({toBuy:[row]}, {}, {products:[product],offers:[offer]})[0];assert.equal(quote.retailer.id,'sainsburys');assert.equal(quote.subtotalPence,530);assert.equal(quote.loyaltySubtotalPence,400);assert.equal(quote.loyaltySavingsPence,130);assert.equal(quote.canTransfer,false);
+});
+test('Sainsbury transfer payload contains only explicitly approved genuine product pages',()=>{
+ const product=(id,url)=>({id,name:`Product ${id}`,retailer_sku:id,product_url:url});
+ const reviewed={lines:[
+  {row:{key:'milk|ml',name:'Milk'},candidate:{packs:1.2,product:product('milk','https://www.sainsburys.co.uk/groceries/product/milk-2l')},approved:true},
+  {row:{key:'bread|item',name:'Bread'},candidate:{packs:1,product:product('bread','https://www.sainsburys.co.uk/groceries/product/bread')},approved:false},
+  {row:{key:'bad|item',name:'Bad'},candidate:{packs:1,product:product('bad','https://example.com/groceries/product/bad')},approved:true}
+ ]};
+ const job=buildSainsburysTransfer(reviewed,{jobId:'pilot-job-123',week:'2026-09-07',fulfilment:'collection',createdAt:'2026-09-10T12:00:00Z'});
+ assert.equal(job.items.length,1);assert.equal(job.items[0].retailerSku,'milk');assert.equal(job.items[0].quantity,2);assert.equal(job.fulfilment,'collection');
+ assert.equal(isApprovedSainsburysProductUrl('https://www.sainsburys.co.uk/groceries/product/milk-2l'),true);
+ assert.equal(isApprovedSainsburysProductUrl('https://sainsburys.co.uk/groceries/product/milk-2l'),false);
+ assert.equal(isApprovedSainsburysProductUrl('https://www.sainsburys.co.uk/groceries/trolley'),false);
+ assert.throws(()=>buildSainsburysTransfer({lines:[]}),/Approve at least one/);
+});
+test('pilot report measures aggregate matching, transfer and time without product or account data',()=>{
+ const report=summariseSainsburysPilot([
+  {status:'completed',requested_items:10,matched_items:8,approved_items:7,transferred_items:7,failed_items:0,duration_seconds:40,created_at:'2026-09-10T12:00:00Z',product_name:'must not appear'},
+  {status:'partial',requested_items:5,matched_items:4,approved_items:4,transferred_items:3,failed_items:1,duration_seconds:20,created_at:'2026-09-09T12:00:00Z'}
+ ]);
+ assert.deepEqual(report,{attempts:2,completed:2,requested:15,matched:12,approved:11,transferred:10,failed:1,matchRate:80,transferRate:91,averageSeconds:30,lastAt:'2026-09-10T12:00:00Z'});
+ const text=sainsburysPilotReportText(report);assert.match(text,/80% \(12 of 15/);assert.match(text,/91% \(10 of 11/);assert.doesNotMatch(text,/must not appear|password|cookie/i);
 });
 test('authenticated catalogue search adapter returns products and offers without changing source fields',async()=>{
  const product={id:'p',name:'Milk',is_test_data:false,offer:{id:'o',product_id:'p',retailer_id:'sainsburys',price_pence:100,is_test_data:false}};

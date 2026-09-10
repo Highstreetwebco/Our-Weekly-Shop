@@ -15,6 +15,7 @@ import { C, Gemma, MealPhoto, PageMotion, WelcomeIntro, useReducedMotion } from 
 import { AISLES, aisleFor, itemChoices, recentItems, addExtras, mealMatches } from './grocery';
 import { ONLINE_RETAILERS, retailersFor, compareTestBasket, compareLiveBasket, reviewedQuote, preparedBasketText } from './comparison';
 import { loadTestCatalogue, loadSainsburysBasketCatalogue, searchSainsburysCatalogue } from './retailerData';
+import { SAINSBURYS_CONNECTOR_DOWNLOAD_URL, SAINSBURYS_GROCERIES_URL, SAINSBURYS_TROLLEY_URL, buildSainsburysTransfer, checkSainsburysConnector, createSainsburysTransferEvent, disconnectSainsburysConnector, failSainsburysTransferEvent, finishSainsburysTransferEvent, loadSainsburysPilot, loadSainsburysPilotReport, runSainsburysTransfer, sainsburysPilotReportText } from './sainsburysPilot';
 const STEPS = ['Plan meals', 'Add other things', 'Check what’s at home', 'Review your basket'];
 const webState = (name, value) => Platform.OS === 'web' ? {
   [`aria-${name}`]: value
@@ -394,6 +395,86 @@ function StockAmountForm({ row, onSave, onClose }) {
   const [error, setError] = useState('');
   return <Sheet title={`${row.name}: what’s at home?`} onClose={onClose} guidance={`You need ${measured(row.required,row.unit)} this week. Enter what you already have and I’ll subtract it.`}><Field label={`Amount at home (${row.unit})`} value={value} numeric onChangeText={setValue} placeholder={['g','ml'].includes(row.unit) ? 'For example, 100' : 'For example, 1'} /><ErrorText error={error} /><Button label="Save amount" onPress={() => { if (!value.trim() || !Number.isFinite(Number(value)) || Number(value) < 0) { setError('Enter an amount of zero or more.'); return; } onSave(Number(value)); }} /></Sheet>;
 }
+function RetailerConnections({ session, pilot, setModal, setNotice }) {
+  const [connector, setConnector] = useState(null);
+  const [checking, setChecking] = useState(false);
+  const [report,setReport] = useState(null);
+  const eligible = !!session && pilot.eligible;
+  const checkConnection = async () => {
+    setChecking(true);
+    try {
+      setConnector(await checkSainsburysConnector());
+    } catch (error) {
+      setConnector({installed:false,error:error.code || 'connector_not_found'});
+    } finally {
+      setChecking(false);
+    }
+  };
+  useEffect(() => {
+    setConnector(null);
+    if (eligible) checkConnection();
+  }, [eligible,session?.user?.id]);
+  useEffect(() => {
+    let current = true;
+    setReport(null);
+    if (eligible) loadSainsburysPilotReport(supabase).then(value=>{if(current)setReport(value);}).catch(()=>{if(current)setReport({error:true});});
+    return () => { current = false; };
+  }, [eligible,session?.user?.id]);
+  const disconnect = async () => {
+    try {
+      await disconnectSainsburysConnector();
+      setConnector({installed:true,tabOpen:false,signedIn:null,disconnected:true});
+      setNotice('This browser has been disconnected from the pilot. Your Sainsbury’s account and trolley were not changed.');
+    } catch {
+      setConnector({installed:false,error:'connector_not_found'});
+    }
+  };
+  const state = connector?.installed
+    ? connector.signedIn === true ? 'READY' : connector.signedIn === false ? 'SIGN IN' : 'CONNECTOR READY'
+    : 'SETUP NEEDED';
+  const copyReport = async () => {
+    try {
+      const text = sainsburysPilotReportText(report);
+      if (Platform.OS === 'web' && globalThis.navigator?.clipboard) await navigator.clipboard.writeText(text);
+      else await Share.share({message:text});
+      setNotice('Pilot results copied. The summary contains counts and timings, not product names or account details.');
+    } catch {
+      setNotice('The pilot results could not be copied. Please try again.');
+    }
+  };
+  return <View style={s.card}><Text style={s.h2}>Retailer connections</Text>
+    <View style={s.rowBetween}><Text style={[s.label,s.flex]}>Sainsbury’s product catalogue</Text><Text style={s.testTag}>CONNECTED</Text></View>
+    <Text style={s.body}>Live product search and displayed prices are available from the Basket tab when you are signed in to Our Weekly Shop.</Text>
+    <View style={s.divider} />
+    <View style={s.rowBetween}><Text style={[s.label,s.flex]}>Sainsbury’s account pilot</Text>{eligible && !pilot.loading && <Text style={s.testTag}>{state}</Text>}</View>
+    {!session && <Text style={s.caption}>Sign in to Our Weekly Shop to use a retailer connection.</Text>}
+    {session && pilot.loading && <View style={s.softNote}><ActivityIndicator color={C.primary}/><Text style={s.caption}>Checking pilot access…</Text></View>}
+    {session && !pilot.loading && pilot.error && <><Text style={s.error}>Pilot access could not be checked. Your Sainsbury’s account has not been connected.</Text></>}
+    {session && !pilot.loading && !pilot.error && !pilot.eligible && <Text style={s.caption}>This private test is not enabled for this Our Weekly Shop account.</Text>}
+    {eligible && <>
+      <Text style={s.body}>This one-account test uses your current Sainsbury’s sign-in in desktop Chrome. You always sign in on Sainsbury’s — this app never receives your password or browser cookies.</Text>
+      {connector?.installed && connector.signedIn === true && <Text style={s.caption}>This Chrome browser can reach a signed-in Sainsbury’s tab. Products are only added after you approve and confirm them.</Text>}
+      {connector?.installed && connector.signedIn === false && <Text style={s.caption}>The connector is installed. Open Sainsbury’s and sign in there, then check again.</Text>}
+      {connector?.installed && connector.signedIn == null && <Text style={s.caption}>{connector.disconnected ? 'Temporary connector data has been cleared.' : 'The connector is installed. Open Sainsbury’s in this browser so the sign-in can be checked.'}</Text>}
+      {!connector?.installed && <Text style={s.caption}>Install the small pilot connector in desktop Chrome, then sign in directly on Sainsbury’s.</Text>}
+      <View style={s.wrap}>
+        <Button label={connector?.installed ? 'Connector setup' : 'Set up this browser'} onPress={() => setModal({type:'sainsburys-connector-setup'})} />
+        <Button label={checking ? 'Checking…' : 'Check connection'} secondary disabled={checking} onPress={checkConnection} />
+        <Button label="Open Sainsbury’s and sign in ↗" secondary onPress={() => Linking.openURL(SAINSBURYS_GROCERIES_URL).catch(()=>setNotice('Sainsbury’s could not be opened. Please try again.'))} />
+        {connector?.installed && <Button label="Disconnect this browser" secondary onPress={disconnect} />}
+      </View>
+      <Text style={s.fine}>Disconnecting clears temporary connector data. It does not sign you out of Sainsbury’s or remove anything already in its trolley.</Text>
+      <View style={s.divider} />
+      <Text style={s.h3}>Pilot results to share</Text>
+      {!report && <View style={s.softNote}><ActivityIndicator color={C.primary}/><Text style={s.caption}>Loading your pilot results…</Text></View>}
+      {report?.error && <Text style={s.caption}>Pilot results could not be loaded just now.</Text>}
+      {report && !report.error && report.attempts===0 && <Text style={s.caption}>No transfers recorded yet. Match rate, transfer rate and timings will appear after your first test.</Text>}
+      {report && !report.error && report.attempts>0 && <><View style={s.spendRow}><View style={s.spendCard}><Text style={s.h3}>{report.attempts}</Text><Text style={s.fine}>transfer attempts</Text></View><View style={s.spendCard}><Text style={s.h3}>{report.matchRate==null?'—':`${report.matchRate}%`}</Text><Text style={s.fine}>catalogue match rate</Text></View><View style={s.spendCard}><Text style={s.h3}>{report.transferRate==null?'—':`${report.transferRate}%`}</Text><Text style={s.fine}>approved lines added</Text></View><View style={s.spendCard}><Text style={s.h3}>{report.averageSeconds==null?'—':`${report.averageSeconds}s`}</Text><Text style={s.fine}>average transfer time</Text></View></View><Text style={s.caption}>{report.transferred} of {report.approved} approved product lines reported added · {report.failed} not added.</Text></>}
+      {report && !report.error && <Button label="Copy pilot results" secondary onPress={copyReport} />}
+      <Text style={s.fine}>The report contains counts and timings only — no product names, Sainsbury’s account details, cookies or payment information.</Text>
+    </>}
+  </View>;
+}
 export default function WholeShopApp() {
   const {
     shop,
@@ -420,6 +501,7 @@ export default function WholeShopApp() {
     [recipeSort, setRecipeSort] = useState('recommended'),
     [recipeLimit, setRecipeLimit] = useState(12),
     [showRegulars, setShowRegulars] = useState(false);
+  const [sainsburysPilot,setSainsburysPilot] = useState({loading:false,eligible:false,row:null,error:''});
   const setupActive = shop.onboarding?.phase === 'setup';
   const touring = shop.onboarding?.phase === 'tour';
   const tourStep = tourIndex(shop);
@@ -441,6 +523,20 @@ export default function WholeShopApp() {
   useEffect(() => {
     setUndo(null);
   }, [shop.week, session?.user?.id]);
+  useEffect(() => {
+    let current = true;
+    if (!session?.user?.id) {
+      setSainsburysPilot({loading:false,eligible:false,row:null,error:''});
+      return () => { current = false; };
+    }
+    setSainsburysPilot({loading:true,eligible:false,row:null,error:''});
+    loadSainsburysPilot(supabase).then(result => {
+      if (current) setSainsburysPilot({loading:false,...result,error:''});
+    }).catch(() => {
+      if (current) setSainsburysPilot({loading:false,eligible:false,row:null,error:'pilot_check_failed'});
+    });
+    return () => { current = false; };
+  }, [session?.user?.id]);
   const w = currentWeek(shop),
     basket = useMemo(() => makeBasket(shop), [shop]),
     stage = Math.max(0, Math.min(3, w.stage || 0));
@@ -730,7 +826,8 @@ export default function WholeShopApp() {
             setModal,
             copyList,
             goStep,
-            session
+            session,
+            sainsburysPilot
           }} guided />}
   </>}
   {tab === 'Basket' && <BasketContent scrollRef={scroll} {...{
@@ -741,7 +838,8 @@ export default function WholeShopApp() {
           setModal,
           copyList,
           goStep,
-          session
+          session,
+          sainsburysPilot
         }} />}
   {tab === 'Recipes' && (() => {
     const allRecipes=Object.entries(shop.recipes);
@@ -806,7 +904,7 @@ export default function WholeShopApp() {
               }} /></View> : <Button label="Sign in / create account" onPress={() => setModal({
               type: 'auth'
             })} />}</View>
-  <View style={s.card}><Text style={s.h2}>Retailer connections</Text><View style={s.rowBetween}><Text style={[s.label,s.flex]}>Sainsbury’s product catalogue</Text><Text style={s.testTag}>CONNECTED</Text></View><Text style={s.body}>Live product search and displayed prices are available from the Basket tab when you are signed in to Our Weekly Shop.</Text><Text style={s.label}>Sainsbury’s customer account · not linked</Text><Text style={s.caption}>A customer account connection belongs here in Account, but it needs Sainsbury’s documented OAuth/API credentials. The app does not collect or reuse Sainsbury’s passwords, cookies or browser sessions.</Text></View>
+  <RetailerConnections session={session} pilot={sainsburysPilot} setModal={setModal} setNotice={setNotice} />
   {recovery && <View style={s.warning}><Text style={s.h3}>Unsynced device changes</Text><Text style={s.body}>Your account changed on another device. A copy of this device’s earlier edits is kept for you.</Text><Button label="Review unsynced copy" secondary onPress={() => setModal({
               type: 'confirm',
               title: 'Use the saved device copy?',
@@ -861,9 +959,17 @@ export default function WholeShopApp() {
   <WelcomeIntro replay={replay} enabled={modal?.type !== 'auth' && (replay > 0 || (!setupActive && !touring && !shop.onboarding))} />
   {modal?.type === 'help' && <Sheet title="A little help" onClose={close} guidance="Home helps you pick up where you left off. Plan shows your week, Meals holds your recipes, and Basket brings everything together. Your work is saved as you go; check the save message for its status.">
     {STEPS.map((step,i) => <View key={step} style={s.inset}><Text style={s.h3}>{i + 1}. {step}</Text><Text style={s.body}>{['Choose meals and who is eating. Ingredients go into your basket automatically.', 'Add food and household items. Regular items are things you want the app to remember for future weeks.', 'Say how much you have. We subtract it from the amount you need to buy.', 'Check the combined quantities and any brands you prefer. Nothing has been ordered.'][i]}</Text></View>)}
-    <Text style={s.h3}>Can I order my shop here?</Text><Text style={s.body}>Not yet. You can search Sainsbury’s live catalogue and review its displayed product prices, but delivery charges, slots, account linking, basket transfer and payment are not connected. Nothing here can place an order.</Text>
+    <Text style={s.h3}>Can I order my shop here?</Text><Text style={s.body}>The private Sainsbury’s pilot can add products you approve to your existing trolley in desktop Chrome. It cannot choose a slot, check out, pay or place an order. You must review the final trolley, current prices, availability and charges on Sainsbury’s.</Text>
     <Text style={s.h3}>Can I change my mind?</Text><Text style={s.body}>Yes. Open Plan and choose Meals, Other things, At home or Basket at the top. Tap a meal to edit it, or Change next to an item. The basket updates when you make changes.</Text>
     <Button label="Back to what I was doing" onPress={close} />
+  </Sheet>}
+  {modal?.type === 'sainsburys-connector-setup' && <Sheet title="Set up the Sainsbury’s pilot" onClose={close} guidance="This private test works in desktop Chrome. Your Sainsbury’s sign-in stays inside Sainsbury’s.">
+    <View style={s.inset}><Text style={s.h3}>1. Download the connector</Text><Text style={s.body}>Download the ZIP file, then extract it somewhere you will keep during the test.</Text><Button label="Download pilot connector ↗" onPress={() => Linking.openURL(SAINSBURYS_CONNECTOR_DOWNLOAD_URL).catch(()=>setNotice('The connector download could not be opened. Please try again.'))} /></View>
+    <View style={s.inset}><Text style={s.h3}>2. Load it in Chrome</Text><Text style={s.body}>Open Chrome → Extensions → Manage extensions. Turn on Developer mode, choose Load unpacked, then select the extracted “sainsburys” folder.</Text></View>
+    <View style={s.inset}><Text style={s.h3}>3. Sign in on Sainsbury’s</Text><Text style={s.body}>Open Sainsbury’s in the same Chrome profile and sign in normally. Never enter your Sainsbury’s password into Our Weekly Shop or the connector.</Text><Button label="Open Sainsbury’s and sign in ↗" secondary onPress={() => Linking.openURL(SAINSBURYS_GROCERIES_URL).catch(()=>setNotice('Sainsbury’s could not be opened. Please try again.'))} /></View>
+    <View style={s.inset}><Text style={s.h3}>4. Check the connection</Text><Text style={s.body}>Return to Account and choose Check connection. When it says Ready, review your Sainsbury’s matches from the Basket tab.</Text></View>
+    <Text style={s.caption}>The connector has no browser permission to read cookies, saved passwords or payment details. It adds only the exact approved product pages, never clears your existing trolley, and stops before checkout.</Text>
+    <Button label="Done" onPress={close} />
   </Sheet>}
   {modal?.type === 'change-week' && <Sheet title="Which week are you planning?" onClose={close} guidance="Each week has its own meals and basket. Changing weeks keeps your saved plans."><Text style={s.h2}>Week of {labelWeek(shop.week)}</Text><Button label="Previous week" secondary onPress={() => update(old => ({...old,week:shiftWeek(old.week,-1)}))} /><Button label="Next week" secondary onPress={() => update(old => ({...old,week:shiftWeek(old.week,1)}))} /><Button label="Plan this week" onPress={close} /></Sheet>}
   {modal?.type === 'stock-amount' && <StockAmountForm row={modal.row} onClose={close} onSave={amount => { setStock(modal.row,amount); close(); }} />}
@@ -952,14 +1058,15 @@ export default function WholeShopApp() {
       }]} /><Text style={s.caption}>These are prepared requirements. No items have been transferred to a supermarket.</Text></Sheet>}
   </SafeAreaView>;
 }
-function BasketContent({ basket, w, shop, editWeek, setModal, copyList, goStep, scrollRef, session }) {
+function BasketContent({ basket, w, shop, editWeek, setModal, copyList, goStep, scrollRef, session, sainsburysPilot }) {
   const [screen,setScreen] = useState('basket'), [query,setQuery] = useState(''), [mode,setMode] = useState('live'), [data,setData] = useState(null), [busy,setBusy] = useState(false), [error,setError] = useState(''), [selected,setSelected] = useState(null), [choices,setChoices] = useState({}), [approvals,setApprovals] = useState({}), [options,setOptions] = useState(false);
   const [catalogueQuery,setCatalogueQuery] = useState(''), [catalogueData,setCatalogueData] = useState(null), [catalogueBusy,setCatalogueBusy] = useState(false), [catalogueLimit,setCatalogueLimit] = useState(8), [progress,setProgress] = useState('');
+  const [transferBusy,setTransferBusy] = useState(false), [transfer,setTransfer] = useState({status:'idle',completed:0,total:0,transferred:0,failed:0,items:[]}), [transferAttempt,setTransferAttempt] = useState(null);
   const request = useRef(null);
   useEffect(() => { scrollRef?.current?.scrollTo({y:0,animated:false}); }, [screen,scrollRef]);
   const fulfilment = w.online?.fulfilment || shop.preferences?.fulfilment || 'delivery';
   const signature = JSON.stringify([shop.week,basket.toBuy.map(row => [row.key,row.need,row.brand,row.notes,row.keepBrand])]);
-  useEffect(() => { setScreen('basket'); setSelected(null); setChoices({}); setApprovals({}); }, [signature]);
+  useEffect(() => { setScreen('basket'); setSelected(null); setChoices({}); setApprovals({}); setTransfer({status:'idle',completed:0,total:0,transferred:0,failed:0,items:[]}); setTransferAttempt(null); }, [signature]);
   useEffect(() => () => { request.current?.abort(); request.current = null; }, []);
   const retailers = retailersFor(fulfilment);
   const quotes = useMemo(() => data ? (mode === 'test' ? compareTestBasket(basket,shop.products,data,fulfilment) : compareLiveBasket(basket,shop.products,data)) : [], [basket,shop.products,data,fulfilment,mode]);
@@ -1009,10 +1116,58 @@ function BasketContent({ basket, w, shop, editWeek, setModal, copyList, goStep, 
   };
   const openComparison = () => { setScreen('compare'); setSelected(null); setApprovals({}); setChoices({}); };
   const back = () => setScreen(screen === 'transfer' ? 'matches' : screen === 'matches' ? 'compare' : 'basket');
+  const startTransfer = async () => {
+    if (mode !== 'live' || selected !== 'sainsburys' || !reviewed?.approved) return;
+    if (!session || !sainsburysPilot?.eligible) {
+      setError('This private Sainsbury’s test is not enabled for the signed-in account.');
+      return;
+    }
+    setTransferBusy(true); setError('');
+    const startedAt = Date.now();
+    let eventId = null;
+    try {
+      const connector = await checkSainsburysConnector();
+      if (!connector?.installed) throw Object.assign(new Error('Set up the Sainsbury’s pilot connector in desktop Chrome first.'),{code:'connector_not_found'});
+      if (connector.signedIn === false) throw Object.assign(new Error('Open Sainsbury’s in this browser and sign in there, then try again.'),{code:'sainsburys_sign_in_required'});
+      const transferKey = JSON.stringify(reviewed.lines.filter(line=>line.approved).map(line=>[line.row.key,line.candidate?.product?.id,line.candidate?.packs]));
+      let attempt = transferAttempt?.key === transferKey ? transferAttempt : null;
+      if (!attempt) {
+        const job = buildSainsburysTransfer(reviewed,{week:shop.week,fulfilment});
+        const event = await createSainsburysTransferEvent(supabase,job,reviewed);
+        attempt = {key:transferKey,job,eventId:event.id};
+        setTransferAttempt(attempt);
+      }
+      eventId = attempt.eventId;
+      setTransfer({status:'running',completed:0,total:attempt.job.items.length,transferred:0,failed:0,items:[]});
+      const result = await runSainsburysTransfer(attempt.job,updateProgress=>setTransfer(old=>({
+        ...old,
+        status:'running',
+        completed:Number(updateProgress.completed ?? old.completed),
+        total:Number(updateProgress.total ?? old.total),
+        currentName:updateProgress.productName || old.currentName
+      })));
+      let recorded = true;
+      try { await finishSainsburysTransferEvent(supabase,eventId,result,startedAt); } catch { recorded = false; }
+      setTransfer({status:result.failed ? (result.transferred ? 'partial' : 'failed') : 'completed',completed:result.transferred + result.failed,total:attempt.job.items.length,transferred:result.transferred,failed:result.failed,items:result.items || [],recorded,acknowledged:true});
+    } catch (transferError) {
+      try { await failSainsburysTransferEvent(supabase,eventId,transferError,startedAt); } catch {}
+      setTransfer(old=>({...old,status:'failed',acknowledged:false}));
+      setError(transferError.message || 'The Sainsbury’s transfer stopped. Check its trolley before trying again.');
+    } finally {
+      setTransferBusy(false);
+    }
+  };
+  const confirmTransfer = () => setModal({
+    type:'confirm',
+    title:'Add these products to Sainsbury’s?',
+    text:`You are about to add ${reviewed.approved} approved product line${reviewed.approved===1?'':'s'} to the trolley already in your signed-in Sainsbury’s account. Existing trolley items will not be cleared. Nothing will be checked out or ordered. You must check the final products, quantities, current prices, availability, slot and charges on Sainsbury’s before paying.`,
+    label:`Add ${reviewed.approved} approved product${reviewed.approved===1?'':'s'}`,
+    action:()=>{setModal(null);startTransfer();}
+  });
   return <PageMotion change={screen}>
-    <Heading eyebrow={screen === 'basket' ? `WEEK OF ${labelWeek(shop.week)}` : 'SUPERMARKET COMPARISON'} title={{basket:'Everything, in one basket.',compare:mode === 'live' ? 'Sainsbury’s catalogue' : 'Example prices only',matches:`Check ${mode === 'live' ? '' : 'the example '}${retailer?.name || ''} products`,transfer:'About sending your basket'}[screen]} />
+    <Heading eyebrow={screen === 'basket' ? `WEEK OF ${labelWeek(shop.week)}` : 'SUPERMARKET COMPARISON'} title={{basket:'Everything, in one basket.',compare:mode === 'live' ? 'Sainsbury’s catalogue' : 'Example prices only',matches:`Check ${mode === 'live' ? '' : 'the example '}${retailer?.name || ''} products`,transfer:mode === 'live' ? 'Add approved products' : 'About sending your basket'}[screen]} />
     {screen !== 'basket' && <Button label={screen === 'compare' ? 'Back to my basket' : screen === 'matches' ? `Back to ${mode === 'live' ? 'Sainsbury’s results' : 'example prices'}` : `Back to ${mode === 'live' ? 'Sainsbury’s products' : 'example products'}`} small secondary onPress={back} />}
-    <Gemma text={{basket:'This brings your meals and other things together, with anything you already have taken off. Tap Change if something doesn’t look right.',compare:mode === 'live' ? 'Search Sainsbury’s current catalogue or check your prepared basket. Product prices come from Sainsbury’s listings; checkout totals and delivery charges still need confirming there.' : 'This is the simulated comparison. It uses made-up prices only.',matches:mode === 'live' ? 'These are current Sainsbury’s catalogue products. Check every product and pack size before using it. Nothing will be sent to Sainsbury’s.' : 'These are example products. Check the size and brand, then choose whether each one suits you. Nothing will be sent to a supermarket.',transfer:mode === 'live' ? 'Your choices are still only a review list. Sainsbury’s account linking and basket transfer are not connected.' : 'This is the end of the example. No products have been sent, and nothing has been ordered.'}[screen]} />
+    <Gemma text={{basket:'This brings your meals and other things together, with anything you already have taken off. Tap Change if something doesn’t look right.',compare:mode === 'live' ? 'Search Sainsbury’s current catalogue or check your prepared basket. Product prices come from Sainsbury’s listings; checkout totals and delivery charges still need confirming there.' : 'This is the simulated comparison. It uses made-up prices only.',matches:mode === 'live' ? 'These are current Sainsbury’s catalogue products. Check every product and pack size. Nothing is sent until you approve the exact matches and confirm the transfer.' : 'These are example products. Check the size and brand, then choose whether each one suits you. Nothing will be sent to a supermarket.',transfer:mode === 'live' ? 'Only your approved products can be added. The pilot stops at the Sainsbury’s trolley for your final check and cannot place an order.' : 'This is the end of the example. No products have been sent, and nothing has been ordered.'}[screen]} />
     {screen === 'basket' && <>
       <View style={s.shopSummary}><Text style={s.shopCount}>{basket.toBuy.length} things to buy</Text><Text style={s.body}>Food and household essentials, with what’s at home taken off.</Text><Text style={s.caption}>These are the amounts you need. Supermarket pack sizes are checked later. Nothing has been ordered.</Text>{Number(shop.budget) > 0 && <Text style={s.label}>Your budget: £{Number(shop.budget).toFixed(2)}</Text>}</View>
       {basket.issues.length > 0 && <View style={s.warning}><Text style={s.h3}>Some meals need another look</Text>{basket.issues.map(issue=><Text key={issue} style={s.body}>{issue}</Text>)}<Button label="Check my meals" secondary onPress={()=>goStep(0)} /></View>}
@@ -1026,7 +1181,7 @@ function BasketContent({ basket, w, shop, editWeek, setModal, copyList, goStep, 
       {options && <><Button label={Number(shop.budget)>0 ? 'Change my budget' : 'Set a budget'} secondary onPress={()=>setModal({type:'budget'})} /><Button label="Add things from an earlier shop" secondary onPress={()=>setModal({type:'quick-add',recent:true})} />
       {w.extras.length > 0 && <View style={s.extrasSection}><Text style={s.h3}>Extras you added</Text>{w.extras.map(i=><View key={i.id} style={s.rowBetween}><Text style={[s.caption,s.flex]}>{i.name} · {i.quantity} {i.unit}</Text><Button label="Edit" accessibilityLabel={`Edit extra ${i.name}`} small secondary onPress={()=>setModal({type:'item',usual:false,item:i})} /></View>)}</View>}
       </>}
-      <View style={s.availability}><Text style={s.h2}>What happens next?</Text><Text style={s.body}>Your basket is ready. You can now search Sainsbury’s catalogue and review displayed product prices and pack sizes.</Text><Text style={s.body}>Checkout totals, delivery charges, slots and automatic basket transfer are not connected. You still add and pay for items on the supermarket’s website.</Text>
+      <View style={s.availability}><Text style={s.h2}>What happens next?</Text><Text style={s.body}>Your basket is ready. You can search Sainsbury’s catalogue and review displayed product prices and pack sizes.</Text><Text style={s.body}>{sainsburysPilot?.eligible?'In the private desktop-Chrome pilot, approved products can be added to your existing Sainsbury’s trolley. You still review the final trolley, choose a slot and pay on Sainsbury’s.':'Checkout totals, delivery charges, slots and basket transfer are not connected for this account. You still add and pay for items on the supermarket’s website.'}</Text>
       {!!basket.toBuy.length && <Button label="Copy my basket" onPress={copyList} />}
       <Button label="About supermarket prices" secondary onPress={openComparison} />
       </View><Button label="Back to what’s at home" secondary onPress={() => goStep(2)} />
@@ -1051,14 +1206,24 @@ function BasketContent({ basket, w, shop, editWeek, setModal, copyList, goStep, 
     {screen === 'matches' && reviewed && <>
       <View style={mode==='live'?s.softNote:s.warning}><Text style={s.h3}>{mode==='live'?'LIVE SAINSBURY’S MATCHES':'TEST MATCHES · no real products will be sent'}</Text><Text style={s.caption}>{reviewed.approved} of {reviewed.lines.length} items approved · {reviewed.missing} unmatched. Pack sizes are shown for your review.</Text></View>
       {reviewed.lines.map(line=><View key={line.row.key} style={s.retailerCard}><Text style={s.h2}>{line.row.name}</Text><Text style={s.caption}>You need {line.row.need} {line.row.unit}{line.row.brand ? ` · preferred: ${line.row.brand}` : ''}</Text>{!!line.row.notes && <Text style={s.noteText}>Your requirements: {line.row.notes}</Text>}{line.candidate ? <>{mode==='live'&&line.candidate.product.image_url?<Image source={{uri:line.candidate.product.image_url}} accessibilityLabel={line.candidate.product.name} style={s.matchImage}/>:null}<Text style={s.eyebrow}>{mode==='live'?'SAINSBURY’S CATALOGUE PRODUCT':'PROPOSED TEST PRODUCT'}</Text><Text style={s.h3}>{line.candidate.product.name}</Text><Text style={s.caption}>{line.candidate.product.brand?`${line.candidate.product.brand} · `:''}{line.candidate.packs} × {line.candidate.product.pack_label||`${line.candidate.packQuantity} ${line.candidate.packUnit}`}</Text>{mode==='live'?<><Text style={s.label}>{money(line.candidate.regularPricePence)} standard per pack{line.candidate.loyaltyPricePence?` · ${money(line.candidate.loyaltyPricePence)} Nectar Price`:''}</Text><Text style={s.label}>{money(line.candidate.subtotalPence)} displayed item total</Text>{line.candidate.offer?.unit_price_text&&<Text style={s.caption}>{line.candidate.offer.unit_price_text}</Text>}<Button label="Open this product on Sainsbury’s ↗" secondary small onPress={()=>Linking.openURL(line.candidate.product.product_url).catch(()=>setError('Could not open this product. Please try again.'))}/></>:<Text style={s.label}>{money(line.candidate.subtotalPence)} simulated item total</Text>}{(!line.candidate.brandMatch || !line.candidate.exactName || line.candidate.packReview) && <Text style={s.caption}>Alternative product or pack size — please check it suits your request.</Text>}<Pressable accessibilityRole="checkbox" accessibilityLabel={`Approve ${mode==='live'?'Sainsbury’s product':'test match'} for ${line.row.name}`} accessibilityState={{checked:line.approved}} {...webState('checked',line.approved)} style={s.row} onPress={()=>setApprovals(old=>({...old,[line.row.key]:line.approved ? null : line.candidate.product.id}))}><View style={[s.checkbox,line.approved && s.checkboxOn]}>{line.approved && icon('checkmark',C.white)}</View><Text style={[s.label,s.flex]}>Use this {mode==='live'?'Sainsbury’s product':'test match'}</Text></Pressable>{line.candidates.length > 1 && <><Text style={s.label}>Choose a different product or size (optional)</Text><View style={s.wrap}>{line.candidates.slice(0,4).map(c=><Chip key={c.product.id} label={`${c.product.name} · ${c.packs} × ${c.product.pack_label||`${c.packQuantity} ${c.packUnit}`} · ${money(c.subtotalPence)}`} active={c.product.id === line.candidate.product.id} onPress={()=>{setChoices(old=>({...old,[line.row.key]:c.product.id}));setApprovals(old=>({...old,[line.row.key]:null}));}} />)}</View></>}</> : <><Text style={s.label}>No compatible {mode==='live'?'Sainsbury’s product':'test match'}</Text><Text style={s.caption}>This item stays unmatched. Try a more specific basket name or review it directly on the supermarket’s website.</Text></>}</View>)}
-      <Text style={s.h3}>{mode==='live'?'Displayed':'Simulated'} matched-item subtotal: {reviewed.subtotalPence == null ? 'unavailable' : money(reviewed.subtotalPence)}</Text>{mode==='live'&&reviewed.loyaltySavingsPence>0&&<Text style={s.label}>{money(reviewed.loyaltySubtotalPence)} with listed Nectar Prices · save {money(reviewed.loyaltySavingsPence)}</Text>}<Text style={s.caption}>Includes proposed matches, including those awaiting approval. Unmatched items and delivery / collection fees are excluded.</Text><Button label={mode==='live'?'Next: what I can do with these':'Next: about sending my basket'} disabled={!reviewed.approved} onPress={()=>setScreen('transfer')} />
+      <Text style={s.h3}>{mode==='live'?'Displayed':'Simulated'} matched-item subtotal: {reviewed.subtotalPence == null ? 'unavailable' : money(reviewed.subtotalPence)}</Text>{mode==='live'&&reviewed.loyaltySavingsPence>0&&<Text style={s.label}>{money(reviewed.loyaltySubtotalPence)} with listed Nectar Prices · save {money(reviewed.loyaltySavingsPence)}</Text>}<Text style={s.caption}>Includes proposed matches, including those awaiting approval. Unmatched items and delivery / collection fees are excluded.</Text><Button label={mode==='live'?'Next: add approved products':'Next: about sending my basket'} disabled={!reviewed.approved} onPress={()=>{setError('');setTransfer({status:'idle',completed:0,total:0,transferred:0,failed:0,items:[]});setScreen('transfer');}} />
     </>}
     {screen === 'transfer' && reviewed && <>
       <View style={s.shopSummary}><Text style={s.h2}>{retailer.name}</Text><Text style={s.body}>{reviewed.approved} of {reviewed.lines.length} {mode==='live'?'catalogue products':'test matches'} approved</Text><Text style={s.caption}>{reviewed.missing} unmatched items · {reviewed.matched-reviewed.approved} proposed matches still to review</Text><Text style={s.caption}>Full checkout total: unavailable</Text></View>
-      <View style={s.warning}><Text style={s.h3}>Automatic transfer is not connected</Text><Text style={s.body}>{mode==='live'?'The catalogue connection does not sign in to Sainsbury’s. No supermarket account has been linked, no products have been sent and nothing has been ordered.':'Test matches cannot be transferred and nothing has been ordered.'}</Text></View>
-      <View style={s.card}><Text style={s.h3}>{mode==='live'?'What you can do now':'How a supported connection would work'}</Text><Text style={s.body}>1. Resolve unmatched items and approve product alternatives.</Text><Text style={s.body}>2. Open Sainsbury’s and confirm each product, its current price and availability.</Text><Text style={s.body}>3. Add the items there and confirm the final total, slot and charges before paying.</Text>{mode==='live'&&<Text style={s.caption}>Account linking can only be added when Sainsbury’s supplies documented OAuth/API credentials. Browser cookies will never be used.</Text>}</View>
-      <Button label={mode==='live'?'Return to my basket':'Finish example and return to my basket'} onPress={() => { setScreen('basket'); if(mode==='test')setMode('live'); setSelected(null); setApprovals({}); }} />
-      <Button label={`Open ${retailer.name} website ↗`} secondary onPress={()=>Linking.openURL(retailer.url).catch(()=>setError('Could not open the supermarket website. Please try again.'))} /><Text style={s.caption}>Opening the website does not transfer your prepared basket.</Text><ErrorText error={error} />
+      {mode==='test' ? <>
+        <View style={s.warning}><Text style={s.h3}>Example products cannot be transferred</Text><Text style={s.body}>These prices and products are simulated. Nothing has been sent and nothing has been ordered.</Text></View>
+        <View style={s.card}><Text style={s.h3}>How the private Sainsbury’s test works</Text><Text style={s.body}>1. Review genuine catalogue matches and approve each exact product.</Text><Text style={s.body}>2. Confirm once before the connector adds them to the existing trolley.</Text><Text style={s.body}>3. Check the final trolley, prices, availability, slot and charges on Sainsbury’s before paying.</Text></View>
+      </> : <>
+        <View style={s.warning}><Text style={s.h3}>You remain in control</Text><Text style={s.body}>This adds to the trolley already in your signed-in Sainsbury’s account. It does not clear existing items, choose substitutions, book a slot, check out, pay or place an order.</Text></View>
+        {!sainsburysPilot?.eligible && <View style={s.card}><Text style={s.h3}>Private pilot access needed</Text><Text style={s.body}>This account is not enabled for the one-account Sainsbury’s test.</Text></View>}
+        {sainsburysPilot?.eligible && transfer.status==='idle' && <View style={s.card}><Text style={s.h3}>Ready to add your approved products?</Text><Text style={s.body}>The connector will visit only the {reviewed.approved} product{reviewed.approved===1?'':'s'} you approved, add the shown pack quantities, then open the Sainsbury’s trolley.</Text><Button label={`Review and add ${reviewed.approved} product${reviewed.approved===1?'':'s'}`} onPress={confirmTransfer} /><Button label="Set up the Chrome connector" secondary onPress={()=>setModal({type:'sainsburys-connector-setup'})} /></View>}
+        {sainsburysPilot?.eligible && (transferBusy || transfer.status==='running') && <View style={s.softNote}><ActivityIndicator color={C.primary}/><View style={s.flex}><Text accessibilityLiveRegion="polite" style={s.label}>{transfer.status==='running'?`Adding ${transfer.completed} of ${transfer.total} approved products…`:'Checking the private connector…'}</Text>{transfer.currentName&&<Text style={s.caption}>{transfer.currentName}</Text>}<Text style={s.fine}>Keep this tab and the Sainsbury’s tab open. Do not start another transfer.</Text></View></View>}
+        {['completed','partial'].includes(transfer.status) && <View accessibilityLiveRegion="polite" style={transfer.status==='completed'?s.success:s.warning}><Text style={s.h3}>{transfer.status==='completed'?'Transfer acknowledged':'Transfer partly completed'}</Text><Text style={s.body}>The connector reported {transfer.transferred} approved product line{transfer.transferred===1?'':'s'} added and {transfer.failed} not added.</Text>{transfer.items.filter(item=>!item.ok).map((item,index)=><Text key={`${item.key}-${index}`} style={s.caption}>{item.requestedName || item.productName}: {item.message || 'not added'}</Text>)}<Text style={s.body}>Check the Sainsbury’s trolley now. Its current quantities, prices and availability are the final record.</Text>{transfer.recorded===false&&<Text style={s.caption}>The trolley result was received, but the pilot measurement log could not be updated.</Text>}<Button label="Open and check my Sainsbury’s trolley ↗" onPress={()=>Linking.openURL(SAINSBURYS_TROLLEY_URL).catch(()=>setError('The Sainsbury’s trolley could not be opened. Please try again.'))} /></View>}
+        {transfer.status==='failed' && <View style={s.warning}><Text style={s.h3}>Transfer stopped</Text>{transfer.items.filter(item=>!item.ok).map((item,index)=><Text key={`${item.key}-${index}`} style={s.caption}>{item.requestedName || item.productName}: {item.message || 'not added'}</Text>)}<Text style={s.body}>{transfer.acknowledged&&transfer.transferred===0?'The connector confirmed that none of these product lines was added. Fix the problem shown above before starting a new attempt.':'Check the Sainsbury’s trolley before trying again; a stopped browser transfer may already have added some products. Reusing this transfer keeps the same test reference so the connector will not deliberately run a completed job twice.'}</Text>{transfer.acknowledged&&transfer.transferred===0?<Button label="Prepare a new attempt" disabled={transferBusy} onPress={()=>{setTransferAttempt(null);setTransfer({status:'idle',completed:0,total:0,transferred:0,failed:0,items:[]});setError('');}} />:<Button label="Check or resume this transfer" disabled={transferBusy} onPress={confirmTransfer} />}<Button label="Open Sainsbury’s trolley ↗" secondary onPress={()=>Linking.openURL(SAINSBURYS_TROLLEY_URL).catch(()=>setError('The Sainsbury’s trolley could not be opened. Please try again.'))} /></View>}
+      </>}
+      <ErrorText error={error} />
+      <Button label={mode==='live'?'Return to my basket':'Finish example and return to my basket'} secondary onPress={() => { setScreen('basket'); if(mode==='test')setMode('live'); setSelected(null); setApprovals({}); }} />
+      {mode==='test'&&<Button label={`Open ${retailer.name} website ↗`} secondary onPress={()=>Linking.openURL(retailer.url).catch(()=>setError('Could not open the supermarket website. Please try again.'))} />}
     </>}
   </PageMotion>;
 }
@@ -1528,6 +1693,10 @@ const s = StyleSheet.create({
     borderRadius: 18,
     gap: 14
   },
+  divider: {
+    height: 1,
+    backgroundColor: C.line
+  },
   inset: {
     backgroundColor: C.pale,
     borderRadius: 13,
@@ -1609,6 +1778,12 @@ const s = StyleSheet.create({
     borderRadius: 14,
     backgroundColor: C.coralLight,
     gap: 7
+  },
+  success: {
+    padding: 18,
+    borderRadius: 14,
+    backgroundColor: C.sky,
+    gap: 9
   },
   notice: {
     padding: 15,

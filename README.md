@@ -18,7 +18,7 @@ Plan the household's meals, regular essentials and one combined weekly shopping 
 
 Plans work on the device without signing in. Supabase accounts store a copy under the profile owner's RLS-protected `app_state.wholeShop`; old profile fields are preserved. Old household records and recipes are read for migration. Importing earlier unscoped device data requires an explicit choice. This release does not implement live shared editing across separate family accounts.
 
-Authenticated users can search and cache Sainsbury’s public catalogue listings, including displayed standard and Nectar prices, and review suggested matches for their basket. Checkout totals, automatic basket transfer, retailer account linking, full pantry/expiry tracking and AI dietary advice are not implemented. See [research and design decisions](docs/whole-shop-research.md).
+Authenticated users can search and cache Sainsbury’s public catalogue listings, including displayed standard and Nectar prices, and review suggested matches for their basket. One enabled account can test a browser-local connector that adds explicitly approved products to its existing Sainsbury’s trolley and records aggregate pilot results. Checkout, payment, slot booking, final retailer totals, full pantry/expiry tracking and AI dietary advice are not implemented. See [research and design decisions](docs/whole-shop-research.md).
 
 ## Run and verify
 
