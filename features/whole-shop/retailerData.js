@@ -21,6 +21,8 @@ export async function loadTestCatalogue(client, signal) {
 
 const cleanTerm = value => String(value || '').trim().replace(/\s+/g,' ').slice(0,80);
 
+// Live refreshes stay behind the authenticated Edge Function. The customer app
+// never fetches retailer pages directly and never handles retailer credentials.
 function invokeError(error) {
   const status = error?.context?.status;
   if (status === 401) return new Error('Sign in to refresh the Sainsbury’s catalogue.');
