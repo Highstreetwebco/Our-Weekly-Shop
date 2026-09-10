@@ -7,8 +7,33 @@ import {AISLES,aisleFor,aisleOrder,itemChoices,recentItems,addExtras,shoppingPro
 import {testCandidates,compareTestBasket,reviewedTestQuote,preparedBasketText,retailersFor} from '../features/whole-shop/comparison.js';
 import {loadTestCatalogue} from '../features/whole-shop/retailerData.js';
 import {saveCloud} from '../features/whole-shop/storage.js';
+import {DISCOVERY_MEALS} from '../features/whole-shop/discoveryMeals.js';
 const household=()=>({...freshState(),week:'2026-09-07',people:[{id:'a',name:'Adult',portion_multiplier:1},{id:'c',name:'Child',portion_multiplier:.5}]});
 const milk=()=>({id:'milk',name:'Milk',quantity:1,unit:'l',repeatWeeks:1,group:'drinks'});
+
+test('built-in recipes are unique curated dishes without fabricated variants or reviews',()=>{
+ assert.equal(Object.keys(DISCOVERY_MEALS).length,80);
+ assert.equal(Object.keys(DISCOVERY_MEALS).some(name=>/^(Quick|Family|Easy) Cottage pie$/.test(name)),false);
+ for(const [name,recipe] of Object.entries(DISCOVERY_MEALS)) {
+  assert.equal(recipe.recipeStatus,'curated',name);
+  assert.equal(recipe.provenance?.type,'editorial',name);
+  assert.equal(recipe.rating,undefined,name);
+  assert.equal(recipe.reviewCount,undefined,name);
+  assert.ok(recipe.ingredients.length>=3,`${name} needs a complete ingredient list`);
+  assert.ok(recipe.method.length>=3,`${name} needs a complete method`);
+  assert.doesNotMatch(recipe.method.join(' '),/main ingredient|remaining ingredients|suggested side|meat, fish or prawns/i,name);
+ }
+});
+test('cottage and shepherds pies use mince under mashed potato, never chicken or pastry',()=>{
+ for(const [name,meat] of [['Cottage pie','beef mince'],['Shepherds pie','lamb mince']]) {
+  const recipe=DISCOVERY_MEALS[name],method=recipe.method.join(' ').toLowerCase();
+  assert.ok(recipe.ingredients.some(i=>i.name===meat));
+  assert.ok(recipe.ingredients.some(i=>i.name==='potatoes'&&i.unit==='g'));
+  assert.ok(recipe.ingredients.some(i=>/stock/.test(i.name)&&i.unit==='ml'));
+  assert.match(method,/mash/);assert.match(method,/mince/);
+  assert.doesNotMatch(method,/chicken|puff pastry/);
+ }
+});
 
 test('next-week reuse preserves the source, resets week-specific checks and keeps household preferences',()=>{
  let s=household(),plan=blankPlan();
