@@ -8,10 +8,11 @@ const RATE_WINDOW_MS = 15 * 60 * 1000;
 const RATE_LIMIT = 40;
 const MAX_TERMS_PER_REQUEST = 4;
 const MAX_PAGE_BYTES = 12 * 1024 * 1024;
-const APP_ORIGIN = 'https://reetwebco.github.io';
+const APP_ORIGIN = 'https://highstreetwebco.github.io';
+const LEGACY_APP_ORIGIN = 'https://reetwebco.github.io';
 
 function permittedOrigin(origin: string | null) {
-  return !origin || origin === APP_ORIGIN || /^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin);
+  return !origin || origin === APP_ORIGIN || origin === LEGACY_APP_ORIGIN || /^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin);
 }
 
 function headersFor(origin: string | null) {
@@ -49,7 +50,7 @@ async function fetchCataloguePage(term: string) {
       headers: {
         'Accept': 'text/html,application/xhtml+xml',
         'Accept-Language': 'en-GB,en;q=0.8',
-        'User-Agent': 'OurWeeklyShop-Catalogue/1.0 (+https://reetwebco.github.io/Our-Weekly-Shop/)'
+        'User-Agent': 'OurWeeklyShop-Catalogue/1.0 (+https://highstreetwebco.github.io/Our-Weekly-Shop/)'
       }
     });
     const declaredSize = Number(response.headers.get('content-length') || 0);
@@ -271,4 +272,3 @@ Deno.serve(async (request: Request) => {
     failures
   });
 });
-
