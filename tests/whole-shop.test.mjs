@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import {DAYS,freshState,blankPlan,changeWeek,currentWeek,makeBasket,draftPlan,copyPreviousWeek,startFollowingWeek,plannerPosition,basketKey,isDue,recordPurchased,migrateLegacy,listText} from '../features/whole-shop/engine.js';
 import {AISLES,aisleFor,aisleOrder,itemChoices,recentItems,addExtras,shoppingProgress,mealMatches} from '../features/whole-shop/grocery.js';
 import {testCandidates,liveCandidates,compareTestBasket,compareLiveBasket,reviewedTestQuote,preparedBasketText,retailersFor} from '../features/whole-shop/comparison.js';
-import {loadTestCatalogue,searchSainsburysCatalogue} from '../features/whole-shop/retailerData.js';
+import {loadTestCatalogue,loadSainsburysBasketCatalogue,searchSainsburysCatalogue} from '../features/whole-shop/retailerData.js';
 import {parsePack,parseSainsburysProducts} from '../supabase/functions/_shared/sainsburys.js';
 import {saveCloud} from '../features/whole-shop/storage.js';
 import {DISCOVERY_MEALS} from '../features/whole-shop/discoveryMeals.js';
@@ -215,6 +215,11 @@ test('authenticated catalogue search adapter returns products and offers without
  const product={id:'p',name:'Milk',is_test_data:false,offer:{id:'o',product_id:'p',retailer_id:'sainsburys',price_pence:100,is_test_data:false}};
  const client={functions:{async invoke(name,options){assert.equal(name,'sainsburys-catalogue');assert.deepEqual(options.body,{searchTerm:'milk'});return {data:{searches:[{searchTerm:'milk',products:[product]}],failures:[]},error:null};}}};
  const result=await searchSainsburysCatalogue(client,'  milk  ',new AbortController().signal);assert.equal(result.products[0].name,'Milk');assert.equal(result.offers[0].price_pence,100);assert.equal(result.searches[0].searchTerm,'milk');
+});
+test('basket catalogue matching keeps completed batches when a later refresh is rate limited',async()=>{
+ let calls=0;const product={id:'p',name:'Milk',is_test_data:false,offer:{id:'o',product_id:'p',retailer_id:'sainsburys',price_pence:100,is_test_data:false}};
+ const client={functions:{async invoke(){calls++;return calls===1?{data:{searches:[{searchTerm:'milk',products:[product]}],failures:[]},error:null}:{data:null,error:{context:{status:429}}};}}};
+ const rows=['Milk','Bread','Eggs','Rice','Pasta'].map(name=>({name}));const result=await loadSainsburysBasketCatalogue(client,rows,new AbortController().signal);assert.equal(calls,2);assert.equal(result.products.length,1);assert.equal(result.failures.length,1);
 });
 
 // The same setup state is used after signup and by the replayable device flow.

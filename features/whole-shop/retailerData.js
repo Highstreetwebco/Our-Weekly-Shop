@@ -78,10 +78,16 @@ export async function loadSainsburysBasketCatalogue(client, basketRows, signal, 
   const combined = {searches:[],failures:[]};
   for (let start=0; start<terms.length; start+=4) {
     const batch = terms.slice(start,start+4);
-    const payload = await invokeWithSignal(client,{searchTerms:batch},signal);
-    combined.searches.push(...payload.searches);
-    combined.failures.push(...(payload.failures || []));
-    onProgress(Math.min(start+batch.length,terms.length),terms.length);
+    try {
+      const payload = await invokeWithSignal(client,{searchTerms:batch},signal);
+      combined.searches.push(...payload.searches);
+      combined.failures.push(...(payload.failures || []));
+      onProgress(Math.min(start+batch.length,terms.length),terms.length);
+    } catch (error) {
+      if (!combined.searches.length) throw error;
+      combined.failures.push(...batch.map(searchTerm=>({searchTerm,error:'catalogue_import_failed'})));
+      break;
+    }
   }
   return catalogueResponseData(combined);
 }
