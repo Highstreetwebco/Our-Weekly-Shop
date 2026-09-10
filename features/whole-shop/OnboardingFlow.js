@@ -27,7 +27,7 @@ const TOUR=[
   ['Home','Your starting point','Home shows where you’re up to. Continue your shop, add a forgotten item, or reuse a good week. The numbers come from your own plan.','Next: see my plan'],
   ['Plan','Your whole week, made visible','Choose a day to add breakfast, lunch or dinner. Pick who is eating and the ingredients are calculated. The steps above also lead to other essentials and your cupboard check.','Next: see my meals'],
   ['Meals','Save it once. Use it again.','This is your recipe collection. Favourites come first. Open a recipe to check its ingredients, make it your own or add it to your week.','Next: see my basket'],
-  ['Basket','Everything your household needs','Your meals and regular items meet here. Stock is subtracted and quantities combine. Tap Change to review an item. Real price comparison and sending to supermarkets are not available yet.','Finish tour and start my shop']
+  ['Basket','Everything your household needs','Your meals and regular items meet here. Stock is subtracted and quantities combine. Tap Change to review an item, or search Sainsbury’s live catalogue. Checkout and sending items to supermarkets are not connected.','Finish tour and start my shop']
 ];
 export function TourGuide({shop,update,Button,onDone}) {
   const i=tourIndex(shop),[name,title,body,next]=TOUR[i];

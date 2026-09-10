@@ -4,8 +4,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DAYS,freshState,blankPlan,changeWeek,currentWeek,makeBasket,draftPlan,copyPreviousWeek,startFollowingWeek,plannerPosition,basketKey,isDue,recordPurchased,migrateLegacy,listText} from '../features/whole-shop/engine.js';
 import {AISLES,aisleFor,aisleOrder,itemChoices,recentItems,addExtras,shoppingProgress,mealMatches} from '../features/whole-shop/grocery.js';
-import {testCandidates,compareTestBasket,reviewedTestQuote,preparedBasketText,retailersFor} from '../features/whole-shop/comparison.js';
-import {loadTestCatalogue} from '../features/whole-shop/retailerData.js';
+import {testCandidates,liveCandidates,compareTestBasket,compareLiveBasket,reviewedTestQuote,preparedBasketText,retailersFor} from '../features/whole-shop/comparison.js';
+import {loadTestCatalogue,searchSainsburysCatalogue} from '../features/whole-shop/retailerData.js';
+import {parsePack,parseSainsburysProducts} from '../supabase/functions/_shared/sainsburys.js';
 import {saveCloud} from '../features/whole-shop/storage.js';
 import {DISCOVERY_MEALS} from '../features/whole-shop/discoveryMeals.js';
 const household=()=>({...freshState(),week:'2026-09-07',people:[{id:'a',name:'Adult',portion_multiplier:1},{id:'c',name:'Child',portion_multiplier:.5}]});
@@ -196,6 +197,24 @@ test('test catalogue loading paginates and refuses an incomplete response',async
  const data=await loadTestCatalogue(client,new AbortController().signal);assert.equal(data.products.length,503);assert.equal(data.offers.length,503);assert.equal(pages.length,4);
  const broken={from(){return {select(){return this;},eq(){return this;},order(){return this;},range(){return this;},async abortSignal(){return {data:null,error:new Error('offline')};}};}};
  await assert.rejects(loadTestCatalogue(broken,new AbortController().signal),/could not be loaded/);
+});
+test('Sainsbury catalogue parser keeps genuine names, pence prices, Nectar prices and pack sizes',()=>{
+ const html=`<div data-testid="gw-product-card"><a data-testid="gw-product-image" href="/groceries/product/sainsburys-milk"><img src="/_next/image?url=https%3A%2F%2Fassets.sainsburys-groceries.co.uk%2Fgol%2F123%2Fimage.jpg&amp;w=640"></a><a data-testid="gw-product-name" href="/groceries/product/sainsburys-milk">Sainsbury &#x27;s Milk 1 Pint</a><div data-testid="gw-product-retail-price"><span class="ds-c-price__price">85p</span><span class="ds-c-price__price-per-unit">£1.50 / ltr</span></div></div><div data-testid="gw-product-card"><a data-testid="gw-product-name" aria-label="Nectar Price, Cravendale Milk" href="/groceries/product/cravendale-milk">Cravendale Milk 2L</a><img src="https://assets.sainsburys-groceries.co.uk/gol/456/image.jpg"><div data-testid="gw-product-contextual-price"><span class="ds-c-price__price" data-colour="nectar">£2.00</span></div><div data-testid="gw-product-retail-price"><span class="ds-c-price__price">£2.65</span><span class="ds-c-price__price-per-unit">£1.33 / ltr</span></div></div>`;
+ const rows=parseSainsburysProducts(html);assert.equal(rows.length,2);assert.equal(rows[0].name,"Sainsbury's Milk 1 Pint");assert.equal(rows[0].pricePence,85);assert.equal(rows[0].packQuantity,568);assert.equal(rows[0].productUrl,'https://www.sainsburys.co.uk/groceries/product/sainsburys-milk');assert.equal(rows[1].loyaltyPricePence,200);assert.equal(rows[1].pricePence,265);assert.equal(rows[1].brand,'');
+ assert.deepEqual(parsePack('Cans 8x330ml'),{packQuantity:2640,packUnit:'ml',packLabel:'8x330ml',packEstimated:false});
+ assert.equal(parsePack('Loose avocado').packEstimated,true);
+});
+test('live Sainsbury matches keep standard and Nectar totals separate',()=>{
+ const product={id:'live-milk',name:"Sainsbury's Semi Skimmed Milk 2L",brand:"Sainsbury's",pack_quantity:2000,pack_unit:'ml',pack_label:'2L',pack_estimated:false,is_test_data:false};
+ const offer={id:'live-offer',product_id:product.id,retailer_id:'sainsburys',price_pence:265,loyalty_price_pence:200,promotional_price_pence:null,available:true,is_test_data:false,captured_at:'2026-09-10T12:00:00Z'};
+ const row={key:'milk|ml',name:'Semi skimmed milk',need:3000,unit:'ml'};
+ const matches=liveCandidates(row,[product],[offer]);assert.equal(matches[0].packs,2);assert.equal(matches[0].subtotalPence,530);assert.equal(matches[0].loyaltySubtotalPence,400);
+ const quote=compareLiveBasket({toBuy:[row]}, {}, {products:[product],offers:[offer]})[0];assert.equal(quote.retailer.id,'sainsburys');assert.equal(quote.subtotalPence,530);assert.equal(quote.loyaltySubtotalPence,400);assert.equal(quote.loyaltySavingsPence,130);assert.equal(quote.canTransfer,false);
+});
+test('authenticated catalogue search adapter returns products and offers without changing source fields',async()=>{
+ const product={id:'p',name:'Milk',is_test_data:false,offer:{id:'o',product_id:'p',retailer_id:'sainsburys',price_pence:100,is_test_data:false}};
+ const client={functions:{async invoke(name,options){assert.equal(name,'sainsburys-catalogue');assert.deepEqual(options.body,{searchTerm:'milk'});return {data:{searches:[{searchTerm:'milk',products:[product]}],failures:[]},error:null};}}};
+ const result=await searchSainsburysCatalogue(client,'  milk  ',new AbortController().signal);assert.equal(result.products[0].name,'Milk');assert.equal(result.offers[0].price_pence,100);assert.equal(result.searches[0].searchTerm,'milk');
 });
 
 // The same setup state is used after signup and by the replayable device flow.

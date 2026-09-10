@@ -32,7 +32,7 @@ Our inference: familiar choices reduce the need to remember everything from scra
 ## Boundaries
 
 - Suggestions are deterministic drafts from saved recipes, with existing slots preserved and less-used dinners favoured. They are not AI dietary advice or verified allergen filtering.
-- The list can be copied/shared and a retailer opened. No automatic basket transfer, retailer account linking, live price comparison or checkout is implemented.
+- The list can be copied/shared and a retailer opened. Authenticated users can search Sainsbury’s current catalogue listings and review matched-item subtotals, with standard and Nectar prices kept separate. No automatic basket transfer, retailer account linking, delivery quote or checkout is implemented.
 - Prices are user-entered pack prices, before delivery and retailer offers. Unknown prices remain unknown.
 - Stock is a user-confirmed quantity for that week, not automatic expiry tracking or a complete pantry inventory.
 - Supabase stores the plan under the signed-in owner's `profiles.app_state.wholeShop`, preserving existing fields and using owner RLS. Separate family-member accounts do not share live edits yet.
